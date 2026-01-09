@@ -1,0 +1,10 @@
+# Manual transaction note - TECK corporate action
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: TECK
+stock_name: Teck Resources Ltd
+date: 2023-05-26
+old_quantity: 0
+new_quantity: 58
+description: "Corporate action: 58 units of TECK.B created on 2023-05-26"
+

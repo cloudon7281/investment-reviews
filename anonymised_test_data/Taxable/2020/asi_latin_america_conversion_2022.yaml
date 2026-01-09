@@ -1,0 +1,10 @@
+# Manual transaction note - ASI to abrdn conversion
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: 0P0000XOMV.L
+stock_name: ASI Latin American Equity
+date: 2022-12-02
+old_quantity: 44979.19
+new_quantity: 41370.91
+description: "ASI Latin America -> abrdn Latin America, approx 1:0.92"
+

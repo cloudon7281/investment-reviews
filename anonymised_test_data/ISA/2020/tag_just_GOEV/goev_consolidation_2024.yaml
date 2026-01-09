@@ -1,0 +1,10 @@
+# Manual transaction note - Canoo share capital consolidation
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: GOEV
+stock_name: Hennessy Capital Acquisition Corp IV
+date: 2024-12-24
+old_quantity: 249
+new_quantity: 0.53977
+description: "Canoo share capital consolidation - adjusted to match H&L valuation on 31/7/22"
+

@@ -1,0 +1,10 @@
+# Manual transaction note - PNL.L stock split
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: PNL.L
+stock_name: Personal Assets Trust plc
+date: 2022-08-08
+old_quantity: 110
+new_quantity: 11000
+description: "100:1 split on 8 Aug 2022"
+

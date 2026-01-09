@@ -1,0 +1,10 @@
+# Manual transaction note - BYDDY stock split
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: BYDDY
+stock_name: BYD CO LTD-UNSPONSORED ADR
+date: 2025-07-30
+old_quantity: 130
+new_quantity: 780
+description: "BYD 6-for-1 stock split"
+

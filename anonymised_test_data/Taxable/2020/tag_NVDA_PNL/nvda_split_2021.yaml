@@ -1,0 +1,10 @@
+# Manual transaction note - NVDA stock split
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: NVDA
+stock_name: NVIDIA Corp
+date: 2021-07-20
+old_quantity: 1
+new_quantity: 4
+description: "NVIDIA 4-for-1 stock split"
+

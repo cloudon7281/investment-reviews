@@ -1,0 +1,60 @@
+# Configuration for daily Google Sheets updates
+# Edit this file with your specific values
+
+google_sheets:
+  # Path to Google service account credentials JSON file
+  credentials_path: ~/investment_reviews/credentials/google_sheets_service_account.json
+  
+  # Spreadsheet ID from Google Sheets URL
+  # Example URL: https://docs.google.com/spreadsheets/d/ABC123xyz.../edit
+  # ID is: ABC123xyz...
+  spreadsheet_id: REPLACE_WITH_YOUR_SPREADSHEET_ID
+  
+  # Name of the worksheet/tab to update
+  worksheet_name: "Daily Values"
+
+portfolio:
+  # Directory containing stock notes (PDF/MHTML files)
+  base_dir: ~/investment_reviews/history
+  
+  # Output directory for dated full-history report files
+  output_directory: /tmp/portfolio_reports
+  
+  # Root filename (without extension) for dated reports
+  # Files will be named: <root_filename>_YYYY_MM_DD.numbers
+  root_filename: daily_portfolio_report
+  
+  # Number of dated output files to keep (oldest files deleted automatically)
+  number_to_keep: 7
+
+logging:
+  # Directory for daily update logs
+  log_dir: ~/investment_reviews/logs/daily_updates
+  
+  # How many days of logs to retain (older logs auto-deleted)
+  retention_days: 30
+  
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+
+notifications:
+  # Optional: Email address to notify on errors
+  # Leave empty to disable email notifications
+  email_on_error: ""
+
+calculated_columns:
+  # Columns that should auto-generate SUM formulas
+  # Format: "Column Name": ["Col1", "Col2", "Col3", ...]
+  # 
+  # The script will write formulas like =SUM(B2,AC2,AD2,AE2,AF2) for each new row
+  # This is more robust than calculated values - if you correct manual columns,
+  # the totals update automatically
+  # 
+  # Example - Total = Whole Portfolio + Morgan Stanley + BLEND + Crypto + Savings
+  Total:
+    - "Whole Portfolio"
+    - "Morgan Stanley"
+    - "BLEND"
+    - "Crypto"
+    - "Savings"
+

@@ -1,0 +1,64 @@
+# Manual Transaction Note Template
+# Use this template to create hand-crafted transaction notes for cases where
+# original broker notes are missing or unavailable.
+#
+# Save as: <category>/<year>/<tag>/descriptive_name.yaml
+# Example: ISA/2022/Defense/nvda_split_2021.yaml
+
+# ============================================================================
+# STOCK_CONVERSION (for stock splits, share class conversions, etc.)
+# ============================================================================
+transaction_type: STOCK_CONVERSION
+ticker: TICKER.SYMBOL
+stock_name: Company Name
+date: YYYY-MM-DD  # Can also use DD/MM/YYYY
+old_quantity: 100.0
+new_quantity: 400.0  # For 4:1 split
+# Optional fields:
+# new_ticker: NEW.TICKER  # If ticker symbol changed
+# new_currency: USD  # If currency changed
+description: "4-for-1 stock split"
+
+# ============================================================================
+# BUY (for purchases)
+# ============================================================================
+# transaction_type: BUY
+# ticker: TICKER.SYMBOL
+# stock_name: Company Name
+# date: YYYY-MM-DD
+# quantity: 100
+# price_per_share: 10.50
+# total_amount: 1050.00
+# currency: GBP  # Optional, defaults to GBP
+# description: "Manual entry - lost original note"
+# # Optional fields:
+# # exchange_rate: 1.25
+# # dealing_charge: 11.95
+# # fx_charge: 5.00
+# # total_charges: 16.95
+# # settlement_date: YYYY-MM-DD
+
+# ============================================================================
+# SELL (for disposals)
+# ============================================================================
+# transaction_type: SELL
+# ticker: TICKER.SYMBOL
+# stock_name: Company Name
+# date: YYYY-MM-DD
+# quantity: 50
+# price_per_share: 12.00
+# total_amount: 600.00
+# currency: GBP
+# description: "Manual entry - lost original note"
+
+# ============================================================================
+# TRANSFER (for bed-and-ISA type transactions)
+# ============================================================================
+# transaction_type: TRANSFER
+# ticker: TICKER.SYMBOL
+# stock_name: Company Name
+# date: YYYY-MM-DD
+# quantity: 100
+# total_amount: 1200.00
+# description: "Bed-and-ISA transfer"
+

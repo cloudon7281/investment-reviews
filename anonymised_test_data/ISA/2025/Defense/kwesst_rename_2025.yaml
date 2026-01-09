@@ -1,0 +1,12 @@
+# Manual transaction note - Kwesst renamed to Defense Security
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: KWE
+stock_name: Kwesst Micro Systems Inc
+date: 2025-07-08
+old_quantity: 1
+new_quantity: 1
+new_ticker: DFSC
+new_currency: USD
+description: "Kwesst renamed to Defense Security"
+

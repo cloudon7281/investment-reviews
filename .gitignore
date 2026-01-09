@@ -1,0 +1,74 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+logs/
+*.log
+
+# Input data (contains private data)
+stocks/
+stock_notes/
+history/
+*.csv
+*.mhtml
+# But allow test data files
+!test_data/**/*.mhtml
+!test_data/**/*.csv
+!anonymised_test_data/**/*.mhtml
+!anonymised_test_data/**/*.csv
+
+# Processed data
+outputs/
+processed_data/
+*.numbers
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db 
+*.pdf
+# But allow test data PDFs
+!test_data/**/*.pdf
+!anonymised_test_data/**/*.pdf
+*.numbers
+portfolio_report.numbers
+portfolio_report.numbers
+
+# Cursor debug tests
+scratch/
+
+# Backup directories (not needed in git)
+test_data.bak/
+test_data.modified_backup/
+
+# Environment-specific config files and manual transaction notes (contains private data)
+*.yaml
+*.yml
+# But allow template files and test data
+!*.yaml.template
+!*.yml.template
+!test_data/**/*.yaml
+!test_data/**/*.yml
+!anonymised_test_data/**/*.yaml
+!anonymised_test_data/**/*.yml
+
+# Credentials (service accounts, API keys, etc.)
+credentials/
+
+# Development artifacts (local only, not for GitHub)
+plans/
+claude_plans/
+CLAUDE.md
+
+# Scratch directory outputs (keep scripts, exclude outputs)
+scratch/*.txt
+scratch/*.pdf
+scratch/anonymized_temp/
