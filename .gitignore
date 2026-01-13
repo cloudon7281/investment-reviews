@@ -67,6 +67,7 @@ credentials/
 plans/
 claude_plans/
 CLAUDE.md
+cursor_prefs.md
 
 # Scratch directory outputs (keep scripts, exclude outputs)
 scratch/*.txt
