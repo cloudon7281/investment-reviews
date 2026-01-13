@@ -10,7 +10,7 @@ A command-line tool for analyzing investment portfolios across multiple brokers,
 This tool processes stock transaction notes from various UK brokers (Hargreaves Lansdown, Interactive Investor, Interactive Brokers) to provide comprehensive portfolio analysis for personal use by investors. Key features include:
 
 - **Complete investment history** with current holdings and performance metrics
-- **Periodic portfolio reviews** - monthly performance snapshots comparing new purchases, retained holdings, and disposals
+- **Periodic portfolio reviews** - performance snapshots since a given date comparing new purchases, retained holdings, and disposals
 - **Tax year capital gains reporting** - aligned to UK tax years (6 April to 5 April)
 - **Multi-currency support** with automatic GBP conversion
 - **Multiple export formats** - console output, Apple Numbers spreadsheets, CSV, Google Sheets
@@ -28,8 +28,8 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Optional value-over-time CSV for charts
 
 **Periodic Review Mode**
-- Monthly performance analysis
-- Stocks categorized as: new purchases, retained holdings, sold positions, out-of-scope
+- Performance analysis since given date range
+- Stocks categorized as: new purchases (stocks bought within date range), retained holdings (stocks already owned before date range), sold positions (stocks completely sold during date range)
 - Performance metrics for each category
 - Tag-based grouping for thematic investing
 
@@ -225,7 +225,7 @@ Organized as a **facade pattern** with specialized modules:
 **Calculation modules:**
 - `financial_metrics.py` - Pure financial calculations (MWRR, ROI, volatility)
 - `transaction_processor.py` - Transaction aggregation and cashflow building
-- `market_data_fetcher.py` - Yahoo Finance API integration
+- `market_data_fetcher.py` - Yahoo Finance API integration, including data cleaning to deal with missing data, spikes, pence<->pound changes mid-stream etc.
 - `holdings_calculator.py` - Holdings and valuations at specific dates
 
 **Mode processors:**
@@ -270,6 +270,51 @@ Test data structure matches production format with three categories:
 - `Pension/` - Pension fund transactions
 
 Each category contains yearly subdirectories with optional tags for thematic grouping.
+
+### Managing Test Data
+
+The `manage_test_data.py` tool helps create isolated test environments and add anonymized test data.
+
+**Debug Mode - Set up isolated debugging environment:**
+
+Extract specific stocks to a debug directory for testing:
+```bash
+# Single stock
+python3 manage_test_data.py --debug NVDA
+
+# Multiple stocks (comma-separated)
+python3 manage_test_data.py --debug NVDA,PLTR,MSFT
+
+# Dry run (preview without copying)
+python3 manage_test_data.py --debug RGTI --dry-run
+```
+
+This copies matching transaction files to the debug directory, allowing you to test against a subset of your portfolio.
+
+**Test Mode - Add anonymized data to test suite:**
+
+Validate and add new anonymized test data:
+```bash
+# Add stock to anonymised_test_data
+python3 manage_test_data.py --test AAPL
+
+# Skip confirmation prompts
+python3 manage_test_data.py --test TSLA --yes
+
+# Dry run to preview
+python3 manage_test_data.py --test GOOG --dry-run
+```
+
+**How test mode works:**
+1. **Phase 1:** Finds matching transaction files in your raw data
+2. **Validation:** Generates anonymized versions and validates they produce equivalent outputs
+3. **Phase 2:** Copies anonymized files to `anonymised_test_data/`
+4. **Testing:** Runs full test suite with new data
+5. **Confirmation:** Asks to keep changes (unless `--yes` flag used)
+
+This ensures new test data is properly anonymized and doesn't break existing tests.
+
+**Note:** The `--test` mode requires access to raw (non-anonymized) transaction data for validation.
 
 ## Development Philosophy
 
