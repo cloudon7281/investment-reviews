@@ -116,7 +116,10 @@ def process_annual_review(portfolio_review: PortfolioReview, start_date: datetim
         }
 
         # Need price for start date valuation (if holdings at start) and current valuation (if holdings now)
-        if holdings_at_start > 1e-6 or holdings_at_end > 1e-6:
+        # When price_over_time is requested, also fetch prices for stocks with activity during period
+        needs_price = (holdings_at_start > 1e-6 or holdings_at_end > 1e-6 or
+                       (price_over_time and len(transactions_since_start) > 0))
+        if needs_price:
             stocks_needing_prices.append(current_ticker)
             logger.debug(f"  {ticker}: holdings_at_start={holdings_at_start:.2f}, holdings_at_end={holdings_at_end:.2f}")
 
@@ -415,6 +418,56 @@ def create_annual_summaries(portfolio_start_value: float, portfolio_bought_since
     return whole_portfolio_df, per_category_df, per_tag_df
 
 
+def _format_transactions_for_date(transactions_by_date: Dict, target_date) -> str:
+    """Format transactions for a given date into a concise string.
+
+    Args:
+        transactions_by_date: Dict mapping date -> list of transactions
+        target_date: The date to look up
+
+    Returns:
+        Formatted string like "BOUGHT 100", "SOLD 50", "SPLIT x2", or "" if no transactions
+    """
+    if target_date not in transactions_by_date:
+        return ""
+
+    txns = transactions_by_date[target_date]
+    parts = []
+
+    for txn in txns:
+        txn_type = txn.transaction_type
+
+        if txn_type == 'BUY':
+            parts.append(f"BOUGHT {txn.quantity}")
+        elif txn_type == 'SELL':
+            parts.append(f"SOLD {txn.quantity}")
+        elif txn_type == 'TRANSFER':
+            # Transfer is bed-and-ISA, show direction based on quantity sign
+            if txn.quantity > 0:
+                parts.append(f"TRANSFER IN {txn.quantity}")
+            else:
+                parts.append(f"TRANSFER OUT {abs(txn.quantity)}")
+        elif txn_type == 'STOCK_CONVERSION':
+            # Determine if it's a split (same ticker) or conversion (different ticker)
+            if txn.new_ticker:
+                parts.append(f"CONVERTED to {txn.new_ticker}")
+            elif txn.new_quantity and txn.quantity:
+                # Calculate split ratio
+                ratio = txn.new_quantity / txn.quantity
+                if ratio >= 1:
+                    parts.append(f"SPLIT x{ratio:.2g}")
+                else:
+                    # Reverse split
+                    parts.append(f"REVERSE SPLIT {ratio:.2g}x")
+            else:
+                parts.append("CONVERTED")
+
+    result = "; ".join(parts)
+    if result:
+        logger.debug(f"Transaction on {target_date}: {result}")
+    return result
+
+
 def calculate_price_over_time(start_date: datetime, stock_data: Dict,
                               price_data: Dict) -> pd.DataFrame:
     """Calculate individual stock prices over time.
@@ -440,39 +493,78 @@ def calculate_price_over_time(start_date: datetime, stock_data: Dict,
     date_range = [start_date.date() + timedelta(days=i) for i in range(n_days + 1)]
 
     # Get unique tickers that were held at some point during the period
+    # Store (original_ticker, current_ticker, stock_name) tuples
     tickers_held = set()
+    # Also build a mapping of original_ticker -> date -> list of transactions
+    transactions_by_ticker_date = {}
+
     for stock_key, data in stock_data.items():
         # Include if held at start, held at end, or had any activity
         if (data['holdings_at_start'] > 1e-6 or
             data['holdings_at_end'] > 1e-6 or
             len(data['transactions_since_start']) > 0):
-            tickers_held.add((data['ticker'], data['current_ticker']))
+            original_ticker = data['ticker']
+            tickers_held.add((original_ticker, data['current_ticker'], data['stock_name']))
+
+            # Build transaction lookup by date
+            if original_ticker not in transactions_by_ticker_date:
+                transactions_by_ticker_date[original_ticker] = {}
+
+            for txn in data['transactions_since_start']:
+                txn_date = txn.date.date()
+                if txn_date not in transactions_by_ticker_date[original_ticker]:
+                    transactions_by_ticker_date[original_ticker][txn_date] = []
+                transactions_by_ticker_date[original_ticker][txn_date].append(txn)
 
     # Sort by ticker name for consistent column order
     sorted_tickers = sorted(tickers_held, key=lambda x: x[0])
 
+    # Log transaction collection summary
+    total_txn_count = sum(
+        len(txns) for ticker_txns in transactions_by_ticker_date.values()
+        for txns in ticker_txns.values()
+    )
+    tickers_with_txns = [t for t, dates in transactions_by_ticker_date.items() if dates]
+    logger.info(f"Collected {total_txn_count} transactions for {len(tickers_with_txns)} tickers")
+    for ticker in tickers_with_txns:
+        txn_dates = transactions_by_ticker_date[ticker]
+        txn_count = sum(len(txns) for txns in txn_dates.values())
+        logger.debug(f"  {ticker}: {txn_count} transactions on {len(txn_dates)} dates")
+
     logger.info(f"Generating prices for {len(sorted_tickers)} stocks over {len(date_range)} days")
 
-    # Build price matrix
+    # Build price matrix with "Name (Ticker)" column headers and transaction columns
     results = []
     for current_date in date_range:
         current_datetime = datetime.combine(current_date, datetime.min.time())
         row = {'date': current_date}
 
-        for original_ticker, current_ticker in sorted_tickers:
+        for original_ticker, current_ticker, stock_name in sorted_tickers:
+            # Price column
             price = holdings_calculator.get_stock_price_from_data(
                 current_ticker, current_datetime, price_data
             )
-            # Use original ticker as column name for user familiarity
-            row[original_ticker] = price
+            price_column = f"{stock_name} ({original_ticker})"
+            row[price_column] = price
+
+            # Transaction column
+            txn_column = f"Transactions ({original_ticker})"
+            txn_text = _format_transactions_for_date(
+                transactions_by_ticker_date.get(original_ticker, {}),
+                current_date
+            )
+            row[txn_column] = txn_text
 
         results.append(row)
 
     df = pd.DataFrame(results)
 
-    # Ensure column order: date first, then tickers alphabetically
-    ticker_columns = [t[0] for t in sorted_tickers]
-    df = df[['date'] + ticker_columns]
+    # Ensure column order: date first, then price and transaction columns paired by ticker
+    ordered_columns = ['date']
+    for original_ticker, current_ticker, stock_name in sorted_tickers:
+        ordered_columns.append(f"{stock_name} ({original_ticker})")
+        ordered_columns.append(f"Transactions ({original_ticker})")
+    df = df[ordered_columns]
 
     logger.info(f"Price-over-time complete: {len(df)} rows, {len(df.columns)} columns")
 

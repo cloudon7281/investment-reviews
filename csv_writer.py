@@ -157,6 +157,9 @@ class CSVWriter:
                         if col == 'date':
                             # Format date as YYYY-MM-DD
                             formatted_value = self._format_date(value)
+                        elif col.startswith('Transactions'):
+                            # Transaction columns are strings, pass through as-is
+                            formatted_value = str(value) if value and not pd.isna(value) else ''
                         else:
                             # Format prices as plain numbers (2 decimal places)
                             formatted_value = self._format_price(value)
