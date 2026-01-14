@@ -100,20 +100,92 @@ class CSVWriter:
     
     def _format_currency(self, value: Any) -> str:
         """Format a monetary value as £X,XXX.XX.
-        
+
         Args:
             value: Numeric value in GBP
-            
+
         Returns:
             Formatted currency string
         """
         if pd.isna(value) or value is None:
             return '£0.00'
-        
+
         try:
             # Format with 2 decimal places and comma separators
             return f"£{value:,.2f}"
         except (ValueError, TypeError):
             logger.warning(f"Could not format value as currency: {value}")
             return '£0.00'
+
+    def write_price_over_time(self, df: pd.DataFrame) -> None:
+        """Write price-over-time DataFrame to CSV file.
+
+        Unlike value-over-time, this outputs raw GBP prices without currency formatting,
+        making it easier to import into spreadsheets for analysis.
+
+        Args:
+            df: DataFrame with columns: date, ticker1, ticker2, ...
+                Values are GBP closing prices (floats)
+        """
+        if df.empty:
+            logger.warning("No data to write to CSV")
+            return
+
+        logger.info(f"Writing price-over-time CSV with {len(df)} rows and {len(df.columns)} columns")
+
+        try:
+            # Prepare header row (use column names as-is, just capitalize Date)
+            headers = []
+            for col in df.columns:
+                if col == 'date':
+                    headers.append('Date')
+                else:
+                    headers.append(col)  # Keep ticker symbols as-is
+
+            # Open CSV file for writing
+            with open(self.output_filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+
+                # Write header
+                writer.writerow(headers)
+
+                # Write data rows
+                for _, row in df.iterrows():
+                    formatted_row = []
+                    for col in df.columns:
+                        value = row[col]
+                        if col == 'date':
+                            # Format date as YYYY-MM-DD
+                            formatted_value = self._format_date(value)
+                        else:
+                            # Format prices as plain numbers (2 decimal places)
+                            formatted_value = self._format_price(value)
+                        formatted_row.append(formatted_value)
+
+                    writer.writerow(formatted_row)
+
+            logger.info(f"Successfully wrote CSV to: {self.output_filepath}")
+
+        except Exception as e:
+            logger.error(f"Error writing CSV file: {str(e)}")
+            raise
+
+    def _format_price(self, value: Any) -> str:
+        """Format a price value as a plain number with 2 decimal places.
+
+        Args:
+            value: Numeric price value in GBP
+
+        Returns:
+            Formatted price string (plain number, no currency symbol)
+        """
+        if pd.isna(value) or value is None:
+            return ''
+
+        try:
+            # Format with 2 decimal places, no currency symbol
+            return f"{value:.2f}"
+        except (ValueError, TypeError):
+            logger.warning(f"Could not format value as price: {value}")
+            return ''
 

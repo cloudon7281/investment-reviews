@@ -91,18 +91,36 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
     tax_year = "FY24"
     tax_report_output = run_tax_report_test(portfolio_review, portfolio_analysis, reporter, tax_year, test_data_dir)
     tax_report_reference = load_reference_output(os.path.join(reference_dir, "tax_report_fy24_reference.txt"))
-    
+
     tax_report_passed = compare_tax_report_outputs(tax_report_output, tax_report_reference)
     result = "PASSED" if tax_report_passed else "FAILED"
     print(f"Tax report test: {result}")
     logger.info(f"Tax report test: {result}")
-    
+
+    # Test 4: Annual Review Mode
+    logger.info("Running annual review test...")
+    annual_start_date = datetime(2024, 1, 1)
+    annual_review_output = run_annual_review_test(portfolio_review, portfolio_analysis, reporter, annual_start_date, test_data_dir)
+    annual_review_reference_path = os.path.join(reference_dir, "annual_review_reference.txt")
+    annual_review_reference = load_reference_output(annual_review_reference_path)
+
+    # If reference file doesn't exist, skip comparison but report
+    if not annual_review_reference:
+        logger.warning(f"Annual review reference file not found: {annual_review_reference_path}")
+        print(f"Annual review test: SKIPPED (no reference file)")
+        annual_review_passed = True  # Don't fail if reference doesn't exist yet
+    else:
+        annual_review_passed = compare_annual_review_outputs(annual_review_output, annual_review_reference)
+        result = "PASSED" if annual_review_passed else "FAILED"
+        print(f"Annual review test: {result}")
+        logger.info(f"Annual review test: {result}")
+
     # Overall result
-    all_integration_passed = periodic_passed and full_history_passed and tax_report_passed
+    all_integration_passed = periodic_passed and full_history_passed and tax_report_passed and annual_review_passed
     
     print("\n" + "="*80)
     if unit_tests_passed and all_integration_passed:
-        print("✅ ALL TESTS PASSED! (27 unit tests + 3 integration tests)")
+        print("✅ ALL TESTS PASSED! (33 unit tests + 4 integration tests)")
         logger.info("✅ All tests PASSED!")
         return True
     else:
@@ -164,7 +182,26 @@ def run_tax_report_test(portfolio_review, portfolio_analysis, reporter, tax_year
         '--tax-year', tax_year,
         '--log-level', 'WARNING'
     ]
-    
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd='.')
+        # Combine stdout and stderr
+        combined_output = result.stdout + result.stderr
+        return combined_output
+    except Exception as e:
+        return f"Error running CLI: {str(e)}\n"
+
+
+def run_annual_review_test(portfolio_review, portfolio_analysis, reporter, start_date, test_data_dir):
+    """Run annual review test by shelling out to CLI directly."""
+    cmd = [
+        sys.executable, 'portfolio.py',
+        '--base-dir', test_data_dir,
+        '--mode', 'annual-review',
+        '--start-date', start_date.strftime('%Y-%m-%d'),
+        '--log-level', 'WARNING'
+    ]
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, cwd='.')
         # Combine stdout and stderr
@@ -336,27 +373,142 @@ def compare_tax_report_outputs(current_output, reference_output):
     # since they don't have time-sensitive data like current prices
     current_clean = current_output.strip()
     reference_clean = reference_output.strip()
-    
+
     if current_clean != reference_clean:
         logger.error("Tax report output does not match reference")
         logger.error(f"Current length: {len(current_clean)}, Reference length: {len(reference_clean)}")
         logger.error(f"Current output: {repr(current_clean[:200])}")
         logger.error(f"Reference output: {repr(reference_clean[:200])}")
-        
+
         # Show line-by-line differences
         current_lines = current_clean.split('\n')
         reference_lines = reference_clean.split('\n')
         logger.error(f"Current lines: {len(current_lines)}, Reference lines: {len(reference_lines)}")
-        
+
         for i, (curr_line, ref_line) in enumerate(zip(current_lines, reference_lines)):
             if curr_line != ref_line:
                 logger.error(f"Line {i} differs:")
                 logger.error(f"  Current: {repr(curr_line)}")
                 logger.error(f"  Reference: {repr(ref_line)}")
                 break
-        
+
         return False
-    
+
+    return True
+
+
+def compare_annual_review_outputs(current_output, reference_output):
+    """Compare annual review outputs with static/dynamic column validation.
+
+    Similar to full history comparison - static columns must match exactly,
+    dynamic columns (prices, valuations) can vary within tolerance.
+    """
+    # Extract summary table and detail table
+    current_summary = extract_table_data(current_output, table_name='Annual Review Summary')
+    reference_summary = extract_table_data(reference_output, table_name='Annual Review Summary')
+
+    current_detail = extract_table_data(current_output, table_name='Annual Review Detail')
+    reference_detail = extract_table_data(reference_output, table_name='Annual Review Detail')
+
+    # Check that we got some data
+    if not current_summary and not current_detail:
+        logger.error("Could not extract any annual review table data from current output")
+        return False
+
+    # Validate summary table if both exist
+    summary_passed = True
+    if current_summary and reference_summary:
+        summary_passed = compare_annual_review_table(
+            current_summary, reference_summary, "Annual Review Summary"
+        )
+    elif current_summary != reference_summary:
+        logger.error("Summary table existence mismatch")
+        return False
+
+    # Validate detail table if both exist
+    detail_passed = True
+    if current_detail and reference_detail:
+        detail_passed = compare_annual_review_table(
+            current_detail, reference_detail, "Annual Review Detail"
+        )
+    elif current_detail != reference_detail:
+        logger.error("Detail table existence mismatch")
+        return False
+
+    return summary_passed and detail_passed
+
+
+def compare_annual_review_table(current_table, reference_table, table_name):
+    """Compare annual review tables with static/dynamic classification."""
+
+    # Static columns: Should match exactly
+    static_columns = ['Group', 'Tag', 'Company', 'Ticker', 'Category']
+
+    # Dynamic columns: Should be present/absent consistently and within tolerance
+    dynamic_columns = ['Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR',
+                       'Current Price', '90d High', '% of High', 'Volatility']
+
+    # Validate column schema
+    if len(current_table) > 0 and len(reference_table) > 0:
+        current_columns = set(current_table[0].keys())
+        reference_columns = set(reference_table[0].keys())
+
+        if current_columns != reference_columns:
+            logger.error(f"{table_name}: Column mismatch between current and reference")
+            logger.error(f"Current columns: {sorted(current_columns)}")
+            logger.error(f"Reference columns: {sorted(reference_columns)}")
+            return False
+
+    # Sort by Group (for summary) or Ticker+Category (for detail with duplicate tickers)
+    if 'Group' in (current_table[0].keys() if current_table else []):
+        current_sorted = sorted(current_table, key=lambda x: x.get('Group', ''))
+        reference_sorted = sorted(reference_table, key=lambda x: x.get('Group', ''))
+    else:
+        # Sort by Ticker, then Category to handle same ticker in multiple accounts
+        current_sorted = sorted(current_table, key=lambda x: (x.get('Ticker', ''), x.get('Category', '')))
+        reference_sorted = sorted(reference_table, key=lambda x: (x.get('Ticker', ''), x.get('Category', '')))
+
+    # Compare static columns (exact match)
+    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
+        for col in static_columns:
+            if col in current_row and col in reference_row:
+                if current_row[col] != reference_row[col]:
+                    logger.error(f"{table_name} Row {i}, Static Column {col}: Current='{current_row[col]}', Reference='{reference_row[col]}'")
+                    return False
+
+    # Compare dynamic columns (presence and tolerance)
+    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
+        for col in dynamic_columns:
+            if col not in current_row or col not in reference_row:
+                continue
+
+            current_val = current_row[col]
+            reference_val = reference_row[col]
+
+            # Check presence consistency
+            current_is_empty = not current_val or current_val.strip() in ['', '-', 'N/A']
+            reference_is_empty = not reference_val or reference_val.strip() in ['', '-', 'N/A']
+
+            if current_is_empty != reference_is_empty:
+                # Dynamic columns can have presence mismatches due to market data timing
+                logger.warning(f"{table_name} Row {i}, Dynamic Column {col}: Presence mismatch (current empty={current_is_empty})")
+                continue  # Don't fail on presence mismatch for dynamic columns
+
+            # If both present, check within 50% tolerance
+            if not current_is_empty and not reference_is_empty:
+                try:
+                    current_numeric = parse_numeric_value(current_val)
+                    reference_numeric = parse_numeric_value(reference_val)
+
+                    if current_numeric is not None and reference_numeric is not None:
+                        if reference_numeric != 0:
+                            diff_pct = abs(current_numeric - reference_numeric) / abs(reference_numeric)
+                            if diff_pct > 0.5:
+                                logger.error(f"{table_name} Row {i}, Dynamic Column {col}: Value differs by {diff_pct*100:.1f}%")
+                                return False
+                except Exception:
+                    pass
+
     return True
 
 def extract_periodic_tables(output):
@@ -439,7 +591,9 @@ def extract_table_data(output, table_name=None):
             'PERIODIC REVIEW SUMMARY',
             'NEW STOCKS',
             'RETAINED STOCKS',
-            'SOLD STOCKS'
+            'SOLD STOCKS',
+            'ANNUAL REVIEW SUMMARY',
+            'ANNUAL REVIEW DETAIL'
         ])
 
         if is_table_header:

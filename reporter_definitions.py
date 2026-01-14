@@ -212,5 +212,63 @@ COLUMN_CONFIGS = {
             None,  # First Transaction
             None,  # Last Transaction
         ]
+    },
+    'annual_review_summary': {
+        'headers': ['Group', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR'],
+        'columns': ['group', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr'],
+        'column_formats': [
+            None,  # Group - text
+            CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # Bought
+            CURRENCY_FORMAT_NO_DECIMALS,  # Sold
+            CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # P&L
+            PERCENTAGE_FORMAT,  # MWRR
+        ],
+        'column_thresholds': [
+            None,  # Group
+            None,  # Start Value
+            None,  # Bought
+            None,  # Sold
+            None,  # Current Value
+            None,  # P&L
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
+        ]
+    },
+    'annual_review_detail': {
+        'headers': ['Tag', 'Company', 'Ticker', 'Category', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
+        'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],
+        'column_formats': [
+            None,  # Tag - text
+            None,  # Company - text
+            None,  # Ticker - text
+            None,  # Category - text
+            CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # Bought
+            CURRENCY_FORMAT_NO_DECIMALS,  # Sold
+            CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # P&L
+            PERCENTAGE_FORMAT,  # MWRR
+            CURRENCY_FORMAT,  # Current Price
+            CURRENCY_FORMAT,  # 90d High
+            PERCENTAGE_FORMAT,  # % of High
+            PERCENTAGE_FORMAT,  # Volatility
+        ],
+        'column_thresholds': [
+            None,  # Tag
+            None,  # Company
+            None,  # Ticker
+            None,  # Category
+            None,  # Start Value
+            None,  # Bought
+            None,  # Sold
+            None,  # Current Value
+            None,  # P&L
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
+            None,  # Current Price
+            None,  # 90d High
+            STOP_LOSS_THRESHOLD,  # % of High
+            STOCKS_VOLATILITY_THRESHOLD,  # Volatility
+        ]
     }
 }

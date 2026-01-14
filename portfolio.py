@@ -24,8 +24,8 @@ def parse_args():
     parser.add_argument('--output-file', default=None,
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
-                      choices=['full-history', 'periodic-review', 'test', 'tax-report'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), test (run automated tests), or tax-report (tax reporting for a specific tax year)')
+                      choices=['full-history', 'periodic-review', 'test', 'tax-report', 'annual-review'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), test (run automated tests), or tax-report (tax reporting for a specific tax year)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -46,6 +46,10 @@ def parse_args():
     # Value over time specific arguments
     parser.add_argument('--value-over-time', type=int, metavar='N',
                       help='Generate CSV showing portfolio value over the past N days (full-history mode only, requires --output-file)')
+
+    # Price over time specific arguments (annual-review mode)
+    parser.add_argument('--price-over-time', action='store_true',
+                      help='Generate CSV showing individual stock prices since start date (annual-review mode only, requires --output-file)')
 
     # Test mode specific arguments
     parser.add_argument('--test-data', type=str,
@@ -206,12 +210,36 @@ def main():
             # Process tax report
             tax_report_results = portfolio_analysis.process_tax_report(portfolio_review, tax_year_start, tax_year_end)
             reporter.display_tax_report(tax_report_results, args.tax_year)
+        elif args.mode == 'annual-review':
+            # Annual review mode: Performance analysis from start date to today
+            if not args.start_date:
+                logger.error("Annual review mode requires --start-date argument")
+                sys.exit(1)
+
+            # Validate price-over-time parameter
+            if args.price_over_time and not args.output_file:
+                logger.error("--price-over-time requires --output-file to be specified")
+                sys.exit(1)
+
+            # Parse start date
+            from datetime import datetime
+            start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+
+            # Process annual review
+            annual_results = portfolio_analysis.process_annual_review(
+                portfolio_review, start_date, price_over_time=args.price_over_time
+            )
+            reporter.display_annual_review(annual_results, start_date)
+
+            # Write price-over-time CSV if requested
+            if args.price_over_time and annual_results.get('price_over_time') is not None:
+                reporter.write_price_over_time_csv(annual_results['price_over_time'], start_date)
         else:  # periodic-review
             # Periodic review mode: Performance analysis for specific period
             if not args.start_date or not args.end_date:
                 logger.error("Periodic review mode requires --start-date and --end-date arguments")
                 sys.exit(1)
-            
+
             # Parse dates
             from datetime import datetime
             start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
@@ -219,7 +247,7 @@ def main():
             eval_date = None
             if args.eval_date:
                 eval_date = datetime.strptime(args.eval_date, '%Y-%m-%d')
-            
+
             # Process periodic review
             periodic_results = portfolio_analysis.process_periodic_review(portfolio_review, start_date, end_date, eval_date)
             reporter.display_periodic_review(periodic_results, start_date, end_date, eval_date)

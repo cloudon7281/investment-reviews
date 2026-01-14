@@ -431,7 +431,7 @@ class PortfolioReporter:
     
     def write_value_over_time_csv(self, value_df: pd.DataFrame, n_days: int) -> None:
         """Write value-over-time CSV file.
-        
+
         Args:
             value_df: DataFrame with value-over-time data from PortfolioAnalysis
             n_days: Number of days (for logging purposes)
@@ -439,18 +439,168 @@ class PortfolioReporter:
         if not self.numbers_filename:
             logger.warning("Cannot write value-over-time CSV: no output file specified")
             return
-        
+
         if value_df.empty:
             logger.warning("No value-over-time data to write")
             return
-        
+
         logger.info(f"Writing value-over-time CSV for {n_days} days")
-        
+
         # Derive CSV filename from Numbers filename
         csv_filename = str(Path(self.numbers_filename).with_suffix('')) + '_value_over_time.csv'
-        
+
         # Create CSV writer and write the file
         csv_writer = CSVWriter(csv_filename)
         csv_writer.write_value_over_time(value_df)
-        
+
         logger.info(f"Value-over-time CSV written: {csv_filename}")
+
+    def display_annual_review(self, annual_results: Dict[str, pd.DataFrame], start_date: datetime) -> None:
+        """Display annual review results.
+
+        Args:
+            annual_results: Dictionary with annual review data:
+                - 'whole_portfolio': DataFrame with single summary row
+                - 'per_category': DataFrame with ISA/Taxable/Pension rows
+                - 'per_tag': DataFrame with per-tag summaries
+                - 'individual_stocks': DataFrame with per-stock detail
+            start_date: Start date of the review period
+        """
+        logger.info("Displaying annual review results")
+
+        eval_date = datetime.now()
+
+        # 1. Combine summary data (whole portfolio, per-category, per-tag)
+        summary_df = self._combine_annual_summary_data(
+            annual_results.get('whole_portfolio', pd.DataFrame()),
+            annual_results.get('per_category', pd.DataFrame()),
+            annual_results.get('per_tag', pd.DataFrame())
+        )
+
+        # 2. Prepare individual stocks (sorting)
+        individual_df = self._prepare_annual_detail(annual_results.get('individual_stocks', pd.DataFrame()))
+
+        # 3. Define table sequence
+        tables = []
+
+        # Summary table
+        if not summary_df.empty:
+            title = f'Annual Review Summary ({start_date.strftime("%Y-%m-%d")} to {eval_date.strftime("%Y-%m-%d")})'
+            tables.append((summary_df, 'annual_review_summary', title))
+
+        # Detail table
+        if not individual_df.empty:
+            title = f'Annual Review Detail ({start_date.strftime("%Y-%m-%d")} to {eval_date.strftime("%Y-%m-%d")})'
+            tables.append((individual_df, 'annual_review_detail', title))
+
+        # 4. Render all tables
+        for df_table, config_name, title in tables:
+            config = rd.COLUMN_CONFIGS[config_name]
+
+            # Build table data using DataTableBuilder with title
+            table_data = self.data_builder.build_table(df_table, config, title)
+
+            # Console output
+            self.console_writer.write_table(table_data, config)
+
+            # Numbers output
+            if self.numbers_writer:
+                self.numbers_writer.write_table(table_data, config, title, title)
+
+        # Save Numbers file if we have one
+        if self.numbers_writer:
+            self._save_numbers_document()
+
+    def _combine_annual_summary_data(self, whole_portfolio_df: pd.DataFrame,
+                                      per_category_df: pd.DataFrame,
+                                      per_tag_df: pd.DataFrame) -> pd.DataFrame:
+        """Combine annual review summary data for display.
+
+        Args:
+            whole_portfolio_df: DataFrame with single row for overall portfolio
+            per_category_df: DataFrame with one row per account category
+            per_tag_df: DataFrame with one row per tag
+
+        Returns:
+            Combined DataFrame in order: Whole Portfolio -> Per-Category -> Per-Tag
+        """
+        # Combine the DataFrames in the correct order
+        combined_df = pd.concat([whole_portfolio_df, per_category_df, per_tag_df], ignore_index=True)
+
+        if combined_df.empty:
+            return combined_df
+
+        # Reorder to ensure correct hierarchy
+        whole_portfolio_row = combined_df[combined_df['group'] == 'Whole Portfolio']
+        per_category_rows = combined_df[combined_df['group'].isin(['ISA', 'Taxable', 'Pension'])]
+        per_tag_rows = combined_df[~combined_df['group'].isin(['Whole Portfolio', 'ISA', 'Taxable', 'Pension'])]
+
+        # Sort categories and tags by P&L descending
+        if not per_category_rows.empty:
+            per_category_rows = per_category_rows.sort_values('pnl', ascending=False)
+        if not per_tag_rows.empty:
+            per_tag_rows = per_tag_rows.sort_values('pnl', ascending=False)
+
+        # Combine in the correct order
+        combined_df = pd.concat([whole_portfolio_row, per_category_rows, per_tag_rows], ignore_index=True)
+
+        return combined_df
+
+    def _prepare_annual_detail(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Prepare annual review detail DataFrame.
+
+        Args:
+            df: DataFrame containing individual stock data
+
+        Returns:
+            DataFrame sorted by tag then P&L
+        """
+        if df.empty:
+            return df
+
+        # Detect tickers that appear in multiple categories
+        multi_category_tickers = self._detect_multi_category_tickers(df)
+
+        # Add category suffix to stock name for multi-category stocks
+        sorted_df = df.copy()
+        if multi_category_tickers:
+            for idx, row in sorted_df.iterrows():
+                if row['ticker'] in multi_category_tickers:
+                    category_display = row['account_type']
+                    sorted_df.at[idx, 'stock_name'] = f"{row['stock_name']} ({category_display})"
+
+        # Sort by tag first, then by P&L descending, then by ticker for stability
+        sorted_df['sort_tag'] = sorted_df['tag'].fillna('No Tag')
+        sorted_df['sort_pnl'] = -sorted_df['pnl']  # Negative for descending order
+        sorted_df = sorted_df.sort_values(['sort_tag', 'sort_pnl', 'ticker'])
+
+        # Remove the temporary sort columns
+        sorted_df = sorted_df.drop(['sort_tag', 'sort_pnl'], axis=1)
+
+        return sorted_df
+
+    def write_price_over_time_csv(self, price_df: pd.DataFrame, start_date: datetime) -> None:
+        """Write price-over-time CSV file.
+
+        Args:
+            price_df: DataFrame with price-over-time data (columns: date, ticker1, ticker2, ...)
+            start_date: Start date of the period (for logging)
+        """
+        if not self.numbers_filename:
+            logger.warning("Cannot write price-over-time CSV: no output file specified")
+            return
+
+        if price_df is None or price_df.empty:
+            logger.warning("No price-over-time data to write")
+            return
+
+        logger.info(f"Writing price-over-time CSV from {start_date.strftime('%Y-%m-%d')}")
+
+        # Derive CSV filename from Numbers filename
+        csv_filename = str(Path(self.numbers_filename).with_suffix('')) + '_price_over_time.csv'
+
+        # Create CSV writer and write the file
+        csv_writer = CSVWriter(csv_filename)
+        csv_writer.write_price_over_time(price_df)
+
+        logger.info(f"Price-over-time CSV written: {csv_filename}")

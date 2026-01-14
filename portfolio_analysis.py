@@ -14,6 +14,7 @@ from market_data_fetcher import MarketDataFetcher
 import tax_report_processor
 import full_history_processor
 import periodic_review_processor
+import annual_review_processor
 
 class PortfolioAnalysis:
     def __init__(self):
@@ -39,4 +40,19 @@ class PortfolioAnalysis:
     def process_tax_report(self, portfolio_review: PortfolioReview, tax_year_start: datetime, tax_year_end: datetime) -> pd.DataFrame:
         """Process tax report for a specific tax year."""
         return tax_report_processor.process_tax_report(portfolio_review, tax_year_start, tax_year_end)
+
+    def process_annual_review(self, portfolio_review: PortfolioReview, start_date: datetime, price_over_time: bool = False) -> Dict[str, pd.DataFrame]:
+        """Process annual review analysis.
+
+        Args:
+            portfolio_review: PortfolioReview instance
+            start_date: Start date for the annual review period
+            price_over_time: If True, generate price-over-time CSV data
+
+        Returns:
+            Dict with whole_portfolio, per_category, per_tag, individual_stocks, price_over_time DataFrames
+        """
+        return annual_review_processor.process_annual_review(
+            portfolio_review, start_date, self.market_data_fetcher, price_over_time
+        )
 

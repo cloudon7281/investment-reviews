@@ -837,6 +837,139 @@ class TestFiltering(unittest.TestCase):
             self.assertFalse(pr._should_include_file('taxable', '2024', 'Index Funds'))
 
 
+class TestAnnualReviewMWRR(unittest.TestCase):
+    """Test annual review MWRR calculation with synthetic transactions."""
+
+    def test_annual_mwrr_with_start_value_only(self):
+        """Test MWRR when stock was held at start date and still held today."""
+        import annual_review_processor
+
+        # Simulate: Had £1000 at start, no transactions, now worth £1100
+        start_date = datetime(2024, 1, 1)
+        start_value = 1000.0
+        transactions_since_start = []
+        current_value = 1100.0
+        eval_date = datetime(2025, 1, 1)
+
+        mwrr_transactions = annual_review_processor.create_annual_mwrr_transactions(
+            start_date, start_value, transactions_since_start, current_value, eval_date
+        )
+
+        # Should have 2 transactions: synthetic BUY and synthetic SELL
+        self.assertEqual(len(mwrr_transactions), 2)
+        self.assertEqual(mwrr_transactions[0].transaction_type, 'BUY')
+        self.assertEqual(mwrr_transactions[0].total_amount, 1000.0)
+        self.assertEqual(mwrr_transactions[1].transaction_type, 'SELL')
+        self.assertEqual(mwrr_transactions[1].total_amount, 1100.0)
+
+        # Calculate MWRR - should be 10% over 1 year
+        mwrr = transaction_processor.calculate_mwrr_for_transactions(mwrr_transactions)
+        self.assertIsNotNone(mwrr)
+        self.assertAlmostEqual(mwrr, 0.10, delta=0.01)
+
+    def test_annual_mwrr_with_new_stock(self):
+        """Test MWRR for stock bought after start date (no start value)."""
+        import annual_review_processor
+
+        start_date = datetime(2024, 1, 1)
+        start_value = 0.0  # Didn't own at start
+        buy_transaction = StockTransaction(
+            date=datetime(2024, 6, 1),
+            transaction_type='BUY',
+            quantity=100,
+            price_per_share=10.0,
+            total_amount=1000.0
+        )
+        transactions_since_start = [buy_transaction]
+        current_value = 1200.0  # Now worth £1200
+        eval_date = datetime(2025, 1, 1)
+
+        mwrr_transactions = annual_review_processor.create_annual_mwrr_transactions(
+            start_date, start_value, transactions_since_start, current_value, eval_date
+        )
+
+        # Should have only actual BUY + synthetic SELL (no synthetic BUY since start_value=0)
+        self.assertEqual(len(mwrr_transactions), 2)
+        self.assertEqual(mwrr_transactions[0].transaction_type, 'BUY')
+        self.assertEqual(mwrr_transactions[1].transaction_type, 'SELL')
+
+        # Calculate MWRR
+        mwrr = transaction_processor.calculate_mwrr_for_transactions(mwrr_transactions)
+        self.assertIsNotNone(mwrr)
+        # Bought June 1 for £1000, sold Jan 1 for £1200 = 20% gain over ~7 months
+        # Annualized should be higher than 20%
+        self.assertGreater(mwrr, 0.2)
+
+    def test_annual_mwrr_with_sold_stock(self):
+        """Test MWRR for stock held at start but fully sold (no current value)."""
+        import annual_review_processor
+
+        start_date = datetime(2024, 1, 1)
+        start_value = 1000.0  # Had £1000 at start
+        sell_transaction = StockTransaction(
+            date=datetime(2024, 6, 1),
+            transaction_type='SELL',
+            quantity=100,
+            price_per_share=12.0,
+            total_amount=1200.0
+        )
+        transactions_since_start = [sell_transaction]
+        current_value = 0.0  # Fully sold
+        eval_date = datetime(2025, 1, 1)
+
+        mwrr_transactions = annual_review_processor.create_annual_mwrr_transactions(
+            start_date, start_value, transactions_since_start, current_value, eval_date
+        )
+
+        # Should have synthetic BUY + actual SELL (no synthetic SELL since current_value=0)
+        self.assertEqual(len(mwrr_transactions), 2)
+        self.assertEqual(mwrr_transactions[0].transaction_type, 'BUY')
+        self.assertEqual(mwrr_transactions[1].transaction_type, 'SELL')
+
+        # Calculate MWRR
+        mwrr = transaction_processor.calculate_mwrr_for_transactions(mwrr_transactions)
+        self.assertIsNotNone(mwrr)
+        # Bought Jan 1 for £1000, sold June 1 for £1200 = 20% gain over ~5 months
+        # Annualized should be higher
+        self.assertGreater(mwrr, 0.2)
+
+
+class TestAnnualReviewPnL(unittest.TestCase):
+    """Test annual review P&L calculation."""
+
+    def test_pnl_retained_stock(self):
+        """Test P&L for stock held at start and still held."""
+        # PnL = (current_value + sold_since) - (start_value + bought_since)
+        # For retained stock with no transactions: PnL = current_value - start_value
+        start_value = 1000.0
+        bought_since = 0.0
+        sold_since = 0.0
+        current_value = 1100.0
+
+        pnl = (current_value + sold_since) - (start_value + bought_since)
+        self.assertEqual(pnl, 100.0)
+
+    def test_pnl_with_additional_purchase(self):
+        """Test P&L when additional shares bought during period."""
+        start_value = 1000.0
+        bought_since = 500.0  # Added £500
+        sold_since = 0.0
+        current_value = 1800.0  # Total now worth £1800
+
+        pnl = (current_value + sold_since) - (start_value + bought_since)
+        self.assertEqual(pnl, 300.0)  # £1800 - £1500 = £300 profit
+
+    def test_pnl_with_partial_sale(self):
+        """Test P&L when some shares sold during period."""
+        start_value = 1000.0
+        bought_since = 0.0
+        sold_since = 400.0  # Sold £400 worth
+        current_value = 700.0  # Remaining now worth £700
+
+        pnl = (current_value + sold_since) - (start_value + bought_since)
+        self.assertEqual(pnl, 100.0)  # (£700 + £400) - £1000 = £100 profit
+
+
 def run_unit_tests():
     """Run all unit tests."""
     # Create test suite
@@ -852,6 +985,8 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestForeignCurrencyFallback))
     suite.addTests(loader.loadTestsFromTestCase(TestMWRRCalculation))
     suite.addTests(loader.loadTestsFromTestCase(TestMissingPriceData))
+    suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewMWRR))
+    suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewPnL))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
