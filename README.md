@@ -11,6 +11,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 
 - **Complete investment history** with current holdings and performance metrics
 - **Periodic portfolio reviews** - performance snapshots since a given date comparing new purchases, retained holdings, and disposals
+- **Annual portfolio reviews** - year-over-year performance analysis with optional price history CSV
 - **Tax year capital gains reporting** - aligned to UK tax years (6 April to 5 April)
 - **Multi-currency support** with automatic GBP conversion
 - **Multiple export formats** - console output, Apple Numbers spreadsheets, CSV, Google Sheets
@@ -38,10 +39,17 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Average cost basis methodology
 - Detailed transaction breakdown for HMRC reporting
 
+**Annual Review Mode**
+- Year-over-year performance analysis from a specified start date
+- Grouping by whole portfolio, account category (ISA/Taxable/Pension), and tags
+- Metrics: start value, bought/sold since, current value, P&L, MWRR
+- Optional price-over-time CSV with daily prices for all stocks held during period
+- Transaction history alongside prices (BOUGHT/SOLD/SPLIT/CONVERTED) for counterfactual analysis
+
 **Test Mode**
 - Automated regression testing
 - Validates against reference outputs
-- Includes 27 unit tests + 3 integration tests
+- Includes 33 unit tests + 4 integration tests
 
 ### Broker Support
 
@@ -90,7 +98,7 @@ Run tests with anonymized data to verify installation:
 python3 portfolio.py --mode test
 ```
 
-Expected output: All 30 tests passing (27 unit + 3 integration tests).
+Expected output: All 37 tests passing (33 unit + 4 integration tests).
 
 **Note:** Some tests may fail due to market price volatility exceeding the 50% tolerance threshold. This is expected behavior with live market data.
 
@@ -151,6 +159,28 @@ python3 portfolio.py --mode tax-report --base-dir ~/path/to/data --tax-year FY25
 ```
 
 Tax years use format `FYxx` where FY25 = 6 April 2024 to 5 April 2025.
+
+### Annual Review
+
+Year-over-year performance analysis:
+```bash
+python3 portfolio.py --mode annual-review --base-dir ~/path/to/data --start-date 2025-01-01
+```
+
+Export to Numbers spreadsheet with price history CSV:
+```bash
+python3 portfolio.py --mode annual-review --base-dir ~/path/to/data \
+  --start-date 2025-01-01 --output-file ~/Documents/annual_review --price-over-time
+```
+
+**Parameters:**
+- `--start-date`: Beginning of review period (required)
+- `--price-over-time`: Generate CSV with daily stock prices and transaction history
+
+The price-over-time CSV includes:
+- Daily closing prices (in GBP) for all stocks held at any point during the period
+- Transaction columns showing BOUGHT/SOLD quantities, stock splits, and conversions
+- Useful for counterfactual analysis ("what if I hadn't sold?")
 
 ### Filtering Options
 
@@ -232,6 +262,7 @@ Organized as a **facade pattern** with specialized modules:
 - `full_history_processor.py` - Complete portfolio history analysis
 - `periodic_review_processor.py` - Monthly review classification and metrics
 - `tax_report_processor.py` - Capital gains calculations
+- `annual_review_processor.py` - Year-over-year performance analysis
 - `value_over_time_processor.py` - Time series valuation data
 
 ### Layer 3: Portfolio Reporter (`portfolio_reporter.py`)
