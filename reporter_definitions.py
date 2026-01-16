@@ -236,13 +236,15 @@ COLUMN_CONFIGS = {
         ]
     },
     'annual_review_detail': {
-        'headers': ['Tag', 'Company', 'Ticker', 'Category', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
-        'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],
+        'headers': ['Tag', 'Company', 'Ticker', 'Category', 'First Txn', 'Start Price', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
+        'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'first_transaction_date', 'start_price', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],
         'column_formats': [
             None,  # Tag - text
             None,  # Company - text
             None,  # Ticker - text
             None,  # Category - text
+            DATE_FORMAT,  # First Txn
+            CURRENCY_FORMAT,  # Start Price
             CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
             CURRENCY_FORMAT_NO_DECIMALS,  # Bought
             CURRENCY_FORMAT_NO_DECIMALS,  # Sold
@@ -259,6 +261,8 @@ COLUMN_CONFIGS = {
             None,  # Company
             None,  # Ticker
             None,  # Category
+            None,  # First Txn
+            None,  # Start Price
             None,  # Start Value
             None,  # Bought
             None,  # Sold

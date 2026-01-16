@@ -101,6 +101,7 @@ def process_annual_review(portfolio_review: PortfolioReview, start_date: datetim
                     sold_since += abs(txn.total_amount)
 
         stock_key = (ticker, category)
+        first_transaction_date = transactions[0].date if transactions else None
         stock_data[stock_key] = {
             'ticker': ticker,
             'current_ticker': current_ticker,
@@ -112,7 +113,8 @@ def process_annual_review(portfolio_review: PortfolioReview, start_date: datetim
             'bought_since': bought_since,
             'sold_since': sold_since,
             'transactions': transactions,
-            'transactions_since_start': transactions_since_start
+            'transactions_since_start': transactions_since_start,
+            'first_transaction_date': first_transaction_date
         }
 
         # Need price for start date valuation (if holdings at start) and current valuation (if holdings now)
@@ -243,12 +245,32 @@ def process_annual_review(portfolio_review: PortfolioReview, start_date: datetim
         if recent_high and recent_high > 0 and current_price:
             current_price_pct_of_high = current_price / recent_high
 
+        # Get first transaction date and price at that date
+        # If first transaction is before start_date, use start_date instead
+        first_transaction_date = data['first_transaction_date']
+        display_start_date = first_transaction_date
+        start_price = None
+        if first_transaction_date:
+            if first_transaction_date < start_date:
+                # Stock was held before review period - use start_date
+                display_start_date = start_date
+                start_price = holdings_calculator.get_stock_price_from_data(
+                    current_ticker, start_date, current_prices
+                )
+            else:
+                # First transaction is within review period
+                start_price = holdings_calculator.get_stock_price_from_data(
+                    current_ticker, first_transaction_date, current_prices
+                )
+
         # Build result row
         result = {
             'ticker': ticker,
             'stock_name': data['stock_name'],
             'account_type': account_type,
             'tag': data['tag'],
+            'first_transaction_date': display_start_date,
+            'start_price': start_price,
             'start_value': start_value,
             'bought_since': bought_since,
             'sold_since': sold_since,
