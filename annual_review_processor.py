@@ -418,15 +418,17 @@ def create_annual_summaries(portfolio_start_value: float, portfolio_bought_since
     return whole_portfolio_df, per_category_df, per_tag_df
 
 
-def _format_transactions_for_date(transactions_by_date: Dict, target_date) -> str:
+def _format_transactions_for_date(transactions_by_date: Dict, target_date,
+                                   all_transactions: list = None) -> str:
     """Format transactions for a given date into a concise string.
 
     Args:
         transactions_by_date: Dict mapping date -> list of transactions
         target_date: The date to look up
+        all_transactions: Optional full transaction history for calculating SELL percentages
 
     Returns:
-        Formatted string like "BOUGHT 100", "SOLD 50", "SPLIT x2", or "" if no transactions
+        Formatted string like "BOUGHT 100", "SOLD 50 (25.0%)", "SPLIT x2", or "" if no transactions
     """
     if target_date not in transactions_by_date:
         return ""
@@ -440,7 +442,19 @@ def _format_transactions_for_date(transactions_by_date: Dict, target_date) -> st
         if txn_type == 'BUY':
             parts.append(f"BOUGHT {txn.quantity}")
         elif txn_type == 'SELL':
-            parts.append(f"SOLD {txn.quantity}")
+            pct_str = ""
+            if all_transactions:
+                # Calculate holdings just before this sell using existing function
+                # Use day before target_date to get holdings before the sell
+                day_before = datetime.combine(target_date - timedelta(days=1), datetime.max.time())
+                result = transaction_processor.calculate_transactions_through_date(
+                    all_transactions, day_before, include_investment_threshold=False
+                )
+                holdings_before = result['units_held']
+                if holdings_before > 1e-6:
+                    pct = (txn.quantity / holdings_before) * 100
+                    pct_str = f" ({pct:.1f}%)"
+            parts.append(f"SOLD {txn.quantity}{pct_str}")
         elif txn_type == 'TRANSFER':
             # Transfer is bed-and-ISA, show direction based on quantity sign
             if txn.quantity > 0:
@@ -497,6 +511,8 @@ def calculate_price_over_time(start_date: datetime, stock_data: Dict,
     tickers_held = set()
     # Also build a mapping of original_ticker -> date -> list of transactions
     transactions_by_ticker_date = {}
+    # And a mapping of original_ticker -> full transaction list (for SELL percentage calculations)
+    all_transactions_by_ticker = {}
 
     for stock_key, data in stock_data.items():
         # Include if held at start, held at end, or had any activity
@@ -515,6 +531,9 @@ def calculate_price_over_time(start_date: datetime, stock_data: Dict,
                 if txn_date not in transactions_by_ticker_date[original_ticker]:
                     transactions_by_ticker_date[original_ticker][txn_date] = []
                 transactions_by_ticker_date[original_ticker][txn_date].append(txn)
+
+            # Store full transaction history for SELL percentage calculations
+            all_transactions_by_ticker[original_ticker] = data['transactions']
 
     # Sort by ticker name for consistent column order
     sorted_tickers = sorted(tickers_held, key=lambda x: x[0])
@@ -551,7 +570,8 @@ def calculate_price_over_time(start_date: datetime, stock_data: Dict,
             txn_column = f"Transactions ({original_ticker})"
             txn_text = _format_transactions_for_date(
                 transactions_by_ticker_date.get(original_ticker, {}),
-                current_date
+                current_date,
+                all_transactions_by_ticker.get(original_ticker, [])
             )
             row[txn_column] = txn_text
 
