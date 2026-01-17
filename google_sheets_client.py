@@ -108,7 +108,7 @@ class GoogleSheetsClient:
     
     def get_row_count(self) -> int:
         """Get the number of rows in the sheet (including header).
-        
+
         Returns:
             Number of rows
         """
@@ -116,26 +116,124 @@ class GoogleSheetsClient:
             spreadsheetId=self.spreadsheet_id,
             range=f"{self.worksheet_name}!A:A"
         ).execute()
-        
+
         values = result.get('values', [])
         return len(values)
-    
-    def append_row(self, row_data: List[Any]) -> None:
+
+    def get_last_row_formats(self) -> List[Optional[Dict]]:
+        """Get the cell formats from the last row.
+
+        Returns:
+            List of format dictionaries for each cell in the last row.
+            Each format dict contains 'numberFormat' and other formatting info.
+            Returns None for cells with no specific formatting.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        row_count = self.get_row_count()
+        if row_count < 2:
+            logger.debug("get_last_row_formats: fewer than 2 rows, returning empty")
+            return []
+
+        sheet_id = self._get_sheet_id()
+        logger.info(f"Getting formats from row {row_count}")
+
+        # Get spreadsheet with cell formatting data for the last row only
+        result = self.sheets.get(
+            spreadsheetId=self.spreadsheet_id,
+            ranges=[f"{self.worksheet_name}!{row_count}:{row_count}"],
+            fields='sheets.data.rowData.values.userEnteredFormat'
+        ).execute()
+
+        formats = []
+        try:
+            row_data = result['sheets'][0]['data'][0].get('rowData', [])
+            if row_data:
+                cells = row_data[0].get('values', [])
+                for col_idx, cell in enumerate(cells):
+                    cell_format = cell.get('userEnteredFormat')
+                    formats.append(cell_format)
+                    # Log interesting formats (non-None, especially numberFormat)
+                    if cell_format and 'numberFormat' in cell_format:
+                        logger.info(f"  Column {col_idx}: numberFormat = {cell_format['numberFormat']}")
+        except (KeyError, IndexError) as e:
+            logger.warning(f"Error parsing format data: {e}")
+
+        logger.info(f"Retrieved {len(formats)} format entries, {sum(1 for f in formats if f)} non-empty")
+        return formats
+
+    def apply_row_formatting(self, row_index: int, formats: List[Optional[Dict]]) -> None:
+        """Apply formatting to a specific row.
+
+        Args:
+            row_index: 1-based row index to format
+            formats: List of format dictionaries (from get_last_row_formats)
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if not formats:
+            logger.debug("apply_row_formatting: no formats to apply")
+            return
+
+        sheet_id = self._get_sheet_id()
+        requests = []
+
+        for col_index, fmt in enumerate(formats):
+            if fmt is not None:
+                # Build a request to update this cell's format
+                requests.append({
+                    'repeatCell': {
+                        'range': {
+                            'sheetId': sheet_id,
+                            'startRowIndex': row_index - 1,  # 0-based
+                            'endRowIndex': row_index,
+                            'startColumnIndex': col_index,
+                            'endColumnIndex': col_index + 1
+                        },
+                        'cell': {
+                            'userEnteredFormat': fmt
+                        },
+                        'fields': 'userEnteredFormat'
+                    }
+                })
+
+        if requests:
+            logger.info(f"Applying {len(requests)} format updates to row {row_index}")
+            self.sheets.batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body={'requests': requests}
+            ).execute()
+            logger.info("Formatting applied successfully")
+
+    def append_row(self, row_data: List[Any], inherit_formatting: bool = False) -> None:
         """Append a single row of data to the sheet.
-        
+
         Args:
             row_data: List of values to append (must match column count)
+            inherit_formatting: If True, copy formatting from the previous row
         """
+        # Get formatting from last row before appending (if requested)
+        formats = None
+        if inherit_formatting:
+            formats = self.get_last_row_formats()
+
         body = {
             'values': [row_data]
         }
-        
+
         self.sheets.values().append(
             spreadsheetId=self.spreadsheet_id,
             range=f"{self.worksheet_name}!A:A",
             valueInputOption='USER_ENTERED',
             body=body
         ).execute()
+
+        # Apply formatting to the new row
+        if formats:
+            new_row_index = self.get_row_count()  # Row just added
+            self.apply_row_formatting(new_row_index, formats)
     
     def insert_column(self, column_index: int, header_name: str, backfill_value: Any = 0) -> None:
         """Insert a new column at the specified index.

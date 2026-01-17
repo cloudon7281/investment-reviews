@@ -202,11 +202,11 @@ class PortfolioUpdater:
                 else:
                     self.logger.info(f"  [DRY RUN] Would add columns: {new_columns}")
             
-            # Step 6: Append new row
+            # Step 6: Append new row (with formatting inherited from previous row)
             self.logger.info(f"Appending new row with {len(new_row)} values")
             if not self.dry_run:
-                self.sheets_client.append_row(new_row)
-                self.logger.info("✓ Row appended successfully")
+                self.sheets_client.append_row(new_row, inherit_formatting=True)
+                self.logger.info("✓ Row appended successfully (with formatting)")
             else:
                 self.logger.info(f"  [DRY RUN] Would append: {dict(zip(current_headers, new_row))}")
             
