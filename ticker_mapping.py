@@ -15,11 +15,13 @@ TICKER_MAPPING = {
     #'AXA Framlington American Growth': '0P00000DJJ.L',
     'AXA Framlington American Growth': '0P0000VKOU.L', # was converted from class R to class Z
     'Man GLG Japan CoreAlpha': '0P0000810W.L',
+    'Man Japan CoreAlpha': '0P0000810W.L',
     #'ASI Latin American Equity': '0P0000SHRZ.L',
     'ASI Latin American Equity': '0P0000XOMV.L', # ASI was renamed abrdn and with a stock conversion
     'abrdn Latin American Equity': '0P0000XOMV.L',
     'Polar Capital Biotechnology': '0P0000ZVG5',  # Converted from IE00B42P0H75 on 2020-11-24
     'Threadneedle European Select': '0P0000X3IE.L',
+    'CT European Select': '0P0000X3IE.L',
     'Waverton European Capital Growth': '0P0001FG8T.L',
     'Smith & Williamson Artificial Intelligence': '0P0001PGKI.L',
     'Landseer Global Artificial Intelligence': '0P0001PGKI.L',
@@ -30,6 +32,7 @@ TICKER_MAPPING = {
     'JPMorgan Emerging Markets': '0P000013TQ.L', # was converted from class B to class C
     'Baillie Gifford High Yield Bond': '0P000090AH.L',
     'Jupiter Global Value Equity': '0P0001CWV4.L',
+    'Jupiter India': '0P00018LFD.L',
     'FSSA Global Emerging Markets Focus': '0P0001EEMN.L',
     'Kensington Capital Acquisition Corp': 'QS',
     'Piedmont Lithium Ltd': 'PLL',
