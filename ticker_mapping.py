@@ -38,6 +38,7 @@ TICKER_MAPPING = {
     'Piedmont Lithium Ltd': 'PLL',
     'Lucid Group Inc': 'LCID',
     'Kwesst Micro Systems Inc': 'KWE',
+    'DEFSEC Technologies Inc': 'DFSC',
     'Skillz Inc': 'SKLZ', 
     'Invesco Perpetual High Income': '0P00000DII.L',
     'Churchill Capital Corp IV': 'LCID',

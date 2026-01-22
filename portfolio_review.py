@@ -421,17 +421,66 @@ class PortfolioReview:
         # Detect bed-and-ISA transactions across categories
         self._detect_cross_category_bed_and_isa(stocks_by_ticker)
         
+        # Merge StockNotes where ticker maps to another ticker (e.g., after stock conversions)
+        # This ensures all transactions for a stock are in the same StockNote, using the original ticker as the key
+        stocks_to_merge = []
+        for stock_key, stock_note in stocks_by_ticker.items():
+            ticker, category = stock_key
+            # Check if this ticker maps to another ticker
+            original_ticker = self.ticker_to_key(ticker)
+            if original_ticker != ticker:
+                # This ticker maps to another ticker - merge into the original ticker's StockNote
+                original_stock_key = (original_ticker, category)
+                if original_stock_key in stocks_by_ticker:
+                    stocks_to_merge.append((stock_key, original_stock_key))
+                else:
+                    # Original ticker doesn't exist yet - this shouldn't happen, but log a warning
+                    logger.warning(f"Stock {ticker} maps to {original_ticker}, but {original_ticker} StockNote doesn't exist in {category}")
+        
+        # Perform merges
+        for mapped_stock_key, original_stock_key in stocks_to_merge:
+            mapped_ticker, category = mapped_stock_key
+            original_ticker, _ = original_stock_key
+            
+            mapped_stock_note = stocks_by_ticker[mapped_stock_key]
+            original_stock_note = stocks_by_ticker[original_stock_key]
+            
+            # Merge transactions from mapped ticker into original ticker's StockNote
+            if mapped_stock_note.transactions:
+                # Add all transactions from mapped ticker to original ticker
+                for txn in mapped_stock_note.transactions:
+                    self._insert_transaction_chronologically(original_stock_note.transactions, txn)
+                
+                logger.info(f"Merged {len(mapped_stock_note.transactions)} transactions from {mapped_ticker} into {original_ticker} in {category}")
+            
+            # Remove the mapped ticker's StockNote
+            del stocks_by_ticker[mapped_stock_key]
+        
         # Validate that each stock's first transaction establishes cost basis
         # (filtering may have excluded initial purchases)
         # Valid first transactions: BUY (purchase), TRANSFER (bed-and-ISA), STOCK_CONVERSION (hand-coded conversion)
         valid_first_transactions = {'BUY', 'TRANSFER', 'STOCK_CONVERSION'}
         stocks_to_remove = []
         for stock_key, stock_note in stocks_by_ticker.items():
+            ticker, category = stock_key
             if not stock_note.transactions:
-                logger.warning(f"Stock {stock_key[0]} has no transactions after filtering - excluding entirely")
+                logger.warning(f"Stock {ticker} has no transactions after filtering - excluding entirely")
                 stocks_to_remove.append(stock_key)
             elif stock_note.transactions[0].transaction_type not in valid_first_transactions:
-                logger.warning(f"Stock {stock_key[0]} first transaction is {stock_note.transactions[0].transaction_type}, not BUY/TRANSFER/STOCK_CONVERSION - excluding entirely")
+                # Check if this ticker maps to another ticker via ticker_mapping
+                # If so, check the original ticker's first transaction instead
+                original_ticker = self.ticker_to_key(ticker)
+                if original_ticker != ticker:
+                    # This ticker maps to another ticker - check the original ticker's first transaction
+                    original_stock_key = (original_ticker, category)
+                    if original_stock_key in stocks_by_ticker:
+                        original_stock_note = stocks_by_ticker[original_stock_key]
+                        if original_stock_note.transactions and original_stock_note.transactions[0].transaction_type in valid_first_transactions:
+                            # Original ticker has a valid first transaction, so this ticker is also valid
+                            logger.debug(f"Stock {ticker} first transaction is {stock_note.transactions[0].transaction_type}, but maps to {original_ticker} which has valid first transaction - keeping")
+                            continue
+                
+                logger.warning(f"Stock {ticker} first transaction is {stock_note.transactions[0].transaction_type}, not BUY/TRANSFER/STOCK_CONVERSION - excluding entirely")
                 stocks_to_remove.append(stock_key)
         
         for stock_key in stocks_to_remove:
