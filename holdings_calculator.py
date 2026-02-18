@@ -277,7 +277,8 @@ def calculate_start_value_from_transactions(transactions: List, start_date: date
 
 def calculate_retained_stock_performance_unified(transactions: List, start_date: datetime,
                                                  end_date: datetime, eval_date: datetime,
-                                                 ticker: str, price_data: Dict = None) -> Tuple[Optional[float], int]:
+                                                 ticker: str, price_data: Dict = None,
+                                                 holdings_override: Optional[float] = None) -> Tuple[Optional[float], int]:
     """Calculate performance for retained stocks using the unified approach.
 
     Args:
@@ -287,6 +288,9 @@ def calculate_retained_stock_performance_unified(transactions: List, start_date:
         eval_date: Evaluation date
         ticker: Stock ticker
         price_data: Pre-fetched price data
+        holdings_override: If provided, use this holdings count instead of computing from transactions.
+                           Used to cap retained calculation to start-of-period holdings when the
+                           position was increased during the period.
 
     Returns:
         Tuple of (start_value, period_days)
@@ -295,14 +299,27 @@ def calculate_retained_stock_performance_unified(transactions: List, start_date:
     logger.debug(f"      End date: {end_date.strftime('%Y-%m-%d')}")
     logger.debug(f"      Evaluation date: {eval_date.strftime('%Y-%m-%d')}")
 
-    # Get value and holdings at end_date (start of performance period)
-    start_value, holdings_at_end, _ = get_stock_valuations_at_date(
-        ticker, start_date, end_date, end_date, transactions, price_data, use_start_date_holdings=False
-    )
+    if holdings_override is not None:
+        # Use the provided holdings count (e.g. capped to start-of-period holdings)
+        holdings_at_end = holdings_override
+        logger.debug(f"      Using holdings_override: {holdings_at_end}")
 
-    if start_value is None or holdings_at_end <= 0:
-        logger.debug(f"      No valid start value or holdings for {ticker}")
-        return None, 0
+        # Get price at end_date to compute start_value
+        price_at_end = get_stock_price_from_data(ticker, end_date, price_data)
+        if price_at_end is None or holdings_at_end <= 0:
+            logger.debug(f"      No valid price or holdings for {ticker}")
+            return None, 0
+
+        start_value = holdings_at_end * price_at_end
+    else:
+        # Get value and holdings at end_date (start of performance period)
+        start_value, holdings_at_end, _ = get_stock_valuations_at_date(
+            ticker, start_date, end_date, end_date, transactions, price_data, use_start_date_holdings=False
+        )
+
+        if start_value is None or holdings_at_end <= 0:
+            logger.debug(f"      No valid start value or holdings for {ticker}")
+            return None, 0
 
     # Calculate period in days
     period_days = (eval_date - end_date).days

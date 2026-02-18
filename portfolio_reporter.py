@@ -249,17 +249,18 @@ class PortfolioReporter:
         # 2. Prepare detail DataFrames (just sorting)
         new_df = self._prepare_periodic_detail(periodic_results.get('new', pd.DataFrame()))
         retained_df = self._prepare_periodic_detail(periodic_results.get('retained', pd.DataFrame()))
+        increased_df = self._prepare_periodic_detail(periodic_results.get('increased', pd.DataFrame()))
         sold_df = self._prepare_periodic_detail(periodic_results.get('sold', pd.DataFrame()))
-        
+
         # 3. Define table sequence
         tables = []
-        
+
         # Summary table (combined summary + per_tag)
         if not summary_df.empty:
             tables.append((summary_df, 'periodic_review_summary', f'Periodic Review Summary ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
-        
+
         # Detail tables
-        for category, df in [('New', new_df), ('Retained', retained_df), ('Sold', sold_df)]:
+        for category, df in [('New', new_df), ('Retained', retained_df), ('Increased', increased_df), ('Sold', sold_df)]:
             if not df.empty:
                 tables.append((df, 'periodic_review_detail', f'{category} Stocks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
         
@@ -300,7 +301,7 @@ class PortfolioReporter:
             per_tag_df['_sort_pnl'] = per_tag_df['pnl'].apply(lambda x: x[0] if isinstance(x, tuple) else x)
             
             # Define category order
-            category_order = {'new': 0, 'retained': 1, 'sold': 2}
+            category_order = {'new': 0, 'retained': 1, 'increased': 2, 'sold': 3}
             per_tag_df['_category_order'] = per_tag_df['sort_category'].map(category_order)
             
             # Sort by category order first, then by P&L descending within each category

@@ -41,8 +41,11 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
 
     # Step 2: Set up stock currencies and fetch all prices in batch
     all_ticker_category_pairs = []
-    for category in ['new', 'retained', 'sold']:
-        all_ticker_category_pairs.extend(classification[category])
+    for cat in ['new', 'sold']:
+        all_ticker_category_pairs.extend(classification[cat])
+    # retained and increased share the same (ticker, category) pairs; deduplicate using retained
+    for entry in classification['retained']:
+        all_ticker_category_pairs.append((entry[0], entry[1]))
 
     if all_ticker_category_pairs:
         # Determine current tickers after any conversions (like full-history mode does)
@@ -102,30 +105,47 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     all_tag_transactions = defaultdict(list)
     all_tag_current_values = defaultdict(float)
 
-    for category in ['new', 'retained', 'sold']:
-        if classification[category]:
-            df, transactions, current_value, tag_txns, tag_values = calculate_periodic_performance(
-                classification[category],
-                portfolio_review,
-                start_date,
-                end_date,
-                eval_date,
-                category,
-                price_data,  # Pass the pre-fetched price data
-                highs_and_vol  # Pass the highs and volatility data
-            )
-            results[category] = df
-            category_transactions[category] = transactions
-            category_current_values[category] = current_value
+    # Build set of (ticker, category) pairs that are in the 'increased' bucket,
+    # so the retained pass can identify them for name-suffixing and holdings capping.
+    increased_tickers = {(entry[0], entry[1]) for entry in classification['increased']}
+
+    for cat in ['new', 'retained', 'sold', 'increased']:
+        if classification[cat]:
+            if cat == 'retained':
+                df, transactions, current_value, tag_txns, tag_values = calculate_periodic_performance(
+                    classification[cat],
+                    portfolio_review,
+                    start_date,
+                    end_date,
+                    eval_date,
+                    cat,
+                    price_data,
+                    highs_and_vol,
+                    increased_tickers=increased_tickers
+                )
+            else:
+                df, transactions, current_value, tag_txns, tag_values = calculate_periodic_performance(
+                    classification[cat],
+                    portfolio_review,
+                    start_date,
+                    end_date,
+                    eval_date,
+                    cat,
+                    price_data,
+                    highs_and_vol
+                )
+            results[cat] = df
+            category_transactions[cat] = transactions
+            category_current_values[cat] = current_value
             # Collect tag-level data across categories
             for tag, txns in tag_txns.items():
                 all_tag_transactions[tag].extend(txns)
             for tag, value in tag_values.items():
                 all_tag_current_values[tag] += value
         else:
-            results[category] = pd.DataFrame()
-            category_transactions[category] = []
-            category_current_values[category] = 0.0
+            results[cat] = pd.DataFrame()
+            category_transactions[cat] = []
+            category_current_values[cat] = 0.0
 
     # Calculate category-level MWRRs
     category_mwrrs = transaction_processor.calculate_aggregated_mwrr(
@@ -143,14 +163,14 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     # Step 5: Create tag-level summary (keep individual DataFrames clean)
     results['per_tag'] = create_tag_summary(results, start_date, end_date, eval_date, tag_mwrrs)
 
-    logger.info(f"Periodic review processing completed: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['sold'])} sold")
+    logger.info(f"Periodic review processing completed: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['increased'])} increased, {len(classification['sold'])} sold")
 
     return results
 
 
 def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_date: datetime,
-                                     end_date: datetime) -> Dict[str, List[Tuple[str, str]]]:
-    """Classify stocks into new, retained, sold, and out-of-scope categories.
+                                     end_date: datetime) -> Dict[str, List]:
+    """Classify stocks into new, retained, increased, sold, and out-of-scope categories.
 
     Args:
         portfolio_review: The portfolio review object
@@ -158,10 +178,15 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
         end_date: End of the review period
 
     Returns:
-        Dictionary with lists of (ticker, category) tuples for each category
+        Dictionary with:
+        - 'new': list of (ticker, category) tuples
+        - 'retained': list of (ticker, category, holdings_at_start, holdings_at_end) tuples
+        - 'increased': list of (ticker, category, holdings_at_start, holdings_at_end) tuples
+        - 'sold': list of (ticker, category) tuples
+        - 'out_of_scope': list of (ticker, category) tuples
     """
     logger.info(f"Classifying stocks for period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-    classification = {'new': [], 'retained': [], 'sold': [], 'out_of_scope': []}
+    classification = {'new': [], 'retained': [], 'increased': [], 'sold': [], 'out_of_scope': []}
 
     # Tolerance for floating point precision issues (e.g., 1e-12 instead of 0)
     HOLDINGS_TOLERANCE = 1e-6
@@ -213,9 +238,14 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
             logger.debug(f"  {ticker} classified as NEW (first transaction in period)")
             classification['new'].append((ticker, category))
         elif holdings_at_start_effective > 0 and holdings_at_end_effective > 0:
-            # Held throughout period = retained
-            logger.debug(f"  {ticker} classified as RETAINED (held at both start and end)")
-            classification['retained'].append((ticker, category))
+            # Held throughout period = retained (and possibly increased)
+            if holdings_at_end_effective > holdings_at_start_effective:
+                logger.debug(f"  {ticker} classified as RETAINED+INCREASED (held at both ends, position grew from {holdings_at_start_effective} to {holdings_at_end_effective})")
+                classification['retained'].append((ticker, category, holdings_at_start_effective, holdings_at_end_effective))
+                classification['increased'].append((ticker, category, holdings_at_start_effective, holdings_at_end_effective))
+            else:
+                logger.debug(f"  {ticker} classified as RETAINED (held at both start and end)")
+                classification['retained'].append((ticker, category, holdings_at_start_effective, holdings_at_end_effective))
         elif holdings_at_start_effective > 0 and holdings_at_end_effective == 0:
             # Sold during period = sold
             logger.debug(f"  {ticker} classified as SOLD (held at start, not at end)")
@@ -225,30 +255,37 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
             logger.debug(f"  {ticker} classified as OUT_OF_SCOPE (other case)")
             classification['out_of_scope'].append((ticker, category))
 
-    logger.info(f"Classification complete: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['sold'])} sold, {len(classification['out_of_scope'])} out_of_scope")
+    logger.info(f"Classification complete: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['increased'])} increased, {len(classification['sold'])} sold, {len(classification['out_of_scope'])} out_of_scope")
 
     return classification
 
 
-def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]], portfolio_review: PortfolioReview,
+def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review: PortfolioReview,
                                    start_date: datetime, end_date: datetime, eval_date: datetime, category: str,
-                                   price_data: Dict = None, highs_and_vol: Dict = None) -> Tuple[pd.DataFrame, List, float, Dict, Dict]:
+                                   price_data: Dict = None, highs_and_vol: Dict = None,
+                                   increased_tickers: set = None) -> Tuple[pd.DataFrame, List, float, Dict, Dict]:
     """Calculate performance for a specific category of stocks.
 
     Args:
-        ticker_category_pairs: List of (ticker, category) tuples in this category
+        ticker_category_pairs: List of (ticker, category) tuples for new/sold, or
+                               (ticker, category, holdings_at_start, holdings_at_end) for retained/increased
         portfolio_review: The portfolio review object
         start_date: Start of the review period
         end_date: End of the review period
         eval_date: Evaluation date
-        category: Category name ('new', 'retained', or 'sold')
+        category: Category name ('new', 'retained', 'increased', or 'sold')
         price_data: Pre-fetched price data
         highs_and_vol: Pre-computed highs and volatility data
+        increased_tickers: Set of (ticker, category) pairs that are in the 'increased' bucket;
+                           used by the retained path to cap holdings and suffix names
 
     Returns:
         Tuple of (DataFrame with performance data, list of all transactions, total current value,
                  dict of tag->transactions, dict of tag->current_value)
     """
+    if increased_tickers is None:
+        increased_tickers = set()
+
     logger.info(f"Calculating performance for {len(ticker_category_pairs)} {category} stocks")
     results = []
     all_transactions = []
@@ -256,7 +293,15 @@ def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]],
     tag_transactions = defaultdict(list)
     tag_current_values = defaultdict(float)
 
-    for ticker, stock_category in ticker_category_pairs:
+    for entry in ticker_category_pairs:
+        # Unpack: retained/increased have 4 elements; new/sold have 2
+        if len(entry) == 4:
+            ticker, stock_category, holdings_at_start, holdings_at_end = entry
+        else:
+            ticker, stock_category = entry
+            holdings_at_start = None
+            holdings_at_end = None
+
         logger.debug(f"Processing {category} stock: {ticker} in {stock_category}")
         try:
             transactions = portfolio_review.get_transaction_history(ticker, stock_category)
@@ -271,11 +316,28 @@ def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]],
             elif category == 'retained':
                 # Retained stocks: value at B → value at C
                 logger.debug(f"  Calculating RETAINED stock performance for {ticker}")
-                start_value, period_days = holdings_calculator.calculate_retained_stock_performance_unified(transactions, start_date, end_date, eval_date, ticker, price_data)
+                is_increased = (ticker, stock_category) in increased_tickers
+                if is_increased:
+                    # Cap holdings to start-of-period holdings to isolate original position
+                    stock_name = stock_name + ' (retained)'
+                    logger.debug(f"  Stock is also INCREASED; capping holdings to {holdings_at_start}, name -> '{stock_name}'")
+                    start_value, period_days = holdings_calculator.calculate_retained_stock_performance_unified(
+                        transactions, start_date, end_date, eval_date, ticker, price_data,
+                        holdings_override=holdings_at_start
+                    )
+                else:
+                    start_value, period_days = holdings_calculator.calculate_retained_stock_performance_unified(
+                        transactions, start_date, end_date, eval_date, ticker, price_data
+                    )
                 # For retained stocks, "Days Held" should be from first EVER transaction to eval_date
                 if transactions:
                     first_ever_txn = min(transactions, key=lambda t: t.date)
                     period_days = (eval_date - first_ever_txn.date).days
+            elif category == 'increased':
+                # Increased stocks: delta investment during [A,B] → value at C
+                # Calculated like 'New': use actual BUY amounts in [start_date, end_date]
+                logger.debug(f"  Calculating INCREASED stock performance for {ticker}")
+                start_value, period_days = holdings_calculator.calculate_start_value_from_transactions(transactions, start_date, end_date, eval_date, ticker, 'BUY')
             elif category == 'sold':
                 # Sold stocks: actual sales during [A,B] → value at C (counterfactual)
                 logger.debug(f"  Calculating SOLD stock performance for {ticker}")
@@ -295,8 +357,27 @@ def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]],
             if category == 'sold':
                 # For sold stocks, use holdings at start_date for counterfactual calculation
                 current_value, current_holdings, current_price = holdings_calculator.get_stock_valuations_at_date(ticker, start_date, end_date, eval_date, transactions, price_data, use_start_date_holdings=True)
+            elif category == 'increased':
+                # For increased: current value is based on delta holdings at eval_date
+                delta_holdings = holdings_at_end - holdings_at_start
+                current_price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+                if current_price is None:
+                    logger.debug(f"  No current price for {ticker}, skipping")
+                    continue
+                current_holdings = delta_holdings
+                current_value = delta_holdings * current_price
+                logger.debug(f"  INCREASED: delta_holdings={delta_holdings}, current_price={current_price}, current_value={current_value}")
+            elif category == 'retained' and (ticker, stock_category) in increased_tickers:
+                # For capped retained: current value is based on start holdings (not end holdings)
+                current_price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+                if current_price is None:
+                    logger.debug(f"  No current price for {ticker}, skipping")
+                    continue
+                current_holdings = holdings_at_start
+                current_value = holdings_at_start * current_price
+                logger.debug(f"  RETAINED(capped): holdings_at_start={holdings_at_start}, current_price={current_price}, current_value={current_value}")
             else:
-                # For new & retained stocks, use holdings at end_date
+                # For new & retained (uncapped) stocks, use holdings at end_date
                 current_value, current_holdings, current_price = holdings_calculator.get_stock_valuations_at_date(ticker, start_date, end_date, eval_date, transactions, price_data)
             logger.debug(f"  Current value: {current_value}, Current holdings: {current_holdings}")
 
@@ -314,6 +395,10 @@ def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]],
             if category == 'new':
                 # For new stocks: use actual BUY transactions in period + terminal value
                 period_transactions = [txn for txn in transactions if start_date <= txn.date <= end_date]
+                synthetic_transactions = period_transactions
+            elif category == 'increased':
+                # For increased: use actual BUY transactions in period (same as new)
+                period_transactions = [txn for txn in transactions if start_date <= txn.date <= end_date and txn.transaction_type == 'BUY']
                 synthetic_transactions = period_transactions
             elif category == 'retained':
                 # For retained: fake BUY at start_date with start_value, fake SELL at eval_date with current_value
@@ -372,8 +457,6 @@ def calculate_periodic_performance(ticker_category_pairs: List[Tuple[str, str]],
                 # Calculate current price as percentage of recent high (both in GBP)
                 if recent_high and recent_high > 0 and current_price is not None:
                     current_price_pct_of_high = current_price / recent_high
-
-            # tag was already retrieved above for tag-level aggregation
 
             result_record = {
                 'ticker': ticker,
@@ -440,7 +523,7 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
         category_mwrrs = {}
     summary_data = []
 
-    for category in ['new', 'retained', 'sold']:
+    for category in ['new', 'retained', 'increased', 'sold']:
         df = results.get(category, pd.DataFrame())
         if df.empty:
             summary_data.append({
@@ -491,7 +574,7 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
     tag_summary_data = []
 
     # Process each category
-    for category in ['new', 'retained', 'sold']:
+    for category in ['new', 'retained', 'increased', 'sold']:
         if results[category].empty:
             continue
 
