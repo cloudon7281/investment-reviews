@@ -63,6 +63,10 @@ test_data.modified_backup/
 # Credentials (service accounts, API keys, etc.)
 credentials/
 
+# Deployment (compose files are meant to be versioned)
+!deploy/docker-compose.yml
+!deploy/docker-compose.yaml
+
 # Development artifacts (local only, not for GitHub)
 plans/
 claude_plans/
