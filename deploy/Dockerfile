@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Ensure a writable working directory for uid 1000 runs
+RUN mkdir -p /app/logs /app/outputs /app/history && chmod -R 0777 /app/logs /app/outputs /app/history
+
 # System deps (if any future libs need them). Keep empty for now.
 # RUN apt-get update && apt-get install -y --no-install-recommends ... && rm -rf /var/lib/apt/lists/*
 
