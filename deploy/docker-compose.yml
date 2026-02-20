@@ -8,15 +8,15 @@ services:
     restart: unless-stopped
     user: "1000:1000"
     environment:
-      - TZ=${TZ}
-      - CONFIG_PATH=${CONFIG_PATH}
-      - SCHEDULE_LOCAL_TIME=${SCHEDULE_LOCAL_TIME}
+      - TZ=Europe/London
+      - CONFIG_PATH=/run/config/config.yaml
+      - SCHEDULE_LOCAL_TIME=22:05
     volumes:
-      - ${CONFIG_DIR}:/run/config:ro
-      - ${CREDENTIALS_DIR}:/run/credentials:ro
-      - ${HISTORY_DIR}:/data/history:ro
-      - ${OUTPUTS_DIR}:/data/outputs
-      - ${LOG_DIR}:/data/logs
+      - ${STATE_DIR}/config:/run/config:ro
+      - ${STATE_DIR}/credentials:/run/credentials:ro
+      - ${STATE_DIR}/history:/data/history:ro
+      - ${STATE_DIR}/outputs:/data/outputs
+      - ${STATE_DIR}/logs:/data/logs
     entrypoint: ["/app/deploy/entrypoints/scheduler.sh"]
 
   runner:
@@ -28,12 +28,12 @@ services:
     profiles: ["manual"]
     user: "1000:1000"
     environment:
-      - TZ=${TZ}
-      - CONFIG_PATH=${CONFIG_PATH}
+      - TZ=Europe/London
+      - CONFIG_PATH=/run/config/config.yaml
     volumes:
-      - ${CONFIG_DIR}:/run/config:ro
-      - ${CREDENTIALS_DIR}:/run/credentials:ro
-      - ${HISTORY_DIR}:/data/history:ro
-      - ${OUTPUTS_DIR}:/data/outputs
-      - ${LOG_DIR}:/data/logs
+      - ${STATE_DIR}/config:/run/config:ro
+      - ${STATE_DIR}/credentials:/run/credentials:ro
+      - ${STATE_DIR}/history:/data/history:ro
+      - ${STATE_DIR}/outputs:/data/outputs
+      - ${STATE_DIR}/logs:/data/logs
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
