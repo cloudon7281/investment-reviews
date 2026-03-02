@@ -1,0 +1,39 @@
+services:
+  scheduler:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: investment-reviews-scheduler
+    container_name: investment-reviews-scheduler
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - TZ=Europe/London
+      - CONFIG_PATH=/run/config/config.yaml
+      - SCHEDULE_LOCAL_TIME=22:05
+    volumes:
+      - ${STATE_DIR}/config:/run/config:ro
+      - ${STATE_DIR}/credentials:/run/credentials:ro
+      - ${STATE_DIR}/history:/data/history:ro
+      - ${STATE_DIR}/outputs:/data/outputs
+      - ${STATE_DIR}/logs:/data/logs
+    entrypoint: ["/app/deploy/entrypoints/scheduler.sh"]
+
+  runner:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: investment-reviews-runner
+    container_name: investment-reviews-runner
+    profiles: ["manual"]
+    user: "1000:1000"
+    environment:
+      - TZ=Europe/London
+      - CONFIG_PATH=/run/config/config.yaml
+    volumes:
+      - ${STATE_DIR}/config:/run/config:ro
+      - ${STATE_DIR}/credentials:/run/credentials:ro
+      - ${STATE_DIR}/history:/data/history:ro
+      - ${STATE_DIR}/outputs:/data/outputs
+      - ${STATE_DIR}/logs:/data/logs
+    entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
