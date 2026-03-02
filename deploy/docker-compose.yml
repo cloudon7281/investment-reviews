@@ -6,7 +6,8 @@ services:
     image: investment-reviews-scheduler
     container_name: investment-reviews-scheduler
     restart: unless-stopped
-    user: "1000:1000"
+    # NOTE: On macOS/Colima mounts, uid/gid mapping can be inconsistent (9p).
+    # Run as root to ensure the scheduler can write to bind-mounted state/log dirs.
     environment:
       - TZ=Europe/London
       - CONFIG_PATH=/run/config/config.yaml
@@ -26,7 +27,8 @@ services:
     image: investment-reviews-runner
     container_name: investment-reviews-runner
     profiles: ["manual"]
-    user: "1000:1000"
+    # NOTE: On macOS/Colima mounts, uid/gid mapping can be inconsistent (9p).
+    # Run as root to ensure the runner can write to bind-mounted state/log dirs.
     environment:
       - TZ=Europe/London
       - CONFIG_PATH=/run/config/config.yaml
