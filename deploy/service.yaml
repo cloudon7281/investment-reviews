@@ -21,11 +21,11 @@ schedules:
 
     job:
       type: command
-      cwd: /Users/cl/srv/investment-reviews/current/deploy
+      cwd: ${CURRENT_DIR}/deploy
       command:
         - /bin/sh
         - -lc
-        - "STATE_DIR=/Users/cl/srv/investment-reviews/state docker compose --profile manual run --rm runner"
+        - "STATE_DIR=${STATE_DIR} docker compose --profile manual run --rm runner"
 
     policy:
       timeoutSec: 7200
