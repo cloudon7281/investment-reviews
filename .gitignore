@@ -66,6 +66,7 @@ credentials/
 # Deployment (compose files are meant to be versioned)
 !deploy/docker-compose.yml
 !deploy/docker-compose.yaml
+!deploy/service.yaml
 
 # Development artifacts (local only, not for GitHub)
 plans/

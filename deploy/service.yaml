@@ -1,0 +1,34 @@
+# SDI v1 service manifest — see ~/clawd/docs/deployment-architecture/service-deploy-interface-v1.md §2.3
+# Tier-1 kicker schedules (optional) — see ~/clawd/docs/deployment-architecture/tier1-kicker-v0.md
+
+stack: investment-reviews
+
+# No inbound ports for this stack.
+ports: []
+
+schedules:
+  - id: nightly
+    enabled: true
+    timezone: Europe/London
+
+    when:
+      type: daily_at
+      time: "22:05"
+
+    catchUp:
+      enabled: true
+      maxLateMinutes: 720
+
+    job:
+      type: command
+      cwd: /Users/cl/srv/investment-reviews/current/deploy
+      command:
+        - /bin/sh
+        - -lc
+        - "STATE_DIR=/Users/cl/srv/investment-reviews/state docker compose --profile manual run --rm runner"
+
+    policy:
+      timeoutSec: 7200
+      concurrency:
+        hostLock: true
+        lockWaitSec: 0
