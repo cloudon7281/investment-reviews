@@ -95,6 +95,7 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
 
     # Process each stock to find sell transactions in tax year
     tax_transactions = []
+    in_scope_tickers = []  # (ticker, category) pairs that had sells in the tax year
 
     for ticker, category in taxable_tickers:
         logger.debug(f"Processing tax report for {ticker} in {category}")
@@ -103,10 +104,12 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
         logger.debug(f"Tax report: Found {len(transactions)} raw transactions for {ticker} (bed-and-ISA processing skipped)")
 
         # Find sell transactions in tax year
+        ticker_had_sell = False
         for txn in transactions:
             if (txn.transaction_type == 'SELL' and
                 tax_year_start <= txn.date <= tax_year_end):
 
+                ticker_had_sell = True
                 # Calculate P&L for this transaction
                 pnl_data = calculate_tax_pnl(ticker, txn, transactions, tax_year_start)
 
@@ -122,6 +125,8 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
                         'average_price': pnl_data['average_price'],
                         'pnl': pnl_data['pnl']
                     })
+        if ticker_had_sell:
+            in_scope_tickers.append((ticker, category))
 
     # Create DataFrame
     if tax_transactions:
@@ -153,5 +158,6 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
 
     return {
         'summary': summary_df,
-        'transactions': df
+        'transactions': df,
+        'in_scope_tickers': in_scope_tickers
     }

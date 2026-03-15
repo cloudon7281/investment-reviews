@@ -42,7 +42,9 @@ def parse_args():
     # Tax reporting specific arguments
     parser.add_argument('--tax-year', type=str,
                       help='Tax year for tax reporting (FYxx format, e.g., FY25 for tax year ending 5 April 2025)')
-    
+    parser.add_argument('--document-bundle', type=str, metavar='FILENAME',
+                      help='Create a ZIP archive of all relevant stock note files for the tax year (tax-report mode only)')
+
     # Value over time specific arguments
     parser.add_argument('--value-over-time', type=int, metavar='N',
                       help='Generate CSV showing portfolio value over the past N days (full-history mode only, requires --output-file)')
@@ -210,6 +212,15 @@ def main():
             # Process tax report
             tax_report_results = portfolio_analysis.process_tax_report(portfolio_review, tax_year_start, tax_year_end)
             reporter.display_tax_report(tax_report_results, args.tax_year)
+
+            # Optionally create document bundle
+            if args.document_bundle:
+                reporter.create_document_bundle(
+                    tax_report_results.get('in_scope_tickers', []),
+                    portfolio_review,
+                    tax_year_end,
+                    args.document_bundle
+                )
         elif args.mode == 'annual-review':
             # Annual review mode: Performance analysis from start date to today
             if not args.start_date:

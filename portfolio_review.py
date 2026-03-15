@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from logger import logger
 import re
@@ -78,6 +78,7 @@ class StockNote:
     transactions: Optional[List[StockTransaction]] = None  # List of individual buy/sell transactions
     tag: Optional[str] = None  # Tag assigned based on directory structure (first transaction only)
     stock_code_in_pdf: Optional[bool] = None  # Track if STOCK CODE was present in original PDF (for anonymization)
+    file_paths: List[str] = field(default_factory=list)  # All source file paths for this stock
 
     def __post_init__(self):
         """Extract stock name, shares, and ticker from the file path."""
@@ -87,6 +88,8 @@ class StockNote:
             self.shares = self._extract_shares(os.path.basename(self.file_path))
         if not self.ticker:
             self.ticker = self._extract_ticker(os.path.basename(self.file_path))
+        if self.file_path and self.file_path not in self.file_paths:
+            self.file_paths.append(self.file_path)
 
     def _extract_shares(self, filename: str) -> Optional[int]:
         """Extract number of shares from filename."""
@@ -692,6 +695,8 @@ class PortfolioReview:
             existing_stock = stocks_by_ticker[stock_key]
             if existing_stock.tag != tag:
                 logger.warning(f"Stock {ticker} in {account_type} tag changed from '{existing_stock.tag}' to '{tag}' - this may indicate an input error")
+            if file_path not in existing_stock.file_paths:
+                existing_stock.file_paths.append(file_path)
         
         stock_note = stocks_by_ticker[stock_key]
         
@@ -770,6 +775,8 @@ class PortfolioReview:
         for stock_key, stock_note in matching_stocks:
             # Insert transaction chronologically
             self._insert_transaction_chronologically(stock_note.transactions, transaction)
+            if file_path not in stock_note.file_paths:
+                stock_note.file_paths.append(file_path)
             logger.info(f"Applied stock conversion to {stock_note.ticker} in {stock_note.category}")
         
         # If this conversion changes the ticker, update the ticker mapping (ticker-only, no category)
@@ -813,6 +820,8 @@ class PortfolioReview:
         for stock_key, stock_note in matching_stocks:
             # Insert transaction chronologically
             self._insert_transaction_chronologically(stock_note.transactions, transaction)
+            if file_path not in stock_note.file_paths:
+                stock_note.file_paths.append(file_path)
             logger.info(f"Added merger transaction for {stock_name} in {stock_note.category}: {data.get('num_shares', 0)} shares sold for £{data.get('total_amount', 0.0):.2f}")
 
     # Methods for full-history mode data access
@@ -888,4 +897,39 @@ class PortfolioReview:
                 if stock.ticker == ticker:
                     return stock.tag
         return None
+
+    def get_source_files_for_tickers(self, tickers: List[Tuple[str, str]], before_date: datetime) -> List[Tuple[str, str, str]]:
+        """Get all source file paths for the given (ticker, category) pairs up to before_date.
+
+        Args:
+            tickers: List of (ticker, category) pairs to collect files for
+            before_date: Only include files from years <= before_date.year
+
+        Returns:
+            List of (file_path, company_name, year) tuples, deduplicated and sorted
+        """
+        ticker_set = set(tickers)
+        results = []
+        seen_paths = set()
+
+        for cat, category_stocks in self.stock_notes.items():
+            for stock in category_stocks:
+                if not stock.ticker or (stock.ticker, stock.category) not in ticker_set:
+                    continue
+                company_name = stock.stock_name or stock.ticker
+                for fp in stock.file_paths:
+                    if fp in seen_paths:
+                        continue
+                    _, year, _ = self._extract_account_type_and_year(fp)
+                    if year is None:
+                        continue
+                    try:
+                        if int(year) <= before_date.year:
+                            results.append((fp, company_name, year))
+                            seen_paths.add(fp)
+                    except ValueError:
+                        pass
+
+        results.sort(key=lambda x: (x[1], x[2], os.path.basename(x[0])))
+        return results
 

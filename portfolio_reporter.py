@@ -1,7 +1,9 @@
 from datetime import datetime
+import os
+import zipfile
 import pandas as pd
 import math
-from typing import Dict, List, Optional, TypedDict, Any
+from typing import Dict, List, Optional, Tuple, TypedDict, Any
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -605,3 +607,42 @@ class PortfolioReporter:
         csv_writer.write_price_over_time(price_df)
 
         logger.info(f"Price-over-time CSV written: {csv_filename}")
+
+    def create_document_bundle(self, in_scope_tickers: List[Tuple[str, str]],
+                               portfolio_review, tax_year_end: datetime,
+                               output_path: str) -> None:
+        """Create a ZIP archive of all stock note files for in-scope tickers.
+
+        The archive contains all source documents from the first transaction up to
+        the end of the tax year, organised as <company name>/<year>/<filename>.
+
+        Args:
+            in_scope_tickers: List of (ticker, category) pairs that had sells in the tax year
+            portfolio_review: PortfolioReview instance (for get_source_files_for_tickers)
+            tax_year_end: End of tax year; files from years > tax_year_end.year are excluded
+            output_path: Destination path for the ZIP file (extension added if absent)
+        """
+        if not output_path.endswith('.zip'):
+            output_path = output_path + '.zip'
+
+        source_files = portfolio_review.get_source_files_for_tickers(in_scope_tickers, tax_year_end)
+
+        if not source_files:
+            logger.warning("No source files found for document bundle")
+            print("No source files found to bundle.")
+            return
+
+        logger.info(f"Creating document bundle with {len(source_files)} files -> {output_path}")
+
+        with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for file_path, company_name, year in source_files:
+                if not os.path.exists(file_path):
+                    logger.warning(f"Source file not found, skipping: {file_path}")
+                    continue
+                # Sanitise company name for use as a directory (remove path-unsafe chars)
+                safe_company = company_name.replace('/', '-').replace('\\', '-')
+                archive_name = f"{safe_company}/{year}/{os.path.basename(file_path)}"
+                zf.write(file_path, archive_name)
+                logger.debug(f"Added to bundle: {archive_name}")
+
+        print(f"Document bundle written: {output_path} ({len(source_files)} files)")
