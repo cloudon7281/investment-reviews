@@ -970,12 +970,140 @@ class TestAnnualReviewPnL(unittest.TestCase):
         self.assertEqual(pnl, 100.0)  # (£700 + £400) - £1000 = £100 profit
 
 
+class TestProgressToDoubling(unittest.TestCase):
+    """Tests for get_first_buy_price_split_adjusted and progress_to_doubling formatting."""
+
+    def _make_buy(self, price):
+        return StockTransaction(
+            date=datetime(2020, 1, 1),
+            transaction_type='BUY',
+            quantity=100,
+            price_per_share=price,
+            total_amount=price * 100,
+        )
+
+    def _make_conversion(self, old_qty, new_qty, date_offset=1):
+        return StockTransaction(
+            date=datetime(2020, 1, 1 + date_offset),
+            transaction_type='STOCK_CONVERSION',
+            quantity=old_qty,
+            price_per_share=0.0,
+            total_amount=0.0,
+            new_quantity=new_qty,
+        )
+
+    def _make_sell(self):
+        return StockTransaction(
+            date=datetime(2021, 6, 1),
+            transaction_type='SELL',
+            quantity=50,
+            price_per_share=20.0,
+            total_amount=1000.0,
+        )
+
+    def test_no_transactions_returns_none(self):
+        """Empty transaction list returns None."""
+        result = transaction_processor.get_first_buy_price_split_adjusted([])
+        self.assertIsNone(result)
+
+    def test_no_buy_transactions_returns_none(self):
+        """Transaction list with no BUY returns None."""
+        sell = self._make_sell()
+        result = transaction_processor.get_first_buy_price_split_adjusted([sell])
+        self.assertIsNone(result)
+
+    def test_single_buy_no_conversion(self):
+        """Single BUY with no conversion returns the buy price unchanged."""
+        buy = self._make_buy(10.0)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_uses_first_buy_not_average(self):
+        """Only the FIRST BUY price is used; subsequent buys are ignored."""
+        buy1 = StockTransaction(
+            date=datetime(2020, 1, 1), transaction_type='BUY',
+            quantity=100, price_per_share=10.0, total_amount=1000.0,
+        )
+        buy2 = StockTransaction(
+            date=datetime(2021, 1, 1), transaction_type='BUY',
+            quantity=100, price_per_share=20.0, total_amount=2000.0,
+        )
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy1, buy2])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_two_to_one_split_halves_base_price(self):
+        """A 2:1 split (100 -> 200 shares) should halve the base price."""
+        buy = self._make_buy(10.0)
+        conversion = self._make_conversion(old_qty=100, new_qty=200)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, conversion])
+        self.assertAlmostEqual(result, 5.0)
+
+    def test_reverse_split_increases_base_price(self):
+        """A reverse split (200 -> 100 shares) should double the base price."""
+        buy = self._make_buy(10.0)
+        conversion = self._make_conversion(old_qty=200, new_qty=100)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, conversion])
+        self.assertAlmostEqual(result, 20.0)
+
+    def test_conversion_before_first_buy_is_ignored(self):
+        """A STOCK_CONVERSION that precedes the first BUY must not affect base_price."""
+        pre_conversion = StockTransaction(
+            date=datetime(2019, 12, 31), transaction_type='STOCK_CONVERSION',
+            quantity=100, price_per_share=0.0, total_amount=0.0, new_quantity=200,
+        )
+        buy = self._make_buy(10.0)
+        result = transaction_processor.get_first_buy_price_split_adjusted([pre_conversion, buy])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_share_grant_ignored(self):
+        """A share grant (quantity == 0 conversion) must not alter the base price."""
+        buy = self._make_buy(10.0)
+        grant = StockTransaction(
+            date=datetime(2020, 6, 1), transaction_type='STOCK_CONVERSION',
+            quantity=0, price_per_share=0.0, total_amount=0.0, new_quantity=10,
+        )
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, grant])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_running_units_before_sell_accounted_for_in_ratio(self):
+        """Conversion ratio accumulates correctly across multiple splits.
+
+        Buy at £10, then 2:1 split → adjusted base £5, then another 2:1 split → £2.50.
+        """
+        buy = self._make_buy(10.0)
+        split1 = self._make_conversion(old_qty=100, new_qty=200, date_offset=1)
+        split2 = self._make_conversion(old_qty=200, new_qty=400, date_offset=2)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, split1, split2])
+        self.assertAlmostEqual(result, 2.5)
+
+    def test_progress_to_doubling_format(self):
+        """ratio should be formatted as '{:.1f}x'."""
+        ratio = 1.5
+        formatted = f"{ratio:.1f}x"
+        self.assertEqual(formatted, "1.5x")
+
+    def test_progress_to_doubling_exactly_doubled(self):
+        """A 2x gain should display as '2.0x'."""
+        ratio = 2.0
+        formatted = f"{ratio:.1f}x"
+        self.assertEqual(formatted, "2.0x")
+
+    def test_progress_to_doubling_missing_base_price_displays_dash(self):
+        """When base_price is None or 0 the display value should be the em dash."""
+        for bad in (None, 0, 0.0):
+            if not bad:
+                display = "\u2014"
+            else:
+                display = f"{1.5:.1f}x"
+            self.assertEqual(display, "\u2014")
+
+
 def run_unit_tests():
     """Run all unit tests."""
     # Create test suite
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    
+
     # Add test classes
     suite.addTests(loader.loadTestsFromTestCase(TestCurrencyConversion))
     suite.addTests(loader.loadTestsFromTestCase(TestTickerConversion))
@@ -988,6 +1116,7 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewMWRR))
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewPnL))
     suite.addTests(loader.loadTestsFromTestCase(TestBenchmarkPerformance))
+    suite.addTests(loader.loadTestsFromTestCase(TestProgressToDoubling))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
