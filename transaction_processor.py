@@ -249,3 +249,38 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
         'conversion_ratio': conversion_ratio,
         'current_ticker': current_ticker
     }
+
+
+def get_first_buy_price_split_adjusted(transactions: List) -> Optional[float]:
+    """Return the first BUY transaction's price per share, adjusted for subsequent splits/conversions.
+
+    The first-buy unit price is used as base_price for progress-to-doubling calculations.
+    Any STOCK_CONVERSION events that occur *after* the first buy are applied so the returned
+    price is directly comparable to the current (post-split) market price.
+
+    Share grants (STOCK_CONVERSION with quantity == 0) are ignored because they add shares
+    without changing the price ratio of existing holdings.
+
+    Args:
+        transactions: List of StockTransaction objects in chronological order.
+
+    Returns:
+        Split-adjusted base price per share, or None if no BUY transaction exists.
+    """
+    first_buy_price: Optional[float] = None
+    cumulative_conversion_ratio: float = 1.0
+
+    for txn in transactions:
+        if txn.transaction_type == 'BUY' and first_buy_price is None:
+            first_buy_price = txn.price_per_share
+        elif (
+            txn.transaction_type == 'STOCK_CONVERSION'
+            and first_buy_price is not None
+            and txn.new_quantity is not None
+            and txn.quantity > 0
+        ):
+            cumulative_conversion_ratio *= txn.new_quantity / txn.quantity
+
+    if first_buy_price is None or cumulative_conversion_ratio == 0:
+        return None
+    return first_buy_price / cumulative_conversion_ratio
