@@ -251,6 +251,65 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
     }
 
 
+def calculate_doubling_metrics(transactions: List, current_price: Optional[float]) -> tuple:
+    """Calculate progress-to-doubling ratio and count of completed profit-taking doublings.
+
+    A profit-taking event is a SELL where:
+      - The fraction sold is between 15% and 30% of holdings at the time of the sell
+      - The sell price exceeds 1.9× the current base_price
+
+    base_price starts at the first BUY price.  After each qualifying sell, base_price resets
+    to that sell price so the next doubling is measured from the new watermark.
+    STOCK_CONVERSION events adjust the running base_price proportionally (e.g. a 2:1 split
+    halves the base price so it stays comparable with post-split market prices).
+
+    Args:
+        transactions: Full lifetime transaction history (chronological).
+        current_price: Current price per share (GBP), or None if fully sold.
+
+    Returns:
+        Tuple of (progress_to_doubling: str, doubling_count: int) where
+        progress_to_doubling is e.g. "1.7x" or "—" when base_price is unavailable.
+    """
+    running_base_price: Optional[float] = None
+    current_units: float = 0.0
+    doubling_count: int = 0
+
+    for txn in sorted(transactions, key=lambda t: t.date):
+        if txn.transaction_type == 'BUY':
+            if running_base_price is None:
+                running_base_price = txn.price_per_share
+            current_units += txn.quantity
+
+        elif txn.transaction_type == 'SELL':
+            qty = abs(txn.quantity)
+            if current_units > 0 and running_base_price is not None and running_base_price > 0:
+                fraction = qty / current_units
+                if 0.15 <= fraction <= 0.30 and txn.price_per_share > 1.9 * running_base_price:
+                    doubling_count += 1
+                    running_base_price = txn.price_per_share
+            current_units -= qty
+
+        elif txn.transaction_type == 'STOCK_CONVERSION':
+            if txn.new_quantity is not None and txn.quantity > 0:
+                ratio = txn.new_quantity / txn.quantity
+                current_units *= ratio
+                if running_base_price is not None:
+                    running_base_price /= ratio  # price per share falls when share count rises
+
+        elif txn.transaction_type == 'TRANSFER':
+            current_units += txn.quantity
+
+    # Format progress_to_doubling
+    if running_base_price is None or running_base_price <= 0 or current_price is None:
+        progress_to_doubling = "\u2014"  # em dash
+    else:
+        ratio = current_price / running_base_price
+        progress_to_doubling = f"{ratio:.1f}x"
+
+    return progress_to_doubling, doubling_count
+
+
 def get_first_buy_price_split_adjusted(transactions: List) -> Optional[float]:
     """Return the first BUY transaction's price per share, adjusted for subsequent splits/conversions.
 

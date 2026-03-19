@@ -98,9 +98,6 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
         first_transaction_date = transactions[0].get_date() if transactions else None
         final_transaction_date = transactions[-1].get_date() if transactions else None
 
-        # Base price: first BUY unit price adjusted for any subsequent splits/conversions
-        base_price = transaction_processor.get_first_buy_price_split_adjusted(transactions)
-
         # Store stock data using (ticker, category) tuple as key
         stock_key = (ticker, category)
         stock_data[stock_key] = {
@@ -118,7 +115,6 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             'final_transaction_date': final_transaction_date,
             'num_transactions': len(transactions),
             'transactions': transactions,  # Store for stock split detection
-            'base_price': base_price,
         }
 
         # If still holding shares, we need current price
@@ -267,16 +263,6 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
         if data['units_held'] > 0 and current_value > 0:
             current_price_per_share = current_value / data['units_held']
 
-        # Progress to doubling: current_price / split-adjusted first-buy price
-        base_price = data.get('base_price')
-        if not base_price:
-            progress_to_doubling = "\u2014"  # em dash for missing/zero base price
-        elif current_price_per_share is not None:
-            ratio = current_price_per_share / base_price
-            progress_to_doubling = f"{ratio:.1f}x"
-        else:
-            progress_to_doubling = None  # fully sold, no current price
-
         # Calculate unrealized profit (profit from currently held units)
         unrealized_profit = 0.0
         if data['units_held'] > 0 and data['gross_units_bought'] > 0 and current_price_per_share is not None:
@@ -299,8 +285,6 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             'mwrr': mwrr,
             'units_held': data['units_held'],
             'current_price': current_price_per_share,
-            'base_price': base_price,
-            'progress_to_doubling': progress_to_doubling,
             'first_transaction_date': data['first_transaction_date'],
             'final_transaction_date': data['final_transaction_date'],
             'num_transactions': data['num_transactions'],

@@ -555,6 +555,15 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
                 if recent_high and recent_high > 0 and current_price is not None:
                     current_price_pct_of_high = current_price / recent_high
 
+            # Compute lifetime doubling metrics for holding categories
+            if category in ('new', 'retained', 'increased'):
+                progress_to_doubling, doubling_count = transaction_processor.calculate_doubling_metrics(
+                    transactions, current_price
+                )
+            else:
+                progress_to_doubling = None
+                doubling_count = None
+
             result_record = {
                 'ticker': ticker,
                 'company_name': stock_name,
@@ -569,7 +578,9 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
                 'current_price': (current_price, 'GBP'),
                 'recent_high': (recent_high, 'GBP'),
                 'volatility': volatility,
-                'current_price_pct_of_high': current_price_pct_of_high
+                'current_price_pct_of_high': current_price_pct_of_high,
+                'progress_to_doubling': progress_to_doubling,
+                'doubling_count': doubling_count,
             }
             logger.debug(f"    Result record for {ticker}: {result_record}")
             results.append(result_record)
