@@ -231,7 +231,7 @@ Entry point: parses args → invokes PortfolioReview → PortfolioAnalysis → P
 - **Never run git commit/push without explicit, bounded user permission for current session**
 
 **Remotes:**
-- `jarvis`: Gitea on jarvis (ssh://git@jarvis:2222/jarvis/investment-reviews.git) — canonical Tier 1
+- `jarvis`: Gitea on jarvis (ssh://git@jarvis:2222/Calum-Labs/investment-reviews.git) — canonical Tier 1
 - `github`: GitHub (git@github.com:cloudon7281/investment-reviews.git)
 
 When pushing, push to both remotes:
