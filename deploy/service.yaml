@@ -6,6 +6,15 @@ stack: investment-reviews
 # No inbound ports for this stack.
 ports: []
 
+# Explicitly mark this stack as jobs-only.
+# Back-compat default is always-on for stacks that omit this.
+deployMode: jobs-only
+
+jobsOnly:
+  prebuild:
+    profile: manual
+    services: [runner]
+
 schedules:
   - id: nightly
     enabled: true
