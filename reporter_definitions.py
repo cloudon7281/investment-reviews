@@ -235,6 +235,28 @@ COLUMN_CONFIGS = {
             STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
         ]
     },
+    'periodic_review_benchmark': {
+        'headers': ['Tag', 'Ticker', 'Index / ETF', 'Start Value (£1k)', 'Current Value', 'P&L', 'ROI'],
+        'columns': ['tag', 'ticker', 'company_name', 'start_value', 'current_value', 'pnl', 'simple_roi'],
+        'column_formats': [
+            None,                        # Tag - text
+            None,                        # Ticker - text
+            None,                        # Index / ETF - text
+            CURRENCY_FORMAT_NO_DECIMALS, # Start Value
+            CURRENCY_FORMAT_NO_DECIMALS, # Current Value
+            CURRENCY_FORMAT_NO_DECIMALS, # P&L
+            PERCENTAGE_FORMAT,           # ROI
+        ],
+        'column_thresholds': [
+            None,                            # Tag
+            None,                            # Ticker
+            None,                            # Index / ETF
+            None,                            # Start Value
+            None,                            # Current Value
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # P&L
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # ROI
+        ]
+    },
     'annual_review_detail': {
         'headers': ['Tag', 'Company', 'Ticker', 'Category', 'First Txn', 'Start Price', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
         'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'first_transaction_date', 'start_price', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],

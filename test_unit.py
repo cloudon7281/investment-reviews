@@ -987,12 +987,192 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestMissingPriceData))
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewMWRR))
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewPnL))
-    
+    suite.addTests(loader.loadTestsFromTestCase(TestBenchmarkPerformance))
+
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
-    
+
     return result.wasSuccessful()
+
+
+# ---------------------------------------------------------------------------
+# Benchmark tests
+# ---------------------------------------------------------------------------
+
+from periodic_review_processor import (
+    calculate_benchmark_performance,
+    create_periodic_review_summary,
+    create_tag_summary,
+    BENCHMARKS,
+    BENCHMARK_NORMALISED_START,
+)
+
+
+def _make_price_data(tickers, start_date, eval_date, start_prices, eval_prices):
+    """Build a minimal price_data dict compatible with get_stock_price_from_data."""
+    price_data = {}
+    for ticker, sp, ep in zip(tickers, start_prices, eval_prices):
+        price_data[ticker] = pd.DataFrame(
+            {'Close': [sp, ep]},
+            index=[start_date, eval_date]
+        )
+    return price_data
+
+
+class TestBenchmarkPerformance(unittest.TestCase):
+    """Tests for calculate_benchmark_performance and summary helpers."""
+
+    def setUp(self):
+        self.start_date = datetime(2026, 1, 1)
+        self.eval_date = datetime(2026, 3, 1)
+
+    def _price_data_for_ticker(self, ticker, start_price, eval_price):
+        return {
+            ticker: pd.DataFrame(
+                {'Close': [start_price, eval_price]},
+                index=[self.start_date, self.eval_date]
+            )
+        }
+
+    def test_normalised_start_value_is_1000(self):
+        """Start value must always equal BENCHMARK_NORMALISED_START regardless of index level."""
+        ticker = '^GSPC'
+        price_data = self._price_data_for_ticker(ticker, start_price=4500.0, eval_price=4950.0)
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        row = df[df['ticker'] == ticker]
+        self.assertFalse(row.empty, "Expected a row for ^GSPC")
+        self.assertEqual(row.iloc[0]['start_value'], (BENCHMARK_NORMALISED_START, 'GBP'))
+
+    def test_roi_reflects_price_change(self):
+        """ROI should equal (eval_price - start_price) / start_price."""
+        ticker = '^GSPC'
+        start_price, eval_price = 4000.0, 4400.0  # +10%
+        price_data = self._price_data_for_ticker(ticker, start_price, eval_price)
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        row = df[df['ticker'] == ticker]
+        self.assertAlmostEqual(row.iloc[0]['simple_roi'], 0.10, places=6)
+
+    def test_current_value_scaled_correctly(self):
+        """Current value = £1000 * (eval_price / start_price)."""
+        ticker = '^FTSE'
+        start_price, eval_price = 8000.0, 8400.0  # +5%
+        price_data = self._price_data_for_ticker(ticker, start_price, eval_price)
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        row = df[df['ticker'] == ticker]
+        expected_current = BENCHMARK_NORMALISED_START * (eval_price / start_price)
+        self.assertAlmostEqual(row.iloc[0]['current_value'][0], expected_current, places=4)
+
+    def test_missing_start_price_skips_ticker(self):
+        """A ticker with no start-date price should be omitted from results."""
+        ticker = '^GSPC'
+        # Only eval price present (no data at start_date)
+        price_data = {
+            ticker: pd.DataFrame(
+                {'Close': [4950.0]},
+                index=[self.eval_date]
+            )
+        }
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        self.assertTrue(df.empty or ticker not in df['ticker'].values)
+
+    def test_missing_eval_price_skips_ticker(self):
+        """A ticker with no eval-date price should be omitted from results."""
+        ticker = '^GSPC'
+        price_data = {
+            ticker: pd.DataFrame(
+                {'Close': [4500.0]},
+                index=[self.start_date]
+            )
+        }
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        self.assertTrue(df.empty or ticker not in df['ticker'].values)
+
+    def test_all_rows_flagged_is_benchmark(self):
+        """Every row returned must have is_benchmark=True."""
+        ticker = '^GSPC'
+        price_data = self._price_data_for_ticker(ticker, 4000.0, 4200.0)
+        df = calculate_benchmark_performance(price_data, self.start_date, self.eval_date)
+        self.assertFalse(df.empty)
+        self.assertTrue(all(df['is_benchmark'] == True))  # noqa: E712
+
+    def test_benchmark_not_in_portfolio_summary_totals(self):
+        """Benchmark values must not contribute to portfolio category totals."""
+        # Build a minimal benchmarks_df with one row
+        benchmarks_df = pd.DataFrame([{
+            'ticker': '^GSPC',
+            'company_name': 'S&P 500',
+            'tag': 'Benchmarks - US Equities',
+            'start_value': (BENCHMARK_NORMALISED_START, 'GBP'),
+            'current_value': (1100.0, 'GBP'),
+            'pnl': (100.0, 'GBP'),
+            'simple_roi': 0.10,
+            'is_benchmark': True,
+        }])
+
+        # results dict with no portfolio data
+        results = {k: pd.DataFrame() for k in ['new', 'retained', 'increased', 'sold']}
+        summary = create_periodic_review_summary(
+            results,
+            self.start_date,
+            self.eval_date,
+            self.eval_date,
+            benchmarks_df=benchmarks_df
+        )
+
+        # Portfolio category rows should all have zero values
+        portfolio_rows = summary[summary['is_benchmark'] == False]  # noqa: E712
+        for col in ['start_value', 'current_value', 'pnl']:
+            total = sum(v[0] for v in portfolio_rows[col])
+            self.assertEqual(total, 0.0, f"Portfolio {col} should be 0, got {total}")
+
+        # Benchmark summary row must exist and be flagged
+        benchmark_rows = summary[summary['is_benchmark'] == True]  # noqa: E712
+        self.assertEqual(len(benchmark_rows), 1)
+        self.assertEqual(benchmark_rows.iloc[0]['category'], 'Benchmarks')
+
+    def test_create_tag_summary_benchmark_rows_flagged(self):
+        """create_tag_summary must flag benchmark tag rows with is_benchmark=True."""
+        benchmarks_df = pd.DataFrame([
+            {
+                'ticker': '^GSPC',
+                'company_name': 'S&P 500',
+                'tag': 'Benchmarks - US Equities',
+                'start_value': (1000.0, 'GBP'),
+                'current_value': (1100.0, 'GBP'),
+                'pnl': (100.0, 'GBP'),
+                'simple_roi': 0.10,
+                'is_benchmark': True,
+            },
+            {
+                'ticker': '^IXIC',
+                'company_name': 'Nasdaq',
+                'tag': 'Benchmarks - US Equities',
+                'start_value': (1000.0, 'GBP'),
+                'current_value': (1200.0, 'GBP'),
+                'pnl': (200.0, 'GBP'),
+                'simple_roi': 0.20,
+                'is_benchmark': True,
+            },
+        ])
+
+        results = {k: pd.DataFrame() for k in ['new', 'retained', 'increased', 'sold']}
+        per_tag = create_tag_summary(
+            results,
+            self.start_date,
+            self.eval_date,
+            self.eval_date,
+            benchmarks_df=benchmarks_df
+        )
+
+        # Should have exactly one tag row for 'Benchmarks - US Equities'
+        tag_rows = per_tag[per_tag['tag'] == 'Benchmarks - US Equities']
+        self.assertEqual(len(tag_rows), 1)
+        self.assertTrue(tag_rows.iloc[0]['is_benchmark'])
+        # sort_category must be 'benchmark' for correct ordering
+        self.assertEqual(tag_rows.iloc[0]['sort_category'], 'benchmark')
+        # Aggregated start_value should be sum (2 x £1000)
+        self.assertEqual(tag_rows.iloc[0]['start_value'], (2000.0, 'GBP'))
 
 
 if __name__ == '__main__':

@@ -16,6 +16,86 @@ import holdings_calculator
 import financial_metrics
 
 
+# ---------------------------------------------------------------------------
+# Benchmark definitions
+#
+# Each entry: (tag, yahoo_ticker, display_name)
+#
+# Ticker selection rationale:
+#   - US Equities:       ^DJI, ^GSPC, ^IXIC  — Yahoo-native index tickers, highly reliable
+#   - European Equities: ^STOXX50E            — Yahoo-native index ticker
+#   - UK Equities:       ^FTSE               — FTSE 100, reliable; ^FTMC excluded (unreliable on Yahoo)
+#   - World Equities:    SWDA.L              — London-listed iShares Core MSCI World ETF
+#                                               (preferred over IWDA.AS which is less reliable on Yahoo)
+#   - Government Bonds:  IGLT.L              — iShares UK Gilts UCITS ETF, London-listed
+#   - Corporate Bonds:   SLXX.L              — iShares GBP Corp Bond UCITS ETF, London-listed
+# ---------------------------------------------------------------------------
+BENCHMARKS: List[Tuple[str, str, str]] = [
+    ('Benchmarks - US Equities',       '^DJI',      'Dow Jones Industrial Average'),
+    ('Benchmarks - US Equities',       '^GSPC',     'S&P 500'),
+    ('Benchmarks - US Equities',       '^IXIC',     'Nasdaq Composite'),
+    ('Benchmarks - European Equities', '^STOXX50E', 'Euro Stoxx 50'),
+    ('Benchmarks - UK Equities',       '^FTSE',     'FTSE 100'),
+    ('Benchmarks - World Equities',    'SWDA.L',    'iShares Core MSCI World (SWDA.L)'),
+    ('Benchmarks - Government Bonds',  'IGLT.L',    'iShares UK Gilts (IGLT.L)'),
+    ('Benchmarks - Corporate Bonds',   'SLXX.L',    'iShares GBP Corp Bond (SLXX.L)'),
+]
+
+# Normalised start value for each benchmark (£)
+BENCHMARK_NORMALISED_START = 1000.0
+
+
+def calculate_benchmark_performance(price_data: Dict, start_date: datetime,
+                                    eval_date: datetime) -> pd.DataFrame:
+    """Calculate normalised benchmark performance for all defined benchmarks.
+
+    Each benchmark's start value is normalised to BENCHMARK_NORMALISED_START (£1000) so
+    that relative performance can be compared directly.  These rows must NOT be
+    included in portfolio total calculations (is_benchmark=True).
+
+    Args:
+        price_data: Pre-fetched price data keyed by ticker (GBP, from MarketDataFetcher)
+        start_date: Period start date — price used to normalise start value
+        eval_date: Evaluation date — price used to compute current value
+
+    Returns:
+        DataFrame with one row per successfully-fetched benchmark ticker, containing
+        the same columns as periodic_review_detail rows plus is_benchmark=True.
+    """
+    results = []
+    for tag, ticker, display_name in BENCHMARKS:
+        start_price = holdings_calculator.get_stock_price_from_data(ticker, start_date, price_data)
+        eval_price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+
+        if start_price is None or start_price == 0:
+            logger.warning(f"Benchmark {ticker}: no start price at {start_date.date()}, skipping")
+            continue
+        if eval_price is None:
+            logger.warning(f"Benchmark {ticker}: no eval price at {eval_date.date()}, skipping")
+            continue
+
+        scale = BENCHMARK_NORMALISED_START / start_price
+        current_value = eval_price * scale
+        pnl = current_value - BENCHMARK_NORMALISED_START
+        roi = pnl / BENCHMARK_NORMALISED_START
+
+        results.append({
+            'ticker': ticker,
+            'company_name': display_name,
+            'tag': tag,
+            'start_value': (BENCHMARK_NORMALISED_START, 'GBP'),
+            'current_value': (current_value, 'GBP'),
+            'pnl': (pnl, 'GBP'),
+            'simple_roi': roi,
+            'is_benchmark': True,
+        })
+        logger.debug(f"Benchmark {ticker}: start={BENCHMARK_NORMALISED_START:.2f}, "
+                     f"current={current_value:.2f}, roi={roi:.2%}")
+
+    logger.info(f"Benchmark performance calculated for {len(results)}/{len(BENCHMARKS)} tickers")
+    return pd.DataFrame(results)
+
+
 def process_periodic_review(portfolio_review: PortfolioReview, start_date: datetime,
                             end_date: datetime, eval_date: Optional[datetime],
                             market_data_fetcher) -> Dict[str, pd.DataFrame]:
@@ -157,13 +237,30 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         all_tag_transactions
     )
 
-    # Step 4: Create summary
-    results['summary'] = create_periodic_review_summary(results, start_date, end_date, eval_date, category_mwrrs)
+    # Step 4: Fetch benchmark prices and calculate benchmark performance.
+    # Benchmarks are fetched separately so they never pollute portfolio price_data or
+    # category_current_values.  Each row is flagged is_benchmark=True so any future
+    # summation site can filter them out explicitly.
+    benchmark_tickers = [ticker for _, ticker, _ in BENCHMARKS]
+    logger.info(f"Fetching benchmark prices for {len(benchmark_tickers)} tickers")
+    benchmark_price_data = market_data_fetcher.batch_get_stock_prices(
+        benchmark_tickers, start_date, eval_date
+    )
+    results['benchmarks'] = calculate_benchmark_performance(benchmark_price_data, start_date, eval_date)
 
-    # Step 5: Create tag-level summary (keep individual DataFrames clean)
-    results['per_tag'] = create_tag_summary(results, start_date, end_date, eval_date, tag_mwrrs)
+    # Step 5: Create summary
+    results['summary'] = create_periodic_review_summary(
+        results, start_date, end_date, eval_date, category_mwrrs,
+        benchmarks_df=results['benchmarks']
+    )
 
-    logger.info(f"Periodic review processing completed: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['increased'])} increased, {len(classification['sold'])} sold")
+    # Step 6: Create tag-level summary (keep individual DataFrames clean)
+    results['per_tag'] = create_tag_summary(
+        results, start_date, end_date, eval_date, tag_mwrrs,
+        benchmarks_df=results['benchmarks']
+    )
+
+    logger.info(f"Periodic review processing completed: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['increased'])} increased, {len(classification['sold'])} sold, {len(results['benchmarks'])} benchmarks")
 
     return results
 
@@ -506,7 +603,8 @@ def _calculate_periodic_summary_metrics(df: pd.DataFrame) -> Tuple[float, float,
 
 def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date: datetime,
                                    end_date: datetime, eval_date: datetime,
-                                   category_mwrrs: Optional[Dict[str, float]] = None) -> pd.DataFrame:
+                                   category_mwrrs: Optional[Dict[str, float]] = None,
+                                   benchmarks_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Create a summary of the periodic review.
 
     Args:
@@ -515,6 +613,9 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
         end_date: End of review period
         eval_date: Evaluation date
         category_mwrrs: Dict mapping category ('new'/'retained'/'sold') to MWRR
+        benchmarks_df: Optional DataFrame of benchmark rows (is_benchmark=True).
+            When provided a 'Benchmarks' summary row is appended.  Benchmark values
+            are NOT added to portfolio totals (see is_benchmark flag).
 
     Returns:
         Summary DataFrame
@@ -525,6 +626,9 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
 
     for category in ['new', 'retained', 'increased', 'sold']:
         df = results.get(category, pd.DataFrame())
+        # Filter out any is_benchmark rows that may have leaked in (defensive guard)
+        if not df.empty and 'is_benchmark' in df.columns:
+            df = df[df['is_benchmark'] != True]  # noqa: E712
         if df.empty:
             summary_data.append({
                 'category': category.title(),
@@ -533,7 +637,8 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
                 'current_value': (0.0, 'GBP'),
                 'pnl': (0.0, 'GBP'),
                 'roi': 0.0,
-                'mwrr': None
+                'mwrr': None,
+                'is_benchmark': False,
             })
         else:
             # Calculate summary metrics using helper
@@ -549,14 +654,30 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
                 'current_value': (total_current, 'GBP'),
                 'pnl': (total_pnl, 'GBP'),
                 'roi': roi,
-                'mwrr': mwrr
+                'mwrr': mwrr,
+                'is_benchmark': False,
             })
+
+    # Append a single 'Benchmarks' category row (excluded from portfolio totals)
+    if benchmarks_df is not None and not benchmarks_df.empty:
+        total_start, total_current, total_pnl, roi = _calculate_periodic_summary_metrics(benchmarks_df)
+        summary_data.append({
+            'category': 'Benchmarks',
+            'count': len(benchmarks_df),
+            'start_value': (total_start, 'GBP'),
+            'current_value': (total_current, 'GBP'),
+            'pnl': (total_pnl, 'GBP'),
+            'roi': roi,
+            'mwrr': None,  # MWRR not meaningful for index benchmarks
+            'is_benchmark': True,
+        })
 
     return pd.DataFrame(summary_data)
 
 
 def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, end_date: datetime,
-                      eval_date: datetime, tag_mwrrs: Optional[Dict[str, float]] = None) -> pd.DataFrame:
+                      eval_date: datetime, tag_mwrrs: Optional[Dict[str, float]] = None,
+                      benchmarks_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Create tag-level summary for periodic review.
 
     Args:
@@ -565,6 +686,9 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
         end_date: End of the review period
         eval_date: Evaluation date
         tag_mwrrs: Optional dict mapping tag names to their aggregated MWRR values
+        benchmarks_df: Optional DataFrame of benchmark rows.  When provided, one
+            summary row per benchmark tag is appended with is_benchmark=True.
+            These rows are excluded from portfolio totals.
 
     Returns:
         DataFrame with tag-level summary data
@@ -573,13 +697,17 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
         tag_mwrrs = {}
     tag_summary_data = []
 
-    # Process each category
+    # Process each portfolio category
     for category in ['new', 'retained', 'increased', 'sold']:
-        if results[category].empty:
+        cat_df = results[category]
+        # Exclude any is_benchmark rows that may have leaked in (defensive guard)
+        if not cat_df.empty and 'is_benchmark' in cat_df.columns:
+            cat_df = cat_df[cat_df['is_benchmark'] != True]  # noqa: E712
+        if cat_df.empty:
             continue
 
         # Group by tag
-        tag_groups = results[category].groupby('tag', dropna=False)
+        tag_groups = cat_df.groupby('tag', dropna=False)
 
         for tag, group_df in tag_groups:
             # Calculate summary metrics using helper
@@ -602,8 +730,27 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
                 'pnl': (pnl, 'GBP'),
                 'roi': roi,
                 'mwrr': mwrr,
+                'is_benchmark': False,
                 'sort_category': category,  # Keep original category for sorting
                 'sort_pnl': pnl  # Keep P&L for sorting
+            })
+
+    # Append one row per benchmark tag (excluded from portfolio totals)
+    if benchmarks_df is not None and not benchmarks_df.empty:
+        for tag_name, group_df in benchmarks_df.groupby('tag', dropna=False):
+            start_value, current_value, pnl, roi = _calculate_periodic_summary_metrics(group_df)
+            tag_summary_data.append({
+                'category': tag_name,
+                'tag': tag_name,
+                'count': len(group_df),
+                'start_value': (start_value, 'GBP'),
+                'current_value': (current_value, 'GBP'),
+                'pnl': (pnl, 'GBP'),
+                'roi': roi,
+                'mwrr': None,
+                'is_benchmark': True,
+                'sort_category': 'benchmark',
+                'sort_pnl': pnl,
             })
 
     # Create DataFrame (no sorting - that's a display concern for PortfolioReporter)

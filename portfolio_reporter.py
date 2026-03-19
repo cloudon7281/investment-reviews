@@ -254,6 +254,13 @@ class PortfolioReporter:
         increased_df = self._prepare_periodic_detail(periodic_results.get('increased', pd.DataFrame()))
         sold_df = self._prepare_periodic_detail(periodic_results.get('sold', pd.DataFrame()))
 
+        # Benchmarks detail table (sort by tag then ROI descending)
+        benchmarks_df = periodic_results.get('benchmarks', pd.DataFrame())
+        if not benchmarks_df.empty:
+            benchmarks_df = benchmarks_df.copy()
+            benchmarks_df['_sort_roi'] = -benchmarks_df['simple_roi']
+            benchmarks_df = benchmarks_df.sort_values(['tag', '_sort_roi']).drop(columns=['_sort_roi'])
+
         # 3. Define table sequence
         tables = []
 
@@ -261,10 +268,14 @@ class PortfolioReporter:
         if not summary_df.empty:
             tables.append((summary_df, 'periodic_review_summary', f'Periodic Review Summary ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
 
-        # Detail tables
+        # Portfolio detail tables
         for category, df in [('New', new_df), ('Retained', retained_df), ('Increased', increased_df), ('Sold', sold_df)]:
             if not df.empty:
                 tables.append((df, 'periodic_review_detail', f'{category} Stocks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
+
+        # Benchmark detail table
+        if not benchmarks_df.empty:
+            tables.append((benchmarks_df, 'periodic_review_benchmark', f'Benchmarks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
         
         # 4. Render all tables
         for df_table, config_name, title in tables:
@@ -302,8 +313,8 @@ class PortfolioReporter:
             # Extract P&L value for sorting
             per_tag_df['_sort_pnl'] = per_tag_df['pnl'].apply(lambda x: x[0] if isinstance(x, tuple) else x)
             
-            # Define category order
-            category_order = {'new': 0, 'retained': 1, 'increased': 2, 'sold': 3}
+            # Define category order; 'benchmark' rows appear after portfolio rows
+            category_order = {'new': 0, 'retained': 1, 'increased': 2, 'sold': 3, 'benchmark': 4}
             per_tag_df['_category_order'] = per_tag_df['sort_category'].map(category_order)
             
             # Sort by category order first, then by P&L descending within each category
