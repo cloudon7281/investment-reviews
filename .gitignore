@@ -71,10 +71,15 @@ credentials/
 # Development artifacts (local only, not for GitHub)
 plans/
 claude_plans/
-CLAUDE.md
 cursor_prefs.md
 
 # Scratch directory outputs (keep scripts, exclude outputs)
 scratch/*.txt
 scratch/*.pdf
 scratch/anonymized_temp/
+
+# Copy of deployment architecture docs
+deployment-architecture/
+
+# Claude code access tokens
+claude-access
