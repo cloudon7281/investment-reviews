@@ -970,12 +970,280 @@ class TestAnnualReviewPnL(unittest.TestCase):
         self.assertEqual(pnl, 100.0)  # (£700 + £400) - £1000 = £100 profit
 
 
+class TestProgressToDoubling(unittest.TestCase):
+    """Tests for get_first_buy_price_split_adjusted and progress_to_doubling formatting."""
+
+    def _make_buy(self, price):
+        return StockTransaction(
+            date=datetime(2020, 1, 1),
+            transaction_type='BUY',
+            quantity=100,
+            price_per_share=price,
+            total_amount=price * 100,
+        )
+
+    def _make_conversion(self, old_qty, new_qty, date_offset=1):
+        return StockTransaction(
+            date=datetime(2020, 1, 1 + date_offset),
+            transaction_type='STOCK_CONVERSION',
+            quantity=old_qty,
+            price_per_share=0.0,
+            total_amount=0.0,
+            new_quantity=new_qty,
+        )
+
+    def _make_sell(self):
+        return StockTransaction(
+            date=datetime(2021, 6, 1),
+            transaction_type='SELL',
+            quantity=50,
+            price_per_share=20.0,
+            total_amount=1000.0,
+        )
+
+    def test_no_transactions_returns_none(self):
+        """Empty transaction list returns None."""
+        result = transaction_processor.get_first_buy_price_split_adjusted([])
+        self.assertIsNone(result)
+
+    def test_no_buy_transactions_returns_none(self):
+        """Transaction list with no BUY returns None."""
+        sell = self._make_sell()
+        result = transaction_processor.get_first_buy_price_split_adjusted([sell])
+        self.assertIsNone(result)
+
+    def test_single_buy_no_conversion(self):
+        """Single BUY with no conversion returns the buy price unchanged."""
+        buy = self._make_buy(10.0)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_uses_first_buy_not_average(self):
+        """Only the FIRST BUY price is used; subsequent buys are ignored."""
+        buy1 = StockTransaction(
+            date=datetime(2020, 1, 1), transaction_type='BUY',
+            quantity=100, price_per_share=10.0, total_amount=1000.0,
+        )
+        buy2 = StockTransaction(
+            date=datetime(2021, 1, 1), transaction_type='BUY',
+            quantity=100, price_per_share=20.0, total_amount=2000.0,
+        )
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy1, buy2])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_two_to_one_split_halves_base_price(self):
+        """A 2:1 split (100 -> 200 shares) should halve the base price."""
+        buy = self._make_buy(10.0)
+        conversion = self._make_conversion(old_qty=100, new_qty=200)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, conversion])
+        self.assertAlmostEqual(result, 5.0)
+
+    def test_reverse_split_increases_base_price(self):
+        """A reverse split (200 -> 100 shares) should double the base price."""
+        buy = self._make_buy(10.0)
+        conversion = self._make_conversion(old_qty=200, new_qty=100)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, conversion])
+        self.assertAlmostEqual(result, 20.0)
+
+    def test_conversion_before_first_buy_is_ignored(self):
+        """A STOCK_CONVERSION that precedes the first BUY must not affect base_price."""
+        pre_conversion = StockTransaction(
+            date=datetime(2019, 12, 31), transaction_type='STOCK_CONVERSION',
+            quantity=100, price_per_share=0.0, total_amount=0.0, new_quantity=200,
+        )
+        buy = self._make_buy(10.0)
+        result = transaction_processor.get_first_buy_price_split_adjusted([pre_conversion, buy])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_share_grant_ignored(self):
+        """A share grant (quantity == 0 conversion) must not alter the base price."""
+        buy = self._make_buy(10.0)
+        grant = StockTransaction(
+            date=datetime(2020, 6, 1), transaction_type='STOCK_CONVERSION',
+            quantity=0, price_per_share=0.0, total_amount=0.0, new_quantity=10,
+        )
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, grant])
+        self.assertAlmostEqual(result, 10.0)
+
+    def test_running_units_before_sell_accounted_for_in_ratio(self):
+        """Conversion ratio accumulates correctly across multiple splits.
+
+        Buy at £10, then 2:1 split → adjusted base £5, then another 2:1 split → £2.50.
+        """
+        buy = self._make_buy(10.0)
+        split1 = self._make_conversion(old_qty=100, new_qty=200, date_offset=1)
+        split2 = self._make_conversion(old_qty=200, new_qty=400, date_offset=2)
+        result = transaction_processor.get_first_buy_price_split_adjusted([buy, split1, split2])
+        self.assertAlmostEqual(result, 2.5)
+
+    def test_progress_to_doubling_format(self):
+        """ratio should be formatted as '{:.1f}x'."""
+        ratio = 1.5
+        formatted = f"{ratio:.1f}x"
+        self.assertEqual(formatted, "1.5x")
+
+    def test_progress_to_doubling_exactly_doubled(self):
+        """A 2x gain should display as '2.0x'."""
+        ratio = 2.0
+        formatted = f"{ratio:.1f}x"
+        self.assertEqual(formatted, "2.0x")
+
+    def test_progress_to_doubling_missing_base_price_displays_dash(self):
+        """When base_price is None or 0 the display value should be the em dash."""
+        for bad in (None, 0, 0.0):
+            if not bad:
+                display = "\u2014"
+            else:
+                display = f"{1.5:.1f}x"
+            self.assertEqual(display, "\u2014")
+
+
+class TestDoublingMetrics(unittest.TestCase):
+    """Tests for calculate_doubling_metrics (profit-taking detection and progress ratio)."""
+
+    def _buy(self, price, qty=100, date=None):
+        return StockTransaction(
+            date=date or datetime(2020, 1, 1),
+            transaction_type='BUY',
+            quantity=qty,
+            price_per_share=price,
+            total_amount=price * qty,
+        )
+
+    def _sell(self, price, qty, date=None):
+        return StockTransaction(
+            date=date or datetime(2021, 6, 1),
+            transaction_type='SELL',
+            quantity=qty,
+            price_per_share=price,
+            total_amount=price * qty,
+        )
+
+    def _conversion(self, old_qty, new_qty, date=None):
+        return StockTransaction(
+            date=date or datetime(2020, 6, 1),
+            transaction_type='STOCK_CONVERSION',
+            quantity=old_qty,
+            price_per_share=0.0,
+            total_amount=0.0,
+            new_quantity=new_qty,
+        )
+
+    def test_no_transactions_returns_dash_and_zero(self):
+        """No transactions → em dash and 0 doublings."""
+        progress, count = transaction_processor.calculate_doubling_metrics([], current_price=10.0)
+        self.assertEqual(progress, "\u2014")
+        self.assertEqual(count, 0)
+
+    def test_no_buy_returns_dash(self):
+        """Sell-only history (no BUY) → em dash, 0 doublings."""
+        sell = self._sell(10.0, 50)
+        progress, count = transaction_processor.calculate_doubling_metrics([sell], current_price=10.0)
+        self.assertEqual(progress, "\u2014")
+        self.assertEqual(count, 0)
+
+    def test_no_current_price_returns_dash(self):
+        """No current price (fully sold) → em dash even with valid base."""
+        buy = self._buy(10.0)
+        progress, count = transaction_processor.calculate_doubling_metrics([buy], current_price=None)
+        self.assertEqual(progress, "\u2014")
+        self.assertEqual(count, 0)
+
+    def test_buy_only_progress_ratio(self):
+        """Single BUY, current price 2× buy price → '2.0x', 0 doublings."""
+        buy = self._buy(5.0, qty=100)
+        progress, count = transaction_processor.calculate_doubling_metrics([buy], current_price=10.0)
+        self.assertEqual(progress, "2.0x")
+        self.assertEqual(count, 0)
+
+    def test_sell_below_min_fraction_no_profit_take(self):
+        """Sell 10% (< 15%) of holdings at 2× price → no profit-taking event."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(10.0, qty=10, date=datetime(2021, 1, 1))  # 10% of 100
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=10.0)
+        self.assertEqual(count, 0)
+
+    def test_sell_above_max_fraction_no_profit_take(self):
+        """Sell 35% (> 30%) of holdings at 2× price → no profit-taking event."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(10.0, qty=35, date=datetime(2021, 1, 1))  # 35% of 100
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=10.0)
+        self.assertEqual(count, 0)
+
+    def test_sell_in_fraction_range_but_price_too_low_no_profit_take(self):
+        """Sell 20% of holdings but price only 1.5× base → no profit-taking event."""
+        buy = self._buy(10.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(15.0, qty=20, date=datetime(2021, 1, 1))  # 15 < 1.9*10=19
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=15.0)
+        self.assertEqual(count, 0)
+
+    def test_qualifying_profit_take_increments_count_and_resets_base(self):
+        """Sell 20% at exactly 2× base (> 1.9×) → count=1, base resets to sell price."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(10.0, qty=20, date=datetime(2021, 1, 1))  # 20% of 100, 10 > 1.9*5=9.5
+        # Current price same as sell price after the take
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=10.0)
+        self.assertEqual(count, 1)
+        # base resets to 10.0; current=10.0 → 1.0x
+        self.assertEqual(progress, "1.0x")
+
+    def test_two_qualifying_profit_takes(self):
+        """Two sequential qualifying sells → count=2."""
+        buy = self._buy(5.0, qty=200, date=datetime(2020, 1, 1))
+        sell1 = self._sell(10.0, qty=40, date=datetime(2021, 1, 1))   # 20% of 200, price 2× base
+        sell2 = self._sell(20.0, qty=32, date=datetime(2022, 1, 1))   # 20% of 160, price 2× new base
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, sell1, sell2], current_price=20.0)
+        self.assertEqual(count, 2)
+        # After sell2, base resets to 20.0; current=20.0 → 1.0x
+        self.assertEqual(progress, "1.0x")
+
+    def test_split_adjusts_base_price(self):
+        """2:1 split after first BUY halves base price for subsequent comparisons.
+
+        Buy at £10, 100 shares.  2:1 split → 200 shares at ~£5.
+        Sell 40 shares (20% of 200) at £10 each (2× adjusted base £5 → > 1.9*5=9.5) → profit take.
+        """
+        buy = self._buy(10.0, qty=100, date=datetime(2020, 1, 1))
+        split = self._conversion(100, 200, date=datetime(2020, 6, 1))
+        sell = self._sell(10.0, qty=40, date=datetime(2021, 1, 1))   # 20% of 200, 10 > 1.9*5=9.5
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, split, sell], current_price=12.0)
+        self.assertEqual(count, 1)
+        # After sell, base resets to 10.0; current=12.0 → 1.2x
+        self.assertEqual(progress, "1.2x")
+
+    def test_exact_boundary_15_percent_qualifies(self):
+        """Sell of exactly 15% qualifies if price is high enough."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(10.0, qty=15, date=datetime(2021, 1, 1))  # exactly 15%
+        _, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=10.0)
+        self.assertEqual(count, 1)
+
+    def test_exact_boundary_30_percent_qualifies(self):
+        """Sell of exactly 30% qualifies if price is high enough."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        sell = self._sell(10.0, qty=30, date=datetime(2021, 1, 1))  # exactly 30%
+        _, count = transaction_processor.calculate_doubling_metrics([buy, sell], current_price=10.0)
+        self.assertEqual(count, 1)
+
+    def test_share_grant_does_not_trigger_profit_take(self):
+        """A share grant (STOCK_CONVERSION qty=0) inflates units but must not be counted as a sell."""
+        buy = self._buy(5.0, qty=100, date=datetime(2020, 1, 1))
+        grant = StockTransaction(
+            date=datetime(2020, 6, 1), transaction_type='STOCK_CONVERSION',
+            quantity=0, price_per_share=0.0, total_amount=0.0, new_quantity=20,
+        )
+        progress, count = transaction_processor.calculate_doubling_metrics([buy, grant], current_price=10.0)
+        self.assertEqual(count, 0)
+        # base stays at 5.0, current=10.0 → 2.0x
+        self.assertEqual(progress, "2.0x")
+
+
 def run_unit_tests():
     """Run all unit tests."""
     # Create test suite
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    
+
     # Add test classes
     suite.addTests(loader.loadTestsFromTestCase(TestCurrencyConversion))
     suite.addTests(loader.loadTestsFromTestCase(TestTickerConversion))
@@ -988,6 +1256,8 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewMWRR))
     suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewPnL))
     suite.addTests(loader.loadTestsFromTestCase(TestBenchmarkPerformance))
+    suite.addTests(loader.loadTestsFromTestCase(TestProgressToDoubling))
+    suite.addTests(loader.loadTestsFromTestCase(TestDoublingMetrics))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

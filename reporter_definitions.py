@@ -150,6 +150,46 @@ COLUMN_CONFIGS = {
             TIME_HELD_THRESHOLD,  # Days Held
         ]
     },
+    'periodic_review_detail_holding': {
+        'headers': ['Tag', 'Company', 'Ticker', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility', 'Days Held', 'Progress to 2x', '# Doublings'],
+        'columns': ['tag', 'company_name', 'ticker', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility', 'period_days', 'progress_to_doubling', 'doubling_count'],
+        'column_formats': [
+            None,  # Tag - text
+            None,  # Company - text
+            None,  # Ticker - text
+            None,  # Units Held - integer
+            CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # P&L
+            PERCENTAGE_FORMAT,  # Simple ROI
+            PERCENTAGE_FORMAT,  # MWRR
+            CURRENCY_FORMAT,  # Current Price
+            CURRENCY_FORMAT,  # 90d High
+            PERCENTAGE_FORMAT,  # % of High
+            PERCENTAGE_FORMAT,  # Volatility
+            None,  # Days Held - integer
+            None,  # Progress to 2x - pre-formatted string ("1.7x" or "—")
+            None,  # # Doublings - integer
+        ],
+        'column_thresholds': [
+            None,  # Tag
+            None,  # Company
+            None,  # Ticker
+            None,  # Units Held
+            None,  # Start Value
+            None,  # Current Value
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # P&L
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # Simple ROI
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
+            None,  # Current Price
+            None,  # 90d High
+            STOP_LOSS_THRESHOLD,  # % of High
+            STOCKS_VOLATILITY_THRESHOLD,  # Volatility
+            TIME_HELD_THRESHOLD,  # Days Held
+            None,  # Progress to 2x
+            None,  # # Doublings
+        ]
+    },
     'tax_report': {
         'headers': [ "Company", "Ticker", "Transaction Date", "Units Sold", "Amount Received", "Total Price Paid", "Average Price", "P&L"],
         'columns': [ "company", "ticker", "transaction_date", "units_sold", "amount_received", "total_price_paid", "average_price", "pnl"],

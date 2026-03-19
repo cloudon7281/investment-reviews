@@ -268,10 +268,12 @@ class PortfolioReporter:
         if not summary_df.empty:
             tables.append((summary_df, 'periodic_review_summary', f'Periodic Review Summary ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
 
-        # Portfolio detail tables
-        for category, df in [('New', new_df), ('Retained', retained_df), ('Increased', increased_df), ('Sold', sold_df)]:
+        # Portfolio detail tables — holding categories get extra doubling columns, Sold does not
+        for category, df in [('New', new_df), ('Retained', retained_df), ('Increased', increased_df)]:
             if not df.empty:
-                tables.append((df, 'periodic_review_detail', f'{category} Stocks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
+                tables.append((df, 'periodic_review_detail_holding', f'{category} Stocks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
+        if not sold_df.empty:
+            tables.append((sold_df, 'periodic_review_detail', f'Sold Stocks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
 
         # Benchmark detail table
         if not benchmarks_df.empty:

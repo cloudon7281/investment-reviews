@@ -114,7 +114,7 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             'first_transaction_date': first_transaction_date,
             'final_transaction_date': final_transaction_date,
             'num_transactions': len(transactions),
-            'transactions': transactions  # Store for stock split detection
+            'transactions': transactions,  # Store for stock split detection
         }
 
         # If still holding shares, we need current price
