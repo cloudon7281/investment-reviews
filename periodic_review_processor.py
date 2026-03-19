@@ -16,6 +16,86 @@ import holdings_calculator
 import financial_metrics
 
 
+# ---------------------------------------------------------------------------
+# Benchmark definitions
+#
+# Each entry: (tag, yahoo_ticker, display_name)
+#
+# Ticker selection rationale:
+#   - US Equities:       ^DJI, ^GSPC, ^IXIC  — Yahoo-native index tickers, highly reliable
+#   - European Equities: ^STOXX50E            — Yahoo-native index ticker
+#   - UK Equities:       ^FTSE               — FTSE 100, reliable; ^FTMC excluded (unreliable on Yahoo)
+#   - World Equities:    SWDA.L              — London-listed iShares Core MSCI World ETF
+#                                               (preferred over IWDA.AS which is less reliable on Yahoo)
+#   - Government Bonds:  IGLT.L              — iShares UK Gilts UCITS ETF, London-listed
+#   - Corporate Bonds:   SLXX.L              — iShares GBP Corp Bond UCITS ETF, London-listed
+# ---------------------------------------------------------------------------
+BENCHMARKS: List[Tuple[str, str, str]] = [
+    ('Benchmarks - US Equities',       '^DJI',      'Dow Jones Industrial Average'),
+    ('Benchmarks - US Equities',       '^GSPC',     'S&P 500'),
+    ('Benchmarks - US Equities',       '^IXIC',     'Nasdaq Composite'),
+    ('Benchmarks - European Equities', '^STOXX50E', 'Euro Stoxx 50'),
+    ('Benchmarks - UK Equities',       '^FTSE',     'FTSE 100'),
+    ('Benchmarks - World Equities',    'SWDA.L',    'iShares Core MSCI World (SWDA.L)'),
+    ('Benchmarks - Government Bonds',  'IGLT.L',    'iShares UK Gilts (IGLT.L)'),
+    ('Benchmarks - Corporate Bonds',   'SLXX.L',    'iShares GBP Corp Bond (SLXX.L)'),
+]
+
+# Normalised start value for each benchmark (£)
+BENCHMARK_NORMALISED_START = 1000.0
+
+
+def calculate_benchmark_performance(price_data: Dict, start_date: datetime,
+                                    eval_date: datetime) -> pd.DataFrame:
+    """Calculate normalised benchmark performance for all defined benchmarks.
+
+    Each benchmark's start value is normalised to BENCHMARK_NORMALISED_START (£1000) so
+    that relative performance can be compared directly.  These rows must NOT be
+    included in portfolio total calculations (is_benchmark=True).
+
+    Args:
+        price_data: Pre-fetched price data keyed by ticker (GBP, from MarketDataFetcher)
+        start_date: Period start date — price used to normalise start value
+        eval_date: Evaluation date — price used to compute current value
+
+    Returns:
+        DataFrame with one row per successfully-fetched benchmark ticker, containing
+        the same columns as periodic_review_detail rows plus is_benchmark=True.
+    """
+    results = []
+    for tag, ticker, display_name in BENCHMARKS:
+        start_price = holdings_calculator.get_stock_price_from_data(ticker, start_date, price_data)
+        eval_price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+
+        if start_price is None or start_price == 0:
+            logger.warning(f"Benchmark {ticker}: no start price at {start_date.date()}, skipping")
+            continue
+        if eval_price is None:
+            logger.warning(f"Benchmark {ticker}: no eval price at {eval_date.date()}, skipping")
+            continue
+
+        scale = BENCHMARK_NORMALISED_START / start_price
+        current_value = eval_price * scale
+        pnl = current_value - BENCHMARK_NORMALISED_START
+        roi = pnl / BENCHMARK_NORMALISED_START
+
+        results.append({
+            'ticker': ticker,
+            'company_name': display_name,
+            'tag': tag,
+            'start_value': (BENCHMARK_NORMALISED_START, 'GBP'),
+            'current_value': (current_value, 'GBP'),
+            'pnl': (pnl, 'GBP'),
+            'simple_roi': roi,
+            'is_benchmark': True,
+        })
+        logger.debug(f"Benchmark {ticker}: start={BENCHMARK_NORMALISED_START:.2f}, "
+                     f"current={current_value:.2f}, roi={roi:.2%}")
+
+    logger.info(f"Benchmark performance calculated for {len(results)}/{len(BENCHMARKS)} tickers")
+    return pd.DataFrame(results)
+
+
 def process_periodic_review(portfolio_review: PortfolioReview, start_date: datetime,
                             end_date: datetime, eval_date: Optional[datetime],
                             market_data_fetcher) -> Dict[str, pd.DataFrame]:
