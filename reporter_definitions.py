@@ -97,8 +97,8 @@ COLUMN_CONFIGS = {
         ]
     },
     'periodic_review_summary': {
-        'headers': ['Category', 'Count', 'Start Value', 'Current Value', 'P&L', 'ROI', 'MWRR'],
-        'columns': ['category', 'count', 'start_value', 'current_value', 'pnl', 'roi', 'mwrr'],
+        'headers': ['Category', 'Count', 'Start Value', 'Current Value', 'P&L', 'ROI'],
+        'columns': ['category', 'count', 'start_value', 'current_value', 'pnl', 'roi'],
         'column_formats': [
             None,  # Category - text
             None,  # Count - integer (no special formatting)
@@ -106,7 +106,6 @@ COLUMN_CONFIGS = {
             CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
             CURRENCY_FORMAT_NO_DECIMALS,  # P&L
             PERCENTAGE_FORMAT,  # ROI
-            PERCENTAGE_FORMAT,  # MWRR
         ],
         'column_thresholds': [
             None,  # Category
@@ -115,12 +114,11 @@ COLUMN_CONFIGS = {
             None,  # Current Value
             None,  # P&L
             STOCKS_PROFIT_TAKING_THRESHOLD,  # ROI
-            STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
         ]
     },
     'periodic_review_detail': {
-        'headers': ['Tag', 'Company', 'Ticker', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility', 'Days Held'],
-        'columns': ['tag', 'company_name', 'ticker', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility', 'period_days'],
+        'headers': ['Tag', 'Company', 'Ticker', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'Current Price', '90d High', '% of High', 'Volatility', 'Days Held'],
+        'columns': ['tag', 'company_name', 'ticker', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility', 'period_days'],
         'column_formats': [
             None,  # Tag - text
             None,  # Company - text
@@ -130,7 +128,6 @@ COLUMN_CONFIGS = {
             CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
             CURRENCY_FORMAT_NO_DECIMALS,  # P&L
             PERCENTAGE_FORMAT,  # Simple ROI
-            PERCENTAGE_FORMAT,  # MWRR
             CURRENCY_FORMAT,  # Current Price
             CURRENCY_FORMAT,  # 90d High
             PERCENTAGE_FORMAT,  # % of High
@@ -146,7 +143,6 @@ COLUMN_CONFIGS = {
             None,  # Current Value
             STOCKS_PROFIT_TAKING_THRESHOLD,  # P&L
             STOCKS_PROFIT_TAKING_THRESHOLD,  # Simple ROI
-            STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
             None,  # Current Price
             None,  # 90d High
             STOP_LOSS_THRESHOLD,  # % of High

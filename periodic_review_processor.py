@@ -9,8 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from logger import logger
-from portfolio_review import PortfolioReview, StockTransaction
-from collections import defaultdict
+from portfolio_review import PortfolioReview
 import transaction_processor
 import holdings_calculator
 import financial_metrics
@@ -180,10 +179,6 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
 
     # Step 3: Calculate performance for each category
     results = {}
-    category_transactions = {}
-    category_current_values = {}
-    all_tag_transactions = defaultdict(list)
-    all_tag_current_values = defaultdict(float)
 
     # Build set of (ticker, category) pairs that are in the 'increased' bucket,
     # so the retained pass can identify them for name-suffixing and holdings capping.
@@ -192,7 +187,7 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     for cat in ['new', 'retained', 'sold', 'increased']:
         if classification[cat]:
             if cat == 'retained':
-                df, transactions, current_value, tag_txns, tag_values = calculate_periodic_performance(
+                df = calculate_periodic_performance(
                     classification[cat],
                     portfolio_review,
                     start_date,
@@ -204,7 +199,7 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
                     increased_tickers=increased_tickers
                 )
             else:
-                df, transactions, current_value, tag_txns, tag_values = calculate_periodic_performance(
+                df = calculate_periodic_performance(
                     classification[cat],
                     portfolio_review,
                     start_date,
@@ -215,27 +210,8 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
                     highs_and_vol
                 )
             results[cat] = df
-            category_transactions[cat] = transactions
-            category_current_values[cat] = current_value
-            # Collect tag-level data across categories
-            for tag, txns in tag_txns.items():
-                all_tag_transactions[tag].extend(txns)
-            for tag, value in tag_values.items():
-                all_tag_current_values[tag] += value
         else:
             results[cat] = pd.DataFrame()
-            category_transactions[cat] = []
-            category_current_values[cat] = 0.0
-
-    # Calculate category-level MWRRs
-    category_mwrrs = transaction_processor.calculate_aggregated_mwrr(
-        category_transactions
-    )
-
-    # Calculate tag-level MWRRs
-    tag_mwrrs = transaction_processor.calculate_aggregated_mwrr(
-        all_tag_transactions
-    )
 
     # Step 4: Fetch benchmark prices and calculate benchmark performance.
     # Benchmarks are fetched separately so they never pollute portfolio price_data or
@@ -250,13 +226,13 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
 
     # Step 5: Create summary
     results['summary'] = create_periodic_review_summary(
-        results, start_date, end_date, eval_date, category_mwrrs,
+        results, start_date, end_date, eval_date,
         benchmarks_df=results['benchmarks']
     )
 
     # Step 6: Create tag-level summary (keep individual DataFrames clean)
     results['per_tag'] = create_tag_summary(
-        results, start_date, end_date, eval_date, tag_mwrrs,
+        results, start_date, end_date, eval_date,
         benchmarks_df=results['benchmarks']
     )
 
@@ -360,7 +336,7 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
 def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review: PortfolioReview,
                                    start_date: datetime, end_date: datetime, eval_date: datetime, category: str,
                                    price_data: Dict = None, highs_and_vol: Dict = None,
-                                   increased_tickers: set = None) -> Tuple[pd.DataFrame, List, float, Dict, Dict]:
+                                   increased_tickers: set = None) -> pd.DataFrame:
     """Calculate performance for a specific category of stocks.
 
     Args:
@@ -377,18 +353,13 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
                            used by the retained path to cap holdings and suffix names
 
     Returns:
-        Tuple of (DataFrame with performance data, list of all transactions, total current value,
-                 dict of tag->transactions, dict of tag->current_value)
+        DataFrame with performance data
     """
     if increased_tickers is None:
         increased_tickers = set()
 
     logger.info(f"Calculating performance for {len(ticker_category_pairs)} {category} stocks")
     results = []
-    all_transactions = []
-    total_current_value = 0.0
-    tag_transactions = defaultdict(list)
-    tag_current_values = defaultdict(float)
 
     for entry in ticker_category_pairs:
         # Unpack: retained/increased have 4 elements; new/sold have 2
@@ -485,60 +456,8 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
             pnl = current_value - start_value
             simple_roi = pnl / start_value if start_value > 0 else 0.0
 
-            # Calculate MWRR for periodic review using synthetic transactions
-            # This isolates period performance by treating start_value and current_value as cashflows
-
-            synthetic_transactions = []
-            if category == 'new':
-                # For new stocks: use actual BUY transactions in period + terminal value
-                period_transactions = [txn for txn in transactions if start_date <= txn.date <= end_date]
-                synthetic_transactions = period_transactions
-            elif category == 'increased':
-                # For increased: use actual BUY transactions in period (same as new)
-                period_transactions = [txn for txn in transactions if start_date <= txn.date <= end_date and txn.transaction_type == 'BUY']
-                synthetic_transactions = period_transactions
-            elif category == 'retained':
-                # For retained: fake BUY at start_date with start_value, fake SELL at eval_date with current_value
-                synthetic_transactions = [
-                    StockTransaction(
-                        date=start_date,
-                        transaction_type='BUY',
-                        quantity=0,  # Quantity doesn't matter for MWRR
-                        price_per_share=0.0,
-                        total_amount=start_value
-                    )
-                ]
-            elif category == 'sold':
-                # For sold: fake BUY at start_date with sale proceeds, fake SELL at eval_date with counterfactual value
-                # start_value might be 0 if stock was transferred (not sold)
-                # In that case, use the absolute value of transfer amounts from period
-                if start_value == 0:
-                    # Sum absolute values of SELL/TRANSFER transactions in period to get "proceeds"
-                    period_outflows = [txn for txn in transactions
-                                      if start_date <= txn.date <= end_date
-                                      and txn.transaction_type in ['SELL', 'TRANSFER']]
-                    start_value = sum(abs(txn.total_amount) for txn in period_outflows)
-
-                synthetic_transactions = [
-                    StockTransaction(
-                        date=start_date,
-                        transaction_type='BUY',
-                        quantity=0,
-                        price_per_share=0.0,
-                        total_amount=start_value
-                    )
-                ]
-
-            mwrr = transaction_processor.calculate_mwrr_for_transactions(synthetic_transactions)
-
-            # Get tag for this ticker (needed for tag-level aggregation)
+            # Get tag for this ticker (needed for display grouping)
             tag = portfolio_review.get_stock_tag(ticker, stock_category)
-
-            # Collect synthetic transactions for aggregated MWRR
-            all_transactions.extend(synthetic_transactions)
-            total_current_value += current_value
-            tag_transactions[tag].extend(synthetic_transactions)
-            tag_current_values[tag] += current_value
 
             # Use the holdings returned from the value calculation (consistent with current_value)
             units_held = current_holdings
@@ -564,7 +483,6 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
                 'current_value': (current_value, 'GBP'),
                 'pnl': (pnl, 'GBP'),
                 'simple_roi': simple_roi,
-                'mwrr': mwrr,
                 'period_days': period_days,
                 'current_price': (current_price, 'GBP'),
                 'recent_high': (recent_high, 'GBP'),
@@ -578,7 +496,7 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
             logger.error(f"Error calculating performance for {ticker}: {str(e)}")
             continue
 
-    return pd.DataFrame(results), all_transactions, total_current_value, tag_transactions, tag_current_values
+    return pd.DataFrame(results)
 
 
 def _calculate_periodic_summary_metrics(df: pd.DataFrame) -> Tuple[float, float, float, float]:
@@ -603,16 +521,14 @@ def _calculate_periodic_summary_metrics(df: pd.DataFrame) -> Tuple[float, float,
 
 def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date: datetime,
                                    end_date: datetime, eval_date: datetime,
-                                   category_mwrrs: Optional[Dict[str, float]] = None,
                                    benchmarks_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Create a summary of the periodic review.
 
     Args:
-        results: Dictionary with 'new', 'retained', and 'sold' DataFrames
+        results: Dictionary with 'new', 'retained', 'increased', and 'sold' DataFrames
         start_date: Start of review period
         end_date: End of review period
         eval_date: Evaluation date
-        category_mwrrs: Dict mapping category ('new'/'retained'/'sold') to MWRR
         benchmarks_df: Optional DataFrame of benchmark rows (is_benchmark=True).
             When provided a 'Benchmarks' summary row is appended.  Benchmark values
             are NOT added to portfolio totals (see is_benchmark flag).
@@ -620,8 +536,6 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
     Returns:
         Summary DataFrame
     """
-    if category_mwrrs is None:
-        category_mwrrs = {}
     summary_data = []
 
     for category in ['new', 'retained', 'increased', 'sold']:
@@ -637,15 +551,11 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
                 'current_value': (0.0, 'GBP'),
                 'pnl': (0.0, 'GBP'),
                 'roi': 0.0,
-                'mwrr': None,
                 'is_benchmark': False,
             })
         else:
             # Calculate summary metrics using helper
             total_start, total_current, total_pnl, roi = _calculate_periodic_summary_metrics(df)
-
-            # Get aggregated MWRR for this category
-            mwrr = category_mwrrs.get(category, None)
 
             summary_data.append({
                 'category': category.title(),
@@ -654,7 +564,6 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
                 'current_value': (total_current, 'GBP'),
                 'pnl': (total_pnl, 'GBP'),
                 'roi': roi,
-                'mwrr': mwrr,
                 'is_benchmark': False,
             })
 
@@ -668,7 +577,6 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
             'current_value': (total_current, 'GBP'),
             'pnl': (total_pnl, 'GBP'),
             'roi': roi,
-            'mwrr': None,  # MWRR not meaningful for index benchmarks
             'is_benchmark': True,
         })
 
@@ -676,16 +584,15 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
 
 
 def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, end_date: datetime,
-                      eval_date: datetime, tag_mwrrs: Optional[Dict[str, float]] = None,
+                      eval_date: datetime,
                       benchmarks_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Create tag-level summary for periodic review.
 
     Args:
-        results: Dictionary with 'new', 'retained', 'sold' DataFrames
+        results: Dictionary with 'new', 'retained', 'increased', 'sold' DataFrames
         start_date: Start of the review period
         end_date: End of the review period
         eval_date: Evaluation date
-        tag_mwrrs: Optional dict mapping tag names to their aggregated MWRR values
         benchmarks_df: Optional DataFrame of benchmark rows.  When provided, one
             summary row per benchmark tag is appended with is_benchmark=True.
             These rows are excluded from portfolio totals.
@@ -693,8 +600,6 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
     Returns:
         DataFrame with tag-level summary data
     """
-    if tag_mwrrs is None:
-        tag_mwrrs = {}
     tag_summary_data = []
 
     # Process each portfolio category
@@ -714,9 +619,6 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
             start_value, current_value, pnl, roi = _calculate_periodic_summary_metrics(group_df)
             count = len(group_df)
 
-            # Get aggregated MWRR for this tag (if available)
-            mwrr = tag_mwrrs.get(tag, None)
-
             # Use format "Category - Tag Name" for display
             tag_name = tag if pd.notna(tag) else 'No Tag'
             display_name = f"{category.title()} - {tag_name}"
@@ -729,7 +631,6 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
                 'current_value': (current_value, 'GBP'),
                 'pnl': (pnl, 'GBP'),
                 'roi': roi,
-                'mwrr': mwrr,
                 'is_benchmark': False,
                 'sort_category': category,  # Keep original category for sorting
                 'sort_pnl': pnl  # Keep P&L for sorting
@@ -747,7 +648,6 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
                 'current_value': (current_value, 'GBP'),
                 'pnl': (pnl, 'GBP'),
                 'roi': roi,
-                'mwrr': None,
                 'is_benchmark': True,
                 'sort_category': 'benchmark',
                 'sort_pnl': pnl,
