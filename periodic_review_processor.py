@@ -196,7 +196,8 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
                     cat,
                     price_data,
                     highs_and_vol,
-                    increased_tickers=increased_tickers
+                    increased_tickers=increased_tickers,
+                    market_data_fetcher=market_data_fetcher
                 )
             else:
                 df = calculate_periodic_performance(
@@ -207,7 +208,8 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
                     eval_date,
                     cat,
                     price_data,
-                    highs_and_vol
+                    highs_and_vol,
+                    market_data_fetcher=market_data_fetcher
                 )
             results[cat] = df
         else:
@@ -336,7 +338,8 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
 def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review: PortfolioReview,
                                    start_date: datetime, end_date: datetime, eval_date: datetime, category: str,
                                    price_data: Dict = None, highs_and_vol: Dict = None,
-                                   increased_tickers: set = None) -> pd.DataFrame:
+                                   increased_tickers: set = None,
+                                   market_data_fetcher=None) -> pd.DataFrame:
     """Calculate performance for a specific category of stocks.
 
     Args:
@@ -351,6 +354,8 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
         highs_and_vol: Pre-computed highs and volatility data
         increased_tickers: Set of (ticker, category) pairs that are in the 'increased' bucket;
                            used by the retained path to cap holdings and suffix names
+        market_data_fetcher: MarketDataFetcher instance for currency conversion in doubling
+                             metrics (pass-through from process_periodic_review)
 
     Returns:
         DataFrame with performance data
@@ -476,8 +481,17 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
 
             # Compute lifetime doubling metrics for holding categories
             if category in ('new', 'retained', 'increased'):
+                # current_price is in GBP; calculate_doubling_metrics expects native currency.
+                # Back-convert to native using the current exchange rate.
+                stock_currency = portfolio_review.get_stock_currency(ticker, stock_category)
+                if stock_currency and stock_currency not in ('GBP', 'GBp') and market_data_fetcher is not None:
+                    ex_rate = market_data_fetcher.get_current_exchange_rate(stock_currency, 'GBP')
+                    current_price_native = current_price / ex_rate if ex_rate and ex_rate > 0 else current_price
+                else:
+                    current_price_native = current_price
+                logger.debug(f"  Doubling metrics for {ticker}: currency={stock_currency}, current_price_gbp={current_price:.4f}, current_price_native={current_price_native:.4f}")
                 progress_to_doubling, doubling_count = transaction_processor.calculate_doubling_metrics(
-                    transactions, current_price
+                    transactions, current_price_native
                 )
             else:
                 progress_to_doubling = None

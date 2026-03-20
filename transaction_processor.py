@@ -263,9 +263,15 @@ def calculate_doubling_metrics(transactions: List, current_price: Optional[float
     STOCK_CONVERSION events adjust the running base_price proportionally (e.g. a 2:1 split
     halves the base price so it stays comparable with post-split market prices).
 
+    IMPORTANT — currency contract: current_price MUST be in the same currency as
+    txn.price_per_share (i.e. the stock's native currency, not GBP).  The caller is
+    responsible for converting GBP prices back to native currency before calling this
+    function.
+
     Args:
         transactions: Full lifetime transaction history (chronological).
-        current_price: Current price per share (GBP), or None if fully sold.
+        current_price: Current price per share in the stock's native currency, or None if
+            fully sold or price unavailable.
 
     Returns:
         Tuple of (progress_to_doubling: str, doubling_count: int) where
@@ -279,15 +285,18 @@ def calculate_doubling_metrics(transactions: List, current_price: Optional[float
         if txn.transaction_type == 'BUY':
             if running_base_price is None:
                 running_base_price = txn.price_per_share
+                logger.debug(f"    calculate_doubling_metrics: first BUY sets base_price={running_base_price:.4f} on {txn.date}")
             current_units += txn.quantity
 
         elif txn.transaction_type == 'SELL':
             qty = abs(txn.quantity)
             if current_units > 0 and running_base_price is not None and running_base_price > 0:
                 fraction = qty / current_units
+                logger.debug(f"    calculate_doubling_metrics: SELL {qty:.4f} of {current_units:.4f} units (fraction={fraction:.2%}), sell_price={txn.price_per_share:.4f}, base_price={running_base_price:.4f}, threshold={1.9 * running_base_price:.4f}")
                 if 0.15 <= fraction <= 0.30 and txn.price_per_share > 1.9 * running_base_price:
                     doubling_count += 1
                     running_base_price = txn.price_per_share
+                    logger.debug(f"    calculate_doubling_metrics: doubling #{doubling_count} triggered; new base_price={running_base_price:.4f}")
             current_units -= qty
 
         elif txn.transaction_type == 'STOCK_CONVERSION':
@@ -296,6 +305,7 @@ def calculate_doubling_metrics(transactions: List, current_price: Optional[float
                 current_units *= ratio
                 if running_base_price is not None:
                     running_base_price /= ratio  # price per share falls when share count rises
+                    logger.debug(f"    calculate_doubling_metrics: STOCK_CONVERSION ratio={ratio:.4f}; adjusted base_price={running_base_price:.4f}")
 
         elif txn.transaction_type == 'TRANSFER':
             current_units += txn.quantity
@@ -303,9 +313,11 @@ def calculate_doubling_metrics(transactions: List, current_price: Optional[float
     # Format progress_to_doubling
     if running_base_price is None or running_base_price <= 0 or current_price is None:
         progress_to_doubling = "\u2014"  # em dash
+        logger.debug(f"    calculate_doubling_metrics: progress_to_doubling=— (base_price={running_base_price}, current_price={current_price}), doubling_count={doubling_count}")
     else:
         ratio = current_price / running_base_price
         progress_to_doubling = f"{ratio:.1f}x"
+        logger.debug(f"    calculate_doubling_metrics: current_price={current_price:.4f}, base_price={running_base_price:.4f}, ratio={ratio:.2f} → {progress_to_doubling}, doubling_count={doubling_count}")
 
     return progress_to_doubling, doubling_count
 
