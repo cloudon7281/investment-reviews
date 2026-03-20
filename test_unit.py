@@ -1237,6 +1237,31 @@ class TestDoublingMetrics(unittest.TestCase):
         # base stays at 5.0, current=10.0 → 2.0x
         self.assertEqual(progress, "2.0x")
 
+    def test_native_currency_usd_ratio_is_correct(self):
+        """current_price must be in the stock's native currency (same as price_per_share).
+
+        Mirrors the AMPX bug report: BUY at $10.30, current price $19.11.
+        The caller is responsible for converting GBP current_price back to USD before calling.
+        When both are in USD the ratio is 19.11/10.30 ≈ 1.9x, not 1.4x.
+        """
+        buy = self._buy(10.30, qty=100, date=datetime(2024, 1, 1))
+        # Pass native (USD) current price, not GBP
+        progress, count = transaction_processor.calculate_doubling_metrics([buy], current_price=19.11)
+        self.assertEqual(progress, "1.9x")
+        self.assertEqual(count, 0)
+
+    def test_native_currency_nok_ratio_is_correct(self):
+        """Mirrors KOG.OL bug report: first BUY at 315 NOK, current price 412.4 NOK.
+
+        Ratio should be 412.4/315 ≈ 1.3x when both sides are in NOK.
+        Passing GBP current_price (£32.33) against NOK base (315) would give 0.1x — the
+        wrong result caught by issue #7.
+        """
+        buy = self._buy(315.0, qty=100, date=datetime(2024, 1, 1))
+        progress, count = transaction_processor.calculate_doubling_metrics([buy], current_price=412.4)
+        self.assertEqual(progress, "1.3x")
+        self.assertEqual(count, 0)
+
 
 def run_unit_tests():
     """Run all unit tests."""
