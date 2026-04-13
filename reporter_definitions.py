@@ -33,9 +33,9 @@ STOCKS_BETA_THRESHOLD = [
 ]
 
 STOCKS_VOLATILITY_THRESHOLD = [
-    {'threshold': 0.2, 'style': None},
+    {'threshold': 0.25, 'style': 'red'},
     {'threshold': 0.35, 'style': 'amber'},
-    {'threshold': None, 'style': 'red'}
+    {'threshold': None, 'style': None}
 ]
 
 FUNDS_VOLATILITY_THRESHOLD = [

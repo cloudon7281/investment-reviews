@@ -30,6 +30,7 @@ processed_data/
 .idea/
 *.swp
 *.swo
+*.code-workspace
 
 # OS specific files
 .DS_Store
