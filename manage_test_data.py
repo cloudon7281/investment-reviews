@@ -6,9 +6,9 @@ Helps set up isolated test/debug environments by copying specific stock files
 from the history directory based on keyword search.
 
 Usage:
-    python3 manage_test_data.py --debug RGTI,NVDA
-    python3 manage_test_data.py --test PLTR
-    python3 manage_test_data.py --debug RGTI --dry-run
+    python3 manage_test_data.py --phrases RGTI,NVDA --action setup-debug
+    python3 manage_test_data.py --phrases PLTR --action add-to-test-data
+    python3 manage_test_data.py --phrases RGTI --action setup-debug --dry-run
 """
 
 import argparse
@@ -27,7 +27,6 @@ from collections import defaultdict
 from portfolio_review import PortfolioReview
 from pdf_parser import parse_stock_transaction_pdf, parse_merger_pdf, parse_subdivision_pdf, parse_conversion_pdf
 from csv_parser import parse_stock_transaction_csv
-sys.path.insert(0, str(Path(__file__).parent / "scratch"))
 from anonymize_pdf import HLContractNoteGenerator
 from anonymize_special_pdfs import SpecialCaseAnonymizer
 
@@ -45,20 +44,21 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --debug RGTI
-  %(prog)s --debug RGTI,NVDA,PLTR
-  %(prog)s --test ASTS
-  %(prog)s --debug RGTI --dry-run
-  %(prog)s --test NVDA --yes
+  %(prog)s --phrases RGTI --action setup-debug
+  %(prog)s --phrases "RGTI,NVDA,PLTR" --action setup-debug
+  %(prog)s --phrases ASTS --action add-to-test-data
+  %(prog)s --phrases RGTI --action setup-debug --dry-run
+  %(prog)s --phrases NVDA --action add-to-test-data --yes
         """
     )
     
-    mode_group = parser.add_mutually_exclusive_group(required=True)
-    mode_group.add_argument('--debug', metavar='KEYWORDS',
-                           help='Set up debug directory with matching files (replaces existing)')
-    mode_group.add_argument('--test', metavar='KEYWORDS',
-                           help='Add matching files to test_data and run tests')
-    
+    parser.add_argument('--phrases', required=True, metavar='KEYWORDS',
+                       help='Comma-separated keywords to search for in file names')
+    parser.add_argument('--action', required=True,
+                       choices=['setup-debug', 'add-to-test-data'],
+                       help='setup-debug: populate debug directory (replaces existing); '
+                            'add-to-test-data: anonymize and add to test suite')
+
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be done without actually doing it')
     parser.add_argument('--yes', '-y', action='store_true',
@@ -1082,17 +1082,8 @@ def main():
     print()
     
     # Determine mode and keywords
-    if args.debug:
-        mode = 'debug'
-        keyword_string = args.debug
-        target_dir = DEBUG_DIR
-    else:  # args.test
-        mode = 'test'
-        keyword_string = args.test
-        target_dir = TEST_DATA_DIR
-    
-    # Parse keywords
-    keywords = parse_keywords(keyword_string)
+    mode = args.action  # 'setup-debug' or 'add-to-test-data'
+    keywords = parse_keywords(args.phrases)
     
     if not keywords:
         print("❌ Error: No keywords provided")
@@ -1120,10 +1111,10 @@ def main():
     print()
     
     # Execute based on mode
-    if mode == 'debug':
+    if mode == 'setup-debug':
         setup_debug_directory(DEBUG_DIR, matching_files, args.dry_run, args.yes)
 
-    else:  # test mode
+    else:  # add-to-test-data
         # Phase 1: Validate anonymization
         if not validate_and_anonymize(keywords, args.dry_run):
             print()
