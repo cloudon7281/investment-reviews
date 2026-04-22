@@ -35,10 +35,11 @@ Again, from time to time I may want to vary these at a particular review; if so,
 
 You should find attached the following documents.
 
-- My latest Investment Strategy document: this sets out my overall strategy, and you should read it first.
-- A PDF titled 'Investment Decisions - <month> <year>.pdf', which documents the decisions we took at our previous review.
+- My latest Investment Strategy document titled 'Investment Strategy (MMM YYYY).pdf': this sets out my overall strategy, and you should read it first.
 
-- A spreadsheet (in PDF form) titled 'Portfolio Report <month> 2026 Periodic Review.xls' showing performance since the previous review.  This has the following tabs.
+- A PDF titled 'Investment Decisions - <month> <year>.docx', which documents the decisions we took at our previous monthly review.
+
+- A spreadsheet (in PDF form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review.  This has the following tabs.
   -  Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>).  This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review).  This shows performance bucketed as follows:
     - New = stocks bought for the first time as a result of the previous investment review.
     - Retained = stocks we decided to retain.
@@ -50,7 +51,7 @@ You should find attached the following documents.
   - The Benchmark tab shows specific market benchmarks e.g. the Nasdaq.
   - In each of these tables, Start Value refers to the vaue of the relevant investment *at the point of the last investment review* (i.e. since last month), *not* the original purchase value.  Similarly, P&L and ROI show the performance *since the last review*, not since purchase.
   - The spreadsheet also includes columns providing data to assess the other criteria:
-    - profit-taking: "progress to 2x" records the ratio of the stock *since purchase or the last profit taking*, and '# doublings' shows how many doublings there haev been *since purchase*
+    - profit-taking: "progress to 2x" records the ratio of the stock *since purchase or the last profit taking*, and '# doublings' shows how many doublings there have been *since purchase*
     - stop-loss: '% of high', together with current price and 90d high, records the relevant info
     - low volatility: the 'volatility' column records annualised volatility over the last 90 days
     - time" 'days held' shows how long I have held the stock.
@@ -58,7 +59,7 @@ You should find attached the following documents.
 
 # Desired output
 
-The final output will be a downloadable document in a format suitable for cutting-and-pasting into an Apple Pages document, with the sections detailed below.  Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
+The final output will be a downloadable document in Word format, with the sections detailed below.  Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
 
 - Executive Summary
   - 3 paragraphs summarising the full report, covering headline results, thesis validity, and actions (key stock entry/exit decisions).
