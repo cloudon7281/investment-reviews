@@ -61,6 +61,7 @@ You should find attached the following documents.
 The final output will be a downloadable document in a format suitable for cutting-and-pasting into an Apple Pages document, with the sections detailed below.  Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
 
 - Executive Summary
+  - 3 paragraphs summarising the full report, covering headline results, thesis validity, and actions (key stock entry/exit decisions).
 
 - Outcome of last month's decisions
   - Start with the headlines: performance of each of the New, Increased, Retained and Sold buckets, with comparison to Benchmarks.
@@ -70,7 +71,7 @@ The final output will be a downloadable document in a format suitable for cuttin
 - Review of core investment thesis areas
   - I will briefly describe these in the prompt.
   - This section briefly discusses each existing one and whether we judge it still valid.
-  - It also identifies any additional thesis we hav identified and their status e.g. watch and review in N months; invest now.
+  - It also identifies any additional thesis we have identified and their status e.g. watch and review in N months; invest now.
 
 - Individual stock recommendations
   - One table per investment thesis, with columns as follows:
@@ -78,7 +79,7 @@ The final output will be a downloadable document in a format suitable for cuttin
     - proposed action (profit take/hold/increase/exit)
     - justification with reference to criteria laid out above.
 
-- Summary of requried actions
+- Summary of required actions
   - A table showing for each existing stock we decide to buy (decision = increase) or sell (decision = profit-take or exit) with columns as follows:
     - thesis
     - stock name
