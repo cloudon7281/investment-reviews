@@ -24,8 +24,8 @@ def parse_args():
     parser.add_argument('--output-file', default=None,
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
-                      choices=['full-history', 'periodic-review', 'test', 'tax-report', 'annual-review'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), test (run automated tests), or tax-report (tax reporting for a specific tax year)')
+                      choices=['full-history', 'periodic-review', 'test', 'tax-report', 'annual-review', 'list-trades'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (chronological trade list from a start date), test (run automated tests), or tax-report (tax reporting for a specific tax year)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -245,6 +245,17 @@ def main():
             # Write price-over-time CSV if requested
             if args.price_over_time and annual_results.get('price_over_time') is not None:
                 reporter.write_price_over_time_csv(annual_results['price_over_time'], start_date)
+        elif args.mode == 'list-trades':
+            # List-trades mode: chronological trade list from start date
+            if not args.start_date:
+                logger.error("List-trades mode requires --start-date argument")
+                sys.exit(1)
+
+            from datetime import datetime
+            start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+            trades_df = portfolio_analysis.process_list_trades(portfolio_review, start_date)
+            reporter.display_list_trades(trades_df, start_date)
+
         else:  # periodic-review
             # Periodic review mode: Performance analysis for specific period
             if not args.start_date or not args.end_date:

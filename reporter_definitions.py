@@ -293,6 +293,26 @@ COLUMN_CONFIGS = {
             STOCKS_PROFIT_TAKING_THRESHOLD,  # ROI
         ]
     },
+    'list_trades': {
+        'headers': ['Company', 'Ticker', 'Date', 'Type', 'Units', 'Value (£)'],
+        'columns': ['stock_name', 'ticker', 'date', 'transaction_type', 'quantity', 'value_gbp'],
+        'column_formats': [
+            None,          # Company - text
+            None,          # Ticker - text
+            DATE_FORMAT,   # Date
+            None,          # Type - text
+            None,          # Units - pre-formatted string
+            CURRENCY_FORMAT_NO_DECIMALS,  # Value (£)
+        ],
+        'column_thresholds': [
+            None,  # Company
+            None,  # Ticker
+            None,  # Date
+            None,  # Type
+            None,  # Units
+            None,  # Value (£)
+        ]
+    },
     'annual_review_detail': {
         'headers': ['Tag', 'Company', 'Ticker', 'Category', 'First Txn', 'Start Price', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
         'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'first_transaction_date', 'start_price', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],

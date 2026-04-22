@@ -115,12 +115,23 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
         print(f"Annual review test: {result}")
         logger.info(f"Annual review test: {result}")
 
+    # Test 5: List Trades Mode
+    logger.info("Running list trades test...")
+    list_trades_start_date = datetime(2024, 1, 1)
+    list_trades_output = run_list_trades_test(portfolio_review, portfolio_analysis, reporter, list_trades_start_date, test_data_dir)
+    list_trades_reference = load_reference_output(os.path.join(reference_dir, "list_trades_reference.txt"))
+
+    list_trades_passed = compare_list_trades_outputs(list_trades_output, list_trades_reference)
+    result = "PASSED" if list_trades_passed else "FAILED"
+    print(f"List trades test: {result}")
+    logger.info(f"List trades test: {result}")
+
     # Overall result
-    all_integration_passed = periodic_passed and full_history_passed and tax_report_passed and annual_review_passed
-    
+    all_integration_passed = periodic_passed and full_history_passed and tax_report_passed and annual_review_passed and list_trades_passed
+
     print("\n" + "="*80)
     if unit_tests_passed and all_integration_passed:
-        print("✅ ALL TESTS PASSED! (33 unit tests + 4 integration tests)")
+        print("✅ ALL TESTS PASSED! (33 unit tests + 5 integration tests)")
         logger.info("✅ All tests PASSED!")
         return True
     else:
@@ -510,6 +521,52 @@ def compare_annual_review_table(current_table, reference_table, table_name):
                     pass
 
     return True
+
+def run_list_trades_test(portfolio_review, portfolio_analysis, reporter, start_date, test_data_dir):
+    """Run list trades test by shelling out to CLI directly."""
+    cmd = [
+        sys.executable, 'portfolio.py',
+        '--base-dir', test_data_dir,
+        '--mode', 'list-trades',
+        '--start-date', start_date.strftime('%Y-%m-%d'),
+        '--log-level', 'WARNING'
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd='.')
+        return result.stdout + result.stderr
+    except Exception as e:
+        return f"Error running CLI: {str(e)}\n"
+
+
+def compare_list_trades_outputs(current_output, reference_output):
+    """Compare list trades outputs exactly.
+
+    All data is from parsed broker notes — no live market data — so the output
+    is fully deterministic and can be compared as a plain string.
+    """
+    current_clean = current_output.strip()
+    reference_clean = reference_output.strip()
+
+    if current_clean != reference_clean:
+        logger.error("List trades output does not match reference")
+        logger.error(f"Current length: {len(current_clean)}, Reference length: {len(reference_clean)}")
+
+        current_lines = current_clean.split('\n')
+        reference_lines = reference_clean.split('\n')
+        logger.error(f"Current lines: {len(current_lines)}, Reference lines: {len(reference_lines)}")
+
+        for i, (curr_line, ref_line) in enumerate(zip(current_lines, reference_lines)):
+            if curr_line != ref_line:
+                logger.error(f"Line {i} differs:")
+                logger.error(f"  Current:   {repr(curr_line)}")
+                logger.error(f"  Reference: {repr(ref_line)}")
+                break
+
+        return False
+
+    return True
+
 
 def extract_periodic_tables(output):
     """Extract periodic review tables from output."""

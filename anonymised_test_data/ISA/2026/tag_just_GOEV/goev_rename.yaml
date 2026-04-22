@@ -1,0 +1,11 @@
+# Manual transaction note - change of ticker for GOEV
+# Original broker note not available
+transaction_type: STOCK_CONVERSION
+ticker: GOEV
+stock_name: Canoo Inc
+date: 2026-04-09
+old_quantity: 1
+new_quantity: 1
+new_ticker: GOEVQ
+new_currency: USD
+description: "Canoo renamed GOEV to GOEVQ"

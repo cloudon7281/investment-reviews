@@ -38,7 +38,7 @@ You should find attached the following documents.
 - My latest Investment Strategy document: this sets out my overall strategy, and you should read it first.
 - A PDF titled 'Investment Decisions - <month> <year>.pdf', which documents the decisions we took at our previous review.
 
-- A spreadsheet (in PDF form) titled 'Portfolio Report <month> 2026 Periodic Review.pdf' showing performance since the previous review.  This has the following tabs.
+- A spreadsheet (in PDF form) titled 'Portfolio Report <month> 2026 Periodic Review.xls' showing performance since the previous review.  This has the following tabs.
   -  Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>).  This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review).  This shows performance bucketed as follows:
     - New = stocks bought for the first time as a result of the previous investment review.
     - Retained = stocks we decided to retain.

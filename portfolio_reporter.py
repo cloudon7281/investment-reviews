@@ -445,6 +445,36 @@ class PortfolioReporter:
         
         return display_df
     
+    def display_list_trades(self, trades_df: pd.DataFrame, start_date: datetime) -> None:
+        """Display all trades on or after start_date as a single chronological table.
+
+        Args:
+            trades_df: DataFrame from PortfolioAnalysis.process_list_trades().
+            start_date: The filter date, used only for the title and empty-result message.
+        """
+        date_str = start_date.strftime('%d %b %Y')
+
+        if trades_df.empty:
+            print(f"\nNo trades found from {date_str}.")
+            return
+
+        # Convert plain float values to (amount, 'GBP') tuples for currency formatting;
+        # leave None as None so blank cells render as empty.
+        display_df = trades_df.copy()
+        display_df['value_gbp'] = display_df['value_gbp'].apply(
+            lambda x: (x, 'GBP') if x is not None and pd.notna(x) else None
+        )
+
+        config = rd.COLUMN_CONFIGS['list_trades']
+        title = f"Trades from {date_str}"
+
+        table_data = self.data_builder.build_table(display_df, config, title=title)
+        self.console_writer.write_table(table_data, config)
+
+        if self.numbers_writer:
+            self.numbers_writer.write_table(table_data, config, title, title)
+            self._save_numbers_document()
+
     def write_value_over_time_csv(self, value_df: pd.DataFrame, n_days: int) -> None:
         """Write value-over-time CSV file.
 
