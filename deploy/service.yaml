@@ -10,6 +10,12 @@ ports: []
 # Back-compat default is always-on for stacks that omit this.
 deployMode: jobs-only
 
+backup:
+  enabled: true
+  mode: crash-consistent
+  exclusions: []
+  notes: Runner state is ordinary host files under STATE_DIR; crash-consistent artifact backup is acceptable for phase 2.
+
 jobsOnly:
   prebuild:
     profile: manual
