@@ -1,86 +1,55 @@
-# Python virtual environment
-.venv/
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.pyc
+*.pyo
+*.pyd
 
-# Logs
-logs/
-*.log
+# Node
+node_modules
+**/node_modules/
+*.node
 
-# Input data (contains private data)
-stocks/
-stock_notes/
-history/
-*.csv
-*.mhtml
-# But allow test data files
-!test_data/**/*.mhtml
-!test_data/**/*.csv
-!anonymised_test_data/**/*.mhtml
-!anonymised_test_data/**/*.csv
 
-# Processed data
-outputs/
-processed_data/
-*.numbers
 
-# IDE specific files
+# Environment / secrets
+.env
+config/.env
+*.env.local
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *.code-workspace
 
-# OS specific files
+# macOS
 .DS_Store
-Thumbs.db 
-*.pdf
-# But allow test data PDFs
-!test_data/**/*.pdf
-!anonymised_test_data/**/*.pdf
-*.numbers
-portfolio_report.numbers
-portfolio_report.numbers
-
-# Cursor debug tests
-scratch/
-
-# Backup directories (not needed in git)
-test_data.bak/
-test_data.modified_backup/
-
-# Environment-specific config files and manual transaction notes (contains private data)
-*.yaml
-*.yml
-# But allow template files and test data
-!*.yaml.template
-!*.yml.template
-!test_data/**/*.yaml
-!test_data/**/*.yml
-!anonymised_test_data/**/*.yaml
-!anonymised_test_data/**/*.yml
-
-# Credentials (service accounts, API keys, etc.)
-credentials/
-
-# Deployment (compose files are meant to be versioned)
-!deploy/docker-compose.yml
-!deploy/docker-compose.yaml
-!deploy/service.yaml
-
-# Development artifacts (local only, not for GitHub)
-plans/
-claude_plans/
-cursor_prefs.md
-
-# Scratch directory outputs (keep scripts, exclude outputs)
-scratch/*.txt
-scratch/*.pdf
-scratch/anonymized_temp/
-
-# Copy of deployment architecture docs
-deployment-architecture/
 
 # Claude code access tokens
 claude-access
+
+# Implementation plans (local only, not committed)
+claude_plans/
+
+# Tidy tool local state (managed by tier2-project tidy)
+.tidy/
+
+# State, config, debug etc.
+data/
+state/
+secrets/
+scratch/
+logs/
+screenshots/
