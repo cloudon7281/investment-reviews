@@ -7,7 +7,7 @@ services:
     container_name: investment-reviews-runner
     profiles: ["manual"]
     # NOTE: On macOS/Colima mounts, uid/gid mapping can be inconsistent (9p).
-    # Run as root to ensure the runner can write to bind-mounted state/log dirs.
+    # Run as root to ensure the runner can write to bind-mounted outputs dir.
     environment:
       - TZ=Europe/London
       - CONFIG_PATH=/run/config/config.yaml
@@ -16,5 +16,4 @@ services:
       - ${STATE_DIR}/credentials:/run/credentials:ro
       - ${STATE_DIR}/history:/data/history:ro
       - ${STATE_DIR}/outputs:/data/outputs
-      - ${STATE_DIR}/logs:/data/logs
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]

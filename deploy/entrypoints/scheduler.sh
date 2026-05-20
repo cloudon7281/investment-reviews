@@ -5,18 +5,14 @@ set -euo pipefail
 : "${SCHEDULE_LOCAL_TIME:?SCHEDULE_LOCAL_TIME must be set (e.g. 22:05)}"
 : "${TZ:?TZ must be set (e.g. Europe/London)}"
 
-mkdir -p /data/logs/daily_updates
-
-logfile=/data/logs/daily_updates/cron.log
-
 tz="$TZ"
 time_local="$SCHEDULE_LOCAL_TIME"
 
 run_once() {
-  echo "[$(date -Is)] starting scheduled investment-reviews run" | tee -a "$logfile"
-  python /app/update_google_sheet.py --config "$CONFIG_PATH" >>"$logfile" 2>&1
+  echo "[$(date -Is)] starting scheduled investment-reviews run"
+  python /app/update_google_sheet.py --config "$CONFIG_PATH"
   rc=$?
-  echo "[$(date -Is)] finished scheduled investment-reviews run (exit=$rc)" | tee -a "$logfile"
+  echo "[$(date -Is)] finished scheduled investment-reviews run (exit=$rc)"
   return $rc
 }
 
@@ -36,7 +32,7 @@ while true; do
     sleep_for=60
   fi
 
-  echo "[$(date -Is)] sleeping ${sleep_for}s until next scheduled run (${tz} ${time_local})" | tee -a "$logfile"
+  echo "[$(date -Is)] sleeping ${sleep_for}s until next scheduled run (${tz} ${time_local})"
   sleep "$sleep_for"
 
   run_once || true
