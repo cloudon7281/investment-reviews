@@ -20,76 +20,32 @@ import logging
 
 from console_parser import ConsoleOutputParser
 from google_sheets_client import GoogleSheetsClient
+from logger import configure_logging
 
 
 class PortfolioUpdater:
     """Coordinates daily portfolio updates to Google Sheets."""
-    
+
     def __init__(self, config_path: str, dry_run: bool = False):
         """Initialize the updater.
-        
+
         Args:
             config_path: Path to config.yaml
             dry_run: If True, show what would be done without doing it
         """
         self.config_path = config_path
         self.dry_run = dry_run
-        
+        self.logger = logging.getLogger(__name__)
+
         # Load configuration
         with open(os.path.expanduser(config_path), 'r') as f:
             self.config = yaml.safe_load(f)
-        
-        # Set up logging
-        self._setup_logging()
-        
+
         # Initialize Google Sheets client (needed even in dry-run to read current state)
         self.sheets_client = GoogleSheetsClient(config_path)
-        
+
         if dry_run:
             self.logger.info("DRY RUN MODE - No actual changes will be made")
-    
-    def _setup_logging(self) -> None:
-        """Set up logging to file and console."""
-        log_config = self.config.get('logging', {})
-        log_dir = os.path.expanduser(log_config.get('log_dir', 'logs/daily_updates'))
-        os.makedirs(log_dir, exist_ok=True)
-        
-        # Create log file with timestamp
-        log_file = os.path.join(log_dir, f"update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-        
-        # Configure logging
-        logging.basicConfig(
-            level=getattr(logging, log_config.get('level', 'INFO')),
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
-        
-        self.logger = logging.getLogger(__name__)
-        self.logger.info(f"Logging to: {log_file}")
-        
-        # Clean up old logs
-        self._cleanup_old_logs(log_dir, log_config.get('retention_days', 30))
-    
-    def _cleanup_old_logs(self, log_dir: str, retention_days: int) -> None:
-        """Delete log files older than retention period.
-        
-        Args:
-            log_dir: Directory containing log files
-            retention_days: Number of days to keep logs
-        """
-        cutoff = datetime.now() - timedelta(days=retention_days)
-        
-        for filename in os.listdir(log_dir):
-            if filename.startswith('update_') and filename.endswith('.log'):
-                filepath = os.path.join(log_dir, filename)
-                file_time = datetime.fromtimestamp(os.path.getmtime(filepath))
-                
-                if file_time < cutoff:
-                    os.remove(filepath)
-                    self.logger.debug(f"Deleted old log: {filename}")
     
     def _cleanup_old_output_files(self, output_dir: str, root_filename: str, number_to_keep: int) -> None:
         """Delete old output files, keeping only the most recent ones.
@@ -461,7 +417,9 @@ def main():
     )
     
     args = parser.parse_args()
-    
+
+    configure_logging()
+
     # Run update
     updater = PortfolioUpdater(args.config, dry_run=args.dry_run)
     success = updater.run()

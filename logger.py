@@ -1,96 +1,90 @@
+"""Logging configuration for investment-reviews.
+
+Copied from devops-model scaffold/logging_config.py. Conforms to SDI §10.
+"""
+
+from __future__ import annotations
+
+import json
 import logging
 import os
-from datetime import datetime
-import glob
-import re
-from pathlib import Path
+import sys
 import warnings
+from datetime import datetime, timezone
 
 # Suppress specific RuntimeWarnings from numbers_parser about rounding
 warnings.filterwarnings('ignore', message='.*rounded to 15 significant digits', category=RuntimeWarning)
 warnings.filterwarnings('ignore', message='.*rounded to \d+ significant digits', category=RuntimeWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning, module='numbers_parser')
 
-def setup_logger(log_level: str = 'INFO') -> logging.Logger:
-    """Set up logging configuration with timestamped log files and detailed format.
-    
-    Args:
-        log_level: The logging level to use ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-    """
-    # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    
-    # Clean up old log files, keeping only the 3 most recent
-    log_files = glob.glob('logs/stock_log_*.log')
-    if len(log_files) > 3:
-        # Sort by modification time, newest first
-        log_files.sort(key=os.path.getmtime, reverse=True)
-        # Delete all but the 3 most recent
-        for old_file in log_files[3:]:
-            try:
-                os.remove(old_file)
-                # print(f"Removed old log file: {old_file}")
-            except Exception as e:
-                print(f"Error removing old log file {old_file}: {e}")
-    
-    # Generate new log filename with timestamp and sequence number
-    timestamp = datetime.now().strftime('%y%m%d')
-    
-    # Find the highest sequence number for today's logs
-    today_logs = glob.glob(f'logs/stock_log_{timestamp}_*.log')
-    if today_logs:
-        # Extract sequence numbers from filenames
-        sequence_numbers = []
-        for log_file in today_logs:
-            match = re.search(r'stock_log_\d{6}_(\d{3})\.log', log_file)
-            if match:
-                sequence_numbers.append(int(match.group(1)))
-        # Get the next sequence number
-        sequence = max(sequence_numbers) + 1 if sequence_numbers else 1
+SERVICE_NAME = "investment-reviews"
+
+_LEVEL_MAP = {
+    "WARNING": "WARN",
+    "CRITICAL": "FATAL",
+}
+
+
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        level = _LEVEL_MAP.get(record.levelname, record.levelname)
+        ts = (
+            datetime.fromtimestamp(record.created, tz=timezone.utc)
+            .strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{int(record.msecs):03d}Z"
+        )
+        obj: dict = {
+            "ts": ts,
+            "level": level,
+            "service": SERVICE_NAME,
+            "instance": os.environ.get("INSTANCE", "-"),
+            "msg": record.getMessage(),
+        }
+        if record.name and record.name not in ("root", "__main__"):
+            obj["component"] = record.name
+        if hasattr(record, "event"):
+            obj["event"] = record.event
+        if record.exc_info:
+            obj["err"] = self.formatException(record.exc_info)
+        return json.dumps(obj)
+
+
+def configure_logging(level: int | None = None) -> None:
+    """Configure root logger from LOG_FORMAT / LOG_LEVEL env vars."""
+    if level is None:
+        level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+        level = getattr(logging, level_name, logging.INFO)
+
+    fmt = os.environ.get("LOG_FORMAT", "text").lower()
+    handler = logging.StreamHandler(sys.stdout)
+
+    if fmt == "json":
+        handler.setFormatter(_JsonFormatter())
     else:
-        sequence = 1
-        
-    log_filename = f'logs/stock_log_{timestamp}_{sequence:03d}.log'
-    
-    # Get root logger and configure it
-    logger = logging.getLogger()
-    
-    # Remove any existing handlers
-    logger.handlers = []
-    
-    # Set log level for pdfplumber and its submodules to ERROR
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)-5s [%(name)s] %(message)s",
+                datefmt="%Y-%m-%dT%H:%M:%S",
+            )
+        )
+
+    logging.root.handlers = []
+    logging.root.addHandler(handler)
+    logging.root.setLevel(level)
+
+    # Suppress noisy third-party loggers
     logging.getLogger('pdfminer').setLevel(logging.ERROR)
     logging.getLogger('pdfplumber').setLevel(logging.ERROR)
     logging.getLogger('numbers_parser').setLevel(logging.ERROR)
     logging.getLogger('yfinance').setLevel(logging.ERROR)
-    
-    # Create formatter with fixed-width fields
-    formatter = logging.Formatter('%(asctime)s %(module)-20s %(funcName)-30s %(levelname)-8s %(message)s')
-    
-    # Configure file handler
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(formatter)
-    
-    # Configure console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.ERROR)
-    console_handler.setFormatter(formatter)
-    
-    # Add handlers to logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
-    # Set log level
-    try:
-        level = getattr(logging, log_level.upper())
-        logger.setLevel(level)
-    except (AttributeError, TypeError):
-        print(f"Invalid log level: {log_level}. Using INFO level instead.")
-        logger.setLevel(logging.INFO)
-    
-    logger.info(f"Logging initialized. Log file: {log_filename} (Level: {log_level.upper()})")
-    return logger
 
-# Export the logger instance
-logger = logging.getLogger() 
+
+def setup_logger(log_level: str = 'INFO') -> logging.Logger:
+    """Legacy alias for configure_logging(); kept for call-site compatibility."""
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    configure_logging(level=level)
+    return logging.getLogger()
+
+
+# Module-level logger for `from logger import logger` call sites
+logger = logging.getLogger()
