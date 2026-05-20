@@ -11,6 +11,7 @@ services:
     environment:
       - TZ=Europe/London
       - CONFIG_PATH=/run/config/config.yaml
+      - LOG_FORMAT=json
     volumes:
       - ${STATE_DIR}/config:/run/config:ro
       - ${STATE_DIR}/credentials:/run/credentials:ro
