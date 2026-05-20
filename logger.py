@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 # Suppress specific RuntimeWarnings from numbers_parser about rounding
 warnings.filterwarnings('ignore', message='.*rounded to 15 significant digits', category=RuntimeWarning)
-warnings.filterwarnings('ignore', message='.*rounded to \d+ significant digits', category=RuntimeWarning)
+warnings.filterwarnings('ignore', message=r'.*rounded to \d+ significant digits', category=RuntimeWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning, module='numbers_parser')
 
 SERVICE_NAME = "investment-reviews"
