@@ -40,7 +40,7 @@ You should find attached the following documents.
 
 - A PDF titled 'Investment Decisions - <month> <year>.docx', which documents the decisions we took at our previous monthly review.
 
-- A spreadsheet (in PDF form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review.  This has the following tabs.
+- A spreadsheet (in Excel form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review.  This has the following tabs.
   -  Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>).  This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review).  This shows performance bucketed as follows:
     - New = stocks bought for the first time as a result of the previous investment review.
     - Retained = stocks we decided to retain.
