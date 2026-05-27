@@ -18,6 +18,7 @@ The purpose of these reviews is to:
   - low volatility (I am looking for growth stocks which typically implies high volatility, so sell stocks with <25% annualised volatility over 2 quarters)
   - time held (review but do not necessarily sell any stocks held more than a year)
   - change in fundamentals (sell if change in fundamentals e.g. 2 sucessive quarters of earnings misses)
+  - maintain a short rolling list of process watchpoints: tentative cross-review observations that may matter for future decision-making, but which do not yet justify any change to the Investment Strategy document
 
 - but to do so in the context of my core investment thesis; there is a significant difference between all stocks in an area falling because of (what we judge to be) short-term market sentiment vs. that area, and individual stock under-performance against its peers e.g. because of poor execution
 
@@ -57,6 +58,8 @@ You should find attached the following documents.
     - time" 'days held' shows how long I have held the stock.
     - I do not currently have any automated way to provide information on fundamentals.
 
+- A description of my current investment thesis titled thesis.md.
+
 # Desired output
 
 The final output will be a downloadable document in Word format, with the sections detailed below.  Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
@@ -70,9 +73,9 @@ The final output will be a downloadable document in Word format, with the sectio
   - Commentary on any lessons to learn and suggestions for changes in strategy.
 
 - Review of core investment thesis areas
-  - I will briefly describe these in the prompt.
-  - This section briefly discusses each existing one and whether we judge it still valid.
+  - This section briefly discusses each existing investment thesis and whether we judge it still valid.
   - It also identifies any additional thesis we have identified and their status e.g. watch and review in N months; invest now.
+  - It suggests changes to thesis,=.md, if required.
 
 - Individual stock recommendations
   - One table per investment thesis, with columns as follows:
@@ -97,3 +100,18 @@ The final output will be a downloadable document in Word format, with the sectio
     - stock
     - amount in GBP to buy
     - brief justification.
+
+- Process watchpoints
+  - A short section capturing any tentative lessons or emerging patterns that are worth monitoring across reviews, but which do not yet justify a change to the Investment Strategy.
+  - This section is for persistence and continuity only: it must not be used to smuggle in rule changes without explicit discussion.
+  - Include a table with columns:
+    - issue being monitored
+    - why it might matter
+    - first noted
+    - evidence so far
+    - trigger for escalation
+    - current status
+  - At each monthly review, briefly revisit any existing watchpoints and for each one decide whether to:
+    - keep monitoring
+    - close as noise / resolved
+    - recommend explicit amendment to the Investment Strategy document
