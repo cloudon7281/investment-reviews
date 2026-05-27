@@ -34,19 +34,18 @@ Changes to this document do not by themselves change the Investment Strategy rul
 
 | Thesis | Status | Current strength | Preferred expressions | Last reviewed |
 |---|---|---:|---|---|
-| Defence | Active | High | European defence primes; radar/sensor; drone/counter-drone; selective defence ETFs | 2026-04 |
-| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, interconnects, selective optical/connectivity names | 2026-04 |
-| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-04 |
-| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technology with credible traction | 2026-04 |
-| Crowd-sourced ideas | Supporting source of ideas, not a thesis in its own right | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-04 |
-| Quantum | Watchlist / optionality only | Low-Medium | Small speculative sleeve only if evidence improves | 2026-04 |
+| Defence | Active | High | European defence primes; radar/sensor; drone/counter-drone; selective defence ETFs | 2026-05 |
+| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, interconnects, selective optical/connectivity names | 2026-05 |
+| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-05 |
+| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technology with credible traction | 2026-05 |
+| Crowd-sourced ideas | Supporting source of ideas, not a thesis in its own right | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-05 |
+| Quantum | Watchlist / optionality only | Low-Medium | Small speculative sleeve only if evidence improves | 2026-05 |
 
 ## Defence
 
 **Status:** Active  
 **Current strength:** High  
 **Time horizon:** Multi-year structural  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 European and allied defence spending is in a sustained structural upcycle, driven by Russian aggression, Middle Eastern instability, NATO rearmament, and the rapid evolution of battlefield technology. The most attractive investable expressions are not generic defence exposure but firms with direct exposure to air defence, missiles, radar, sensors, drone warfare, counter-drone systems, and related integration.
@@ -97,13 +96,13 @@ This remains one of the highest-conviction and highest-priority themes in the ac
 
 #### Notes from latest review
 - 2026-04: Thesis remains strong; increased emphasis on drone / counter-drone and Ukrainian battlefield learning.
+- 2026-05: Thesis remains high-conviction. Ceasefire/Hormuz de-escalation reduces immediate oil-shock pressure but does not weaken the structural rearmament, air-defence, drone and counter-drone thesis. Continue to monitor whether counter-drone deserves explicit sub-thesis treatment.
 
 ## Data-centre infrastructure
 
 **Status:** Active  
 **Current strength:** High  
 **Time horizon:** Multi-year structural  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 Global demand for compute and AI workloads continues to drive structural expansion in data-centre capacity. The most attractive expressions are the enabling layers that remain essential even if sentiment around AI fluctuates: power, grid resilience, cooling, connectivity, interconnects, and selective optical infrastructure.
@@ -117,6 +116,7 @@ Global demand for compute and AI workloads continues to drive structural expansi
 - Continued hyperscaler and AI-infrastructure capex
 - persistent demand for data-centre power and network infrastructure
 - increasing overlap between data-centre growth and resilient-power / energy-security themes
+- further evidence that electricity availability, grid connection delays, resilient on-site generation and power-management infrastructure are becoming central bottlenecks in AI/data-centre buildout.
 
 #### Main risks / counter-arguments
 - parts of the semiconductor and optical supply chain may be exposed to cyclical corrections
@@ -148,13 +148,13 @@ This remains a core active theme, with preference currently tilted toward power/
 
 #### Notes from latest review
 - 2026-04: Thesis still strong; emphasis remains on power, resilience, and infrastructure rather than the most supply-chain-sensitive names.
+- 2026-05: Further evidence that electricity availability, grid connection delays, resilient on-site generation and power-management infrastructure are becoming central bottlenecks in AI/data-centre buildout.
 
 ## Nuclear / SMR / energy security
 
 **Status:** Active  
 **Current strength:** Medium-High  
 **Time horizon:** Multi-year structural  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 Rising electricity demand, energy-security concerns, and the need for resilient low-carbon baseload power support a multi-year thesis in nuclear energy. The most attractive investable expressions are fuel-cycle and engineering enablers, with more speculative SMR / advanced-reactor names treated as optionality rather than core holdings.
@@ -199,13 +199,13 @@ This remains an important supporting theme, but emphasis should be on quality an
 
 #### Notes from latest review
 - 2026-04: Thesis remains valid; maintain preference for higher-quality names over weaker optionality.
+- 2026-05: Thesis modestly strengthened by further evidence that AI/data-centre electricity demand is increasing interest in reliable baseload and SMR-linked power solutions. Maintain preference for fuel-cycle and engineering enablers over promotional reactor optionality.
 
 ## EVs and battery tech
 
 **Status:** Active  
-**Current strength:** Medium  
+**Current strength:** Medium-High 
 **Time horizon:** Multi-year structural  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 The long-term shift toward EVs and improved battery technology remains intact, though the path is more cyclical and competitive than in defence or data-centre infrastructure. The preferred investable expressions are scaled operators and battery technologies with genuine traction rather than fragile concept names.
@@ -249,13 +249,13 @@ This remains a live but second-tier theme versus defence and data-centre infrast
 
 #### Notes from latest review
 - 2026-04: Thesis remains valid; preference continues to be for scale and credibility.
+- 2026-05: Thesis remains valid but second-tier. Energy-price volatility briefly strengthened the EV adoption case, but partial de-escalation around Hormuz reduces the immediacy of that tailwind.
 
 ## Crowd-sourced ideas
 
 **Status:** Supporting source of ideas, not a thesis in its own right  
 **Current strength:** Low-Medium  
 **Time horizon:** Opportunistic  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 Third-party idea sources such as Simply Wall Street, Insider Monkey, and Seeking Alpha can be useful generators of candidate stocks, but they do not themselves constitute a portfolio thesis. Any such idea must stand on its own merits within the portfolio framework.
@@ -295,10 +295,9 @@ This should remain a source of candidates, not a standalone conviction sleeve.
 
 ## Quantum
 
-**Status:** Watchlist / optionality only  
+**Status:** Watchlist / small optionality sleeve
 **Current strength:** Low-Medium  
 **Time horizon:** Long-duration optionality  
-**Last reviewed:** YYYY-MM
 
 #### Thesis statement
 Quantum computing may again become investable as a small optionality sleeve if technological and commercial progress improves and market conditions support selective exposure. For now it is not a core thesis but a watchlist theme.
@@ -340,6 +339,7 @@ Monitor only. Any re-entry should be small and explicitly treated as optionality
 
 #### Notes from latest review
 - 2026-04: Return to watchlist after renewed sector strength; not yet promoted to active thesis.
+- 2026-05: Early performance of the initial IonQ / Rigetti optionality sleeve is encouraging, but this is not yet evidence of durable commercial validation. Keep sizing small and require further technical / commercial progress before promotion to active thesis.
 
 ## Thesis watchpoints
 
