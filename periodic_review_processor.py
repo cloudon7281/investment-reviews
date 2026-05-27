@@ -308,8 +308,8 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
         logger.debug(f"  Effective holdings at end: {holdings_at_end_effective}")
 
         # Classify based on transaction history and holdings
-        if first_transaction_date >= start_date and first_transaction_date <= end_date:
-            # First transaction in period = new stock
+        if holdings_at_end_effective > 0 and holdings_at_start_effective == 0:
+            # No holdings at start but held at end = new (or repurchased) stock
             logger.debug(f"  {ticker} classified as NEW (first transaction in period)")
             classification['new'].append((ticker, category))
         elif holdings_at_start_effective > 0 and holdings_at_end_effective > 0:
