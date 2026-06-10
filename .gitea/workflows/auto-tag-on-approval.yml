@@ -1,0 +1,98 @@
+name: auto-tag-on-approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-tag:
+    if: ${{ github.event.review.state == 'approved' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge and tag
+        env:
+          TOKEN: ${{ secrets.AUTO_TAG_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          API_BASE: ${{ github.server_url }}/api/v1
+        run: |
+          set -euo pipefail
+
+          # Merge the PR (idempotent — 409 means already merged or conflict)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"Do":"merge"}')
+
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "409" ]; then
+            echo "Merge failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # Get PR labels
+          LABELS=$(curl -s \
+            -H "Authorization: token ${TOKEN}" \
+            "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}" \
+            | python3 -c "
+import sys, json
+pr = json.load(sys.stdin)
+print(' '.join(l['name'] for l in pr.get('labels', [])))
+")
+          echo "PR labels: ${LABELS}"
+
+          # Determine bump type (enhancement -> minor; default patch)
+          BUMP=patch
+          for label in $LABELS; do
+            [ "$label" = "enhancement" ] && BUMP=minor && break
+          done
+          echo "Bump: ${BUMP}"
+
+          # Get latest semver tag
+          LATEST=$(curl -s \
+            -H "Authorization: token ${TOKEN}" \
+            "${API_BASE}/repos/${REPO}/tags?limit=50" \
+            | python3 -c "
+import sys, json, re
+tags = json.load(sys.stdin)
+semver = [t['name'] for t in tags if re.fullmatch(r'v\d+\.\d+\.\d+', t.get('name', ''))]
+if not semver:
+    print('v0.0.0')
+else:
+    print(max(semver, key=lambda t: [int(x) for x in t[1:].split('.')]))
+")
+          echo "Latest: ${LATEST}"
+
+          # Compute next tag
+          NEXT=$(python3 -c "
+v = '${LATEST}'[1:].split('.')
+major, minor, patch = int(v[0]), int(v[1]), int(v[2])
+if '${BUMP}' == 'minor':
+    minor += 1; patch = 0
+else:
+    patch += 1
+print(f'v{major}.{minor}.{patch}')
+")
+          echo "Next: ${NEXT}"
+
+          # Get HEAD of main after merge
+          SHA=$(curl -s \
+            -H "Authorization: token ${TOKEN}" \
+            "${API_BASE}/repos/${REPO}/branches/main" \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['commit']['id'])")
+
+          # Create tag (idempotent — skip if already exists)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${API_BASE}/repos/${REPO}/tags" \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"${NEXT}\",\"target\":\"${SHA}\",\"message\":\"${NEXT}\"}")
+
+          if [ "$HTTP_CODE" = "201" ]; then
+            echo "Tagged: ${NEXT}"
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "Tag ${NEXT} already exists, skipping"
+          else
+            echo "Tagging failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
