@@ -1,0 +1,22 @@
+name: enable-auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge on PR
+        env:
+          TOKEN: ${{ secrets.AUTO_TAG_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          API_BASE: ${{ github.server_url }}/api/v1
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"Do":"merge","merge_when_checks_succeed":true}' \
+            "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
