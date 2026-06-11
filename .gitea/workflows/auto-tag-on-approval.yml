@@ -1,12 +1,12 @@
 name: auto-tag-on-approval
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [closed]
 
 jobs:
   auto-tag:
-    if: ${{ github.event.review.state == 'approved' }}
+    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Merge, tag and close issue
