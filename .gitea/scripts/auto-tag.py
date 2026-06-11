@@ -24,20 +24,14 @@ def gitea(method, path, body=None):
         return e.code, {}
 
 
-# 1. Merge the PR (idempotent — 409 = already merged)
-status, _ = gitea('POST', f'pulls/{PR_NUM}/merge', {'Do': 'merge'})
-if status not in (200, 204, 409):
-    raise SystemExit(f'Merge failed: HTTP {status}')
-print(f'Merge: HTTP {status}')
-
-# 2. Determine version bump from PR labels
+# 1. Determine version bump from PR labels (PR already merged by auto-merge)
 _, pr = gitea('GET', f'pulls/{PR_NUM}')
 labels = [l['name'] for l in pr.get('labels', [])]
 print(f'Labels: {labels}')
 bump = 'minor' if 'enhancement' in labels else 'patch'
 print(f'Bump: {bump}')
 
-# 3. Find latest semver tag and compute next
+# 2. Find latest semver tag and compute next
 _, tags_data = gitea('GET', 'tags?limit=50')
 tags_list = tags_data if isinstance(tags_data, list) else []
 semver = [t['name'] for t in tags_list
@@ -54,7 +48,7 @@ else:
 next_tag = f'v{major}.{minor}.{patch}'
 print(f'Next: {next_tag}')
 
-# 4. Create tag on HEAD of main (idempotent — 409 = already exists)
+# 3. Create tag on HEAD of main (idempotent — 409 = already exists)
 _, branch = gitea('GET', 'branches/main')
 sha = branch['commit']['id']
 status, _ = gitea('POST', 'tags', {'tag_name': next_tag, 'target': sha, 'message': next_tag})
@@ -65,7 +59,7 @@ elif status == 409:
 else:
     raise SystemExit(f'Tagging failed: HTTP {status}')
 
-# 5. Close linked issue if PR body contains Closes/Fixes #N
+# 4. Close linked issue if PR body contains Closes/Fixes #N
 pr_body = pr.get('body') or ''
 m = re.search(r'(?:closes|fixes)\s+#(\d+)', pr_body, re.IGNORECASE)
 if not m:
