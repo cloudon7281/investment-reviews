@@ -1098,6 +1098,69 @@ class TestProgressToDoubling(unittest.TestCase):
             self.assertEqual(display, "\u2014")
 
 
+class TestTaxPnlPoolCostBasis(unittest.TestCase):
+    """Tests for pool_cost_basis tracking in calculate_transactions_through_date.
+
+    Reproduces the Blackrock ICS Sterling Liquidity bug (issue #12):
+    a sell that clears the first tranche must reset the pool, so subsequent
+    sells are costed against the new pool only.
+    """
+
+    def _make_txn(self, date, txn_type, qty, price, total):
+        return StockTransaction(
+            date=date,
+            transaction_type=txn_type,
+            quantity=qty,
+            price_per_share=price,
+            total_amount=total,
+        )
+
+    def test_pool_cost_basis_no_sells(self):
+        """With no sells, pool_cost_basis equals total amount invested."""
+        txns = [
+            self._make_txn(datetime(2025, 3, 13), 'BUY', 422.01, 118.47, 50000.0),
+            self._make_txn(datetime(2025, 12, 24), 'BUY', 792.12, 122.47, 97000.0),
+        ]
+        result = transaction_processor.calculate_transactions_through_date(
+            txns, datetime(2026, 1, 1), include_investment_threshold=False
+        )
+        self.assertAlmostEqual(result['pool_cost_basis'], 147000.0, places=2)
+
+    def test_pool_cost_basis_full_sell_resets_pool(self):
+        """Selling all units clears the pool to zero."""
+        txns = [
+            self._make_txn(datetime(2025, 3, 13), 'BUY', 422.01, 118.47, 50000.0),
+            self._make_txn(datetime(2025, 12, 16), 'SELL', 422.01, 122.34, 51633.0),
+        ]
+        result = transaction_processor.calculate_transactions_through_date(
+            txns, datetime(2025, 12, 31), include_investment_threshold=False
+        )
+        self.assertAlmostEqual(result['pool_cost_basis'], 0.0, places=2)
+
+    def test_tax_pnl_interleaved_buy_sell_buy_buy_sell(self):
+        """Reproduce issue #12: sell clears pool; re-buy creates new pool; next sell uses new pool cost."""
+        txns = [
+            self._make_txn(datetime(2025, 3, 13),  'BUY',  422.01, 118.47,  50000.0),
+            self._make_txn(datetime(2025, 12, 16), 'SELL', 422.01, 122.34,  51633.0),
+            self._make_txn(datetime(2025, 12, 24), 'BUY',  792.12, 122.47,  97000.0),
+            self._make_txn(datetime(2026, 1, 21),  'BUY',   32.57, 122.81,   4000.0),
+            self._make_txn(datetime(2026, 2, 23),  'SELL',  81.1,  123.31,  10000.0),
+        ]
+        # Pool just before the 23/2/26 sell: 824.69 units, £101,000
+        # avg = 101000/824.69 = 122.47...; cost of 81.1 = 81.1/824.69*101000 = 9932.34
+        # P&L = 10000 - 9932.34 = 67.66
+        result = transaction_processor.calculate_transactions_through_date(
+            txns, datetime(2026, 2, 23), include_investment_threshold=False
+        )
+        self.assertAlmostEqual(result['pool_cost_basis'], 101000.0 - (81.1 / 824.69) * 101000.0, delta=1.0)
+
+        import tax_report_processor
+        sell_txn = txns[4]
+        pnl_data = tax_report_processor.calculate_tax_pnl('TEST', sell_txn, txns, datetime(2025, 4, 6))
+        self.assertIsNotNone(pnl_data)
+        self.assertAlmostEqual(pnl_data['pnl'], 67.66, delta=1.0)
+
+
 class TestDoublingMetrics(unittest.TestCase):
     """Tests for calculate_doubling_metrics (profit-taking detection and progress ratio)."""
 
@@ -1283,6 +1346,7 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestBenchmarkPerformance))
     suite.addTests(loader.loadTestsFromTestCase(TestProgressToDoubling))
     suite.addTests(loader.loadTestsFromTestCase(TestDoublingMetrics))
+    suite.addTests(loader.loadTestsFromTestCase(TestTaxPnlPoolCostBasis))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

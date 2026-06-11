@@ -35,20 +35,20 @@ def calculate_tax_pnl(ticker: str, sell_transaction, all_transactions: List,
         include_investment_threshold=False
     )
 
-    # Extract the data we need for tax P&L calculation
-    conversion_adjusted_units_bought = results['gross_units_bought']  # This is now conversion-adjusted
-    conversion_adjusted_cost_basis = results['conversion_adjusted_cost_basis']
+    # Extract the Section 104 pool state at the sell date
+    pool_units = results['units_held']
+    pool_cost = results['pool_cost_basis']
 
     logger.debug(f"Tax P&L calculation for {ticker}:")
-    logger.debug(f"  Conversion-adjusted units bought: {conversion_adjusted_units_bought}")
-    logger.debug(f"  Conversion-adjusted cost basis: £{conversion_adjusted_cost_basis:.2f}")
+    logger.debug(f"  Pool units at sell date: {pool_units}")
+    logger.debug(f"  Pool cost basis at sell date: £{pool_cost:.2f}")
 
-    if conversion_adjusted_units_bought <= 0:
-        logger.warning(f"No units bought for {ticker}")
+    if pool_units <= 0:
+        logger.warning(f"No units held for {ticker} at sell date")
         return None
 
-    # Calculate average price using conversion-adjusted cost basis and units
-    average_price = conversion_adjusted_cost_basis / conversion_adjusted_units_bought
+    # Calculate average price from the current Section 104 pool
+    average_price = pool_cost / pool_units
 
     # Calculate P&L
     units_sold = abs(sell_transaction.quantity)  # Ensure positive
@@ -62,8 +62,8 @@ def calculate_tax_pnl(ticker: str, sell_transaction, all_transactions: List,
     logger.debug(f"  P&L calculation: £{amount_received:.2f} - £{cost_basis:.2f} = £{pnl:.2f}")
 
     return {
-        'total_units_bought': conversion_adjusted_units_bought,
-        'total_price_paid': conversion_adjusted_cost_basis,
+        'total_units_bought': pool_units,
+        'total_price_paid': pool_cost,
         'average_price': average_price,
         'pnl': pnl
     }

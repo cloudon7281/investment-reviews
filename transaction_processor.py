@@ -154,6 +154,7 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
     # Track conversion ratios for cost basis adjustment
     conversion_ratio = 1.0
     original_cost_basis = 0.0
+    pool_cost_basis = 0.0  # Running Section 104 pool cost: reduced proportionally on each SELL
 
     # Track ticker changes from STOCK_CONVERSION
     current_ticker = None
@@ -174,15 +175,22 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
                 if include_investment_threshold and txn.total_amount > 500:
                     total_invested += txn.total_amount
                     original_cost_basis += txn.total_amount
+                    pool_cost_basis += txn.total_amount
                     logger.debug(f"    BUY: Investment £{txn.total_amount:.2f} (above threshold)")
                 elif not include_investment_threshold:
                     total_invested += txn.total_amount
                     original_cost_basis += txn.total_amount
+                    pool_cost_basis += txn.total_amount
                     logger.debug(f"    BUY: Investment £{txn.total_amount:.2f} (no threshold)")
                 else:
                     logger.debug(f"    BUY: Dividend accumulation £{txn.total_amount:.2f} (below threshold)")
 
             elif txn.transaction_type == 'SELL':
+                # Reduce pool cost basis proportionally before updating units_held
+                units_sold = abs(txn.quantity)
+                if units_held > 0:
+                    pool_cost_basis -= (units_sold / units_held) * pool_cost_basis
+
                 # Update holdings
                 if txn.quantity < 0:
                     units_held += txn.quantity  # quantity is already negative
@@ -190,7 +198,7 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
                     units_held -= txn.quantity
 
                 # Track gross amounts
-                gross_units_sold += abs(txn.quantity)
+                gross_units_sold += units_sold
                 gross_amount_received += txn.total_amount
                 total_received += txn.total_amount
 
@@ -235,6 +243,7 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
     logger.debug(f"    Gross amount received: £{gross_amount_received:.2f}")
     logger.debug(f"    Conversion ratio: {conversion_ratio:.2f}")
     logger.debug(f"    Conversion-adjusted cost basis: £{conversion_adjusted_cost_basis:.2f}")
+    logger.debug(f"    Pool cost basis: £{pool_cost_basis:.2f}")
 
     return {
         'units_held': units_held,
@@ -246,6 +255,7 @@ def calculate_transactions_through_date(transactions: List, target_date: datetim
         'gross_amount_received': gross_amount_received,
         'conversion_adjusted_units': conversion_adjusted_units,
         'conversion_adjusted_cost_basis': conversion_adjusted_cost_basis,
+        'pool_cost_basis': pool_cost_basis,
         'conversion_ratio': conversion_ratio,
         'current_ticker': current_ticker
     }
