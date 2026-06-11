@@ -27,24 +27,25 @@ def calculate_tax_pnl(ticker: str, sell_transaction, all_transactions: List,
     """
     logger.debug(f"Calculating tax P&L for {ticker} sell on {sell_transaction.date}")
 
-    # Use unified method to calculate transactions through the sell date
-    # For tax purposes, we don't want the investment threshold (include all purchases)
+    # Calculate pool state immediately before this sell (exclude the sell itself so
+    # fully-sold positions don't produce units_held=0 and drop from the report)
+    pre_sell_transactions = [t for t in all_transactions if t is not sell_transaction]
     results = transaction_processor.calculate_transactions_through_date(
-        all_transactions,
+        pre_sell_transactions,
         sell_transaction.date,
         include_investment_threshold=False
     )
 
-    # Extract the Section 104 pool state at the sell date
+    # Extract the Section 104 pool state just before the sell
     pool_units = results['units_held']
     pool_cost = results['pool_cost_basis']
 
     logger.debug(f"Tax P&L calculation for {ticker}:")
-    logger.debug(f"  Pool units at sell date: {pool_units}")
-    logger.debug(f"  Pool cost basis at sell date: £{pool_cost:.2f}")
+    logger.debug(f"  Pool units before sell: {pool_units}")
+    logger.debug(f"  Pool cost basis before sell: £{pool_cost:.2f}")
 
     if pool_units <= 0:
-        logger.warning(f"No units held for {ticker} at sell date")
+        logger.warning(f"No units held for {ticker} before sell date")
         return None
 
     # Calculate average price from the current Section 104 pool
