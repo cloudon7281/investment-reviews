@@ -191,17 +191,17 @@ COLUMN_CONFIGS = {
         ]
     },
     'tax_report': {
-        'headers': [ "Company", "Ticker", "Transaction Date", "Units Sold", "Amount Received", "Total Price Paid", "Average Price", "P&L"],
-        'columns': [ "company", "ticker", "transaction_date", "units_sold", "amount_received", "total_price_paid", "average_price", "pnl"],
+        'headers': [ "Company", "Ticker", "Disposal Date", "Units Sold", "Pool Cost / Unit", "Allowable Cost", "Proceeds", "Gain / (Loss)"],
+        'columns': [ "company", "ticker", "transaction_date", "units_sold", "pool_cost_per_unit", "allowable_cost", "amount_received", "pnl"],
         'column_formats': [
             None,  # Company - text
             None,  # Ticker - text
-            DATE_FORMAT,  # Transaction Date - date formatting
+            DATE_FORMAT,  # Disposal Date - date formatting
             None,  # Units Sold - integer (no special formatting)
-            CURRENCY_FORMAT_NO_DECIMALS,  # Amount Received
-            CURRENCY_FORMAT_NO_DECIMALS,  # Total Price Paid
-            CURRENCY_FORMAT,  # Average Price
-            CURRENCY_FORMAT_NO_DECIMALS,  # P&L
+            CURRENCY_FORMAT,  # Pool Cost / Unit
+            CURRENCY_FORMAT_NO_DECIMALS,  # Allowable Cost
+            CURRENCY_FORMAT_NO_DECIMALS,  # Proceeds
+            CURRENCY_FORMAT_NO_DECIMALS,  # Gain / (Loss)
         ],
         'column_thresholds': [
             None, None, None, None, None, None, None, None

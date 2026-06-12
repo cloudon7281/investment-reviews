@@ -436,7 +436,7 @@ class PortfolioReporter:
         display_df = transactions_df.copy()
         
         # Convert monetary columns to tuples if they aren't already
-        for col in ['amount_received', 'total_price_paid', 'average_price', 'pnl']:
+        for col in ['amount_received', 'pool_cost_per_unit', 'allowable_cost', 'pnl']:
             if col in display_df.columns:
                 # Check if any value in the column is already a tuple
                 has_tuples = any(isinstance(val, tuple) for val in display_df[col] if pd.notna(val))
