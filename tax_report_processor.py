@@ -63,9 +63,8 @@ def calculate_tax_pnl(ticker: str, sell_transaction, all_transactions: List,
     logger.debug(f"  P&L calculation: £{amount_received:.2f} - £{cost_basis:.2f} = £{pnl:.2f}")
 
     return {
-        'total_units_bought': pool_units,
-        'total_price_paid': pool_cost,
-        'average_price': average_price,
+        'pool_cost_per_unit': average_price,
+        'allowable_cost': cost_basis,
         'pnl': pnl
     }
 
@@ -120,10 +119,9 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
                         'company': portfolio_review.get_stock_name(ticker, category),
                         'transaction_date': txn.date,
                         'units_sold': txn.quantity,
+                        'pool_cost_per_unit': pnl_data['pool_cost_per_unit'],
+                        'allowable_cost': pnl_data['allowable_cost'],
                         'amount_received': txn.total_amount,
-                        'total_units_bought': pnl_data['total_units_bought'],
-                        'total_price_paid': pnl_data['total_price_paid'],
-                        'average_price': pnl_data['average_price'],
                         'pnl': pnl_data['pnl']
                     })
         if ticker_had_sell:
@@ -135,8 +133,8 @@ def process_tax_report(portfolio_review: PortfolioReview, tax_year_start: dateti
         df = df.sort_values('transaction_date')
     else:
         df = pd.DataFrame(columns=['ticker', 'company', 'transaction_date', 'units_sold',
-                                  'amount_received', 'total_units_bought', 'total_price_paid',
-                                  'average_price', 'pnl'])
+                                  'pool_cost_per_unit', 'allowable_cost', 'amount_received',
+                                  'pnl'])
 
     logger.info(f"Found {len(tax_transactions)} taxable transactions")
 

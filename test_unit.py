@@ -1159,6 +1159,15 @@ class TestTaxPnlPoolCostBasis(unittest.TestCase):
         pnl_data = tax_report_processor.calculate_tax_pnl('TEST', sell_txn, txns, datetime(2025, 4, 6))
         self.assertIsNotNone(pnl_data)
         self.assertAlmostEqual(pnl_data['pnl'], 67.66, delta=1.0)
+        # Allowable cost is the cost of the units sold (not the whole pool), and the
+        # reported columns must reconcile: gain = proceeds - allowable cost, and
+        # allowable cost = units sold * pool cost per unit.
+        units_sold = abs(sell_txn.quantity)
+        self.assertAlmostEqual(pnl_data['allowable_cost'], (81.1 / 824.69) * 101000.0, delta=1.0)
+        self.assertAlmostEqual(
+            pnl_data['pnl'], sell_txn.total_amount - pnl_data['allowable_cost'], delta=0.01)
+        self.assertAlmostEqual(
+            pnl_data['allowable_cost'], pnl_data['pool_cost_per_unit'] * units_sold, delta=0.01)
 
 
 class TestDoublingMetrics(unittest.TestCase):
