@@ -10,6 +10,13 @@ ports: []
 # Back-compat default is always-on for stacks that omit this.
 deployMode: jobs-only
 
+# SDI §12 — mount monitoring's metrics-textfile store rw so the nightly job can
+# emit a node_exporter textfile metric (SDI §11 jobs-only metrics). Registration
+# resolves this to SHARED_METRICS_TEXTFILE in deploy.env and pre-creates the dir.
+sharedMounts:
+  - store: metrics-textfile
+    mode: rw
+
 backup:
   enabled: true
   mode: crash-consistent
@@ -40,7 +47,10 @@ schedules:
       command:
         - /bin/sh
         - -lc
-        - "STATE_DIR=${STATE_DIR} docker compose --profile manual run --rm runner"
+        # --env-file loads deploy.env so SHARED_METRICS_TEXTFILE (and other SDI
+        # vars) resolve for compose interpolation at kicker-run time; deploy-service
+        # only passes --env-file at deploy time, not on scheduled runs.
+        - "STATE_DIR=${STATE_DIR} docker compose --env-file ${STATE_DIR}/env/deploy.env --profile manual run --rm runner"
 
     policy:
       timeoutSec: 7200

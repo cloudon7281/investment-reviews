@@ -12,9 +12,12 @@ services:
       - TZ=Europe/London
       - CONFIG_PATH=/run/config/config.yaml
       - LOG_FORMAT=json
+      - METRICS_TEXTFILE_DIR=/textfile
     volumes:
       - ${STATE_DIR}/config:/run/config:ro
       - ${STATE_DIR}/credentials:/run/credentials:ro
       - ${STATE_DIR}/history:/data/history:ro
       - ${STATE_DIR}/outputs:/data/outputs
+      # SDI §12 shared store (metrics-textfile); node_exporter scrapes *.prom here.
+      - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
