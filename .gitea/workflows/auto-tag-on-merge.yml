@@ -15,6 +15,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
           API_BASE: ${{ github.server_url }}/api/v1
+          # registrard (tier2-project#47): when set, a service.yaml change re-registers
+          # before the deploy tag is created. Unset => unchanged behaviour (rollout-safe).
+          REGISTRARD_URL: ${{ vars.REGISTRARD_URL }}
+          REGISTRARD_SECRET: ${{ secrets.REGISTRARD_SECRET }}
         run: |
           set -euo pipefail
           curl -fsSL \
