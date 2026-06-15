@@ -89,7 +89,7 @@ else:
     new_body = f'**Fixed in:** {fixed_in}\n\n' + old_body
 
 new_body = new_body.rstrip() + (
-    f'\n\n---\n**{ts} — auto-closed by auto-tag-on-approval**\n{close_note}\n'
+    f'\n\n---\n**{ts} — auto-closed by auto-tag-on-merge**\n{close_note}\n'
 )
 
 status, _ = gitea('PATCH', f'issues/{issue_num}', {'body': new_body, 'state': 'closed'})
