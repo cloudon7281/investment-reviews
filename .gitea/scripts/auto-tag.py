@@ -28,6 +28,34 @@ def gitea(method, path, body=None):
 _, pr = gitea('GET', f'pulls/{PR_NUM}')
 
 if not SKIP_TAG:
+    # 0. If deploy/service.yaml changed, re-register BEFORE tagging so the deploy lands on
+    #    a fresh registry (tier2-project#47). Register and deploy stay decoupled — this only
+    #    sequences them. A registration failure withholds the tag (no broken deploy). Rollout-
+    #    safe: only active where REGISTRARD_URL is configured; otherwise behaviour is unchanged.
+    REGISTRARD_URL = os.environ.get('REGISTRARD_URL', '')
+    REGISTRARD_SECRET = os.environ.get('REGISTRARD_SECRET', '')
+    _, files = gitea('GET', f'pulls/{PR_NUM}/files')
+    changed = [f.get('filename') for f in (files if isinstance(files, list) else [])]
+    if 'deploy/service.yaml' in changed and REGISTRARD_URL:
+        print('service.yaml changed -> re-registering via registrard before tagging')
+        req = urllib.request.Request(
+            REGISTRARD_URL,
+            data=json.dumps({'repo': REPO}).encode(),
+            method='POST',
+            headers={'Authorization': f'Bearer {REGISTRARD_SECRET}', 'Content-Type': 'application/json'},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=600) as r:
+                print(f'registrard: {json.loads(r.read() or b"{}")}')
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode('utf-8', 'replace')
+            raise SystemExit(f'registrard re-register FAILED (HTTP {e.code}): {detail} -- not tagging; deploy blocked')
+        except Exception as e:
+            raise SystemExit(f'registrard call failed: {e} -- not tagging; deploy blocked')
+    elif 'deploy/service.yaml' in changed:
+        print('NOTE: service.yaml changed but REGISTRARD_URL unset -- tagging anyway; '
+              'ensure the service was re-registered manually (tier2-project#47).')
+
     # 1. Determine version bump from PR labels
     labels = [l['name'] for l in pr.get('labels', [])]
     print(f'Labels: {labels}')
