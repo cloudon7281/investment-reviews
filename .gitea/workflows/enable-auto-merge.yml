@@ -2,21 +2,34 @@ name: enable-auto-merge
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
 
 jobs:
-  enable-auto-merge:
+  manage-auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge on PR
+      - name: Arm auto-merge on open; cancel it when the PR head is updated
         env:
           TOKEN: ${{ secrets.AUTO_TAG_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
           API_BASE: ${{ github.server_url }}/api/v1
+          ACTION: ${{ github.event.action }}
         run: |
-          curl -fsSL -X POST \
-            -H "Authorization: token ${TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d '{"Do":"merge","merge_when_checks_succeed":true}' \
-            "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
+          if [ "${ACTION}" = "synchronize" ]; then
+            # The head moved after auto-merge was armed. Gitea re-checks
+            # mergeability on a head update and can wedge the PR (mergeable
+            # stuck false, tier-1-gitea#6); an armed auto-merge then waits
+            # forever for a mergeable state that never comes -> the "merge
+            # loop". Cancel the scheduled auto-merge so a revised PR is merged
+            # explicitly instead (404 = nothing was scheduled, which is fine).
+            curl -fsSL -X DELETE \
+              -H "Authorization: token ${TOKEN}" \
+              "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
+          else
+            curl -fsSL -X POST \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"Do":"merge","merge_when_checks_succeed":true}' \
+              "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
+          fi
