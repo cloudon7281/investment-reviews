@@ -8,7 +8,7 @@ ports: []
 
 # Explicitly mark this stack as jobs-only.
 # Back-compat default is always-on for stacks that omit this.
-deployMode: jobs-only
+lifecycle: jobs-only
 
 # SDI §12 — mount monitoring's metrics-textfile store rw so the nightly job can
 # emit a node_exporter textfile metric (SDI §11 jobs-only metrics). Registration
