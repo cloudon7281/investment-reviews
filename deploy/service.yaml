@@ -57,3 +57,13 @@ schedules:
       concurrency:
         hostLock: true
         lockWaitSec: 0
+
+# SDI §11 (devops-model#85 / #87 Phase 3): nightly pipeline — emits its own node_exporter textfile,
+# and its liveness is whether that file was written recently. maxAgeSec ~36h (matches the retired
+# health-rule's window) so one missed night is tolerated.
+metrics:
+  mode: prom
+  file: investment-reviews.prom
+health:
+  mode: prom
+  maxAgeSec: 129600
