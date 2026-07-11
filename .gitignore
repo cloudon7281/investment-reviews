@@ -53,3 +53,8 @@ secrets/
 scratch/
 logs/
 screenshots/
+
+# Local SQLite DB files (e.g. when a service runs without STATE_DIR in dev)
+*.db
+*.db-wal
+*.db-shm
