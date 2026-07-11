@@ -56,9 +56,19 @@ if not SKIP_TAG:
         print('NOTE: service.yaml changed but REGISTRARD_URL unset -- tagging anyway; '
               'ensure the service was re-registered manually (tier2-project#47).')
 
-    # 1. Determine version bump from PR labels
+    # 1. Determine version bump from the PR's labels OR the linked issue's labels.
+    #    Historically only the PR's own labels were read, so a correctly-labelled
+    #    `enhancement` *issue* whose PR was left unlabelled got a patch bump instead of
+    #    a minor one (london-travel#14 shipped as v1.1.7, not v1.2.0). The issue is
+    #    almost always the source of truth for enhancement-vs-fix, so inherit its labels
+    #    via the PR body's issue reference (closes/fixes/resolves/refs/references #N).
     labels = [l['name'] for l in pr.get('labels', [])]
-    print(f'Labels: {labels}')
+    ref = re.search(r'(?:closes|fixes|resolves|refs|references)\s+#(\d+)',
+                    pr.get('body') or '', re.IGNORECASE)
+    if ref:
+        _, ref_issue = gitea('GET', f'issues/{ref.group(1)}')
+        labels += [l['name'] for l in (ref_issue.get('labels') or [])]
+    print(f'Labels (PR + linked issue): {labels}')
     bump = 'minor' if 'enhancement' in labels else 'patch'
     print(f'Bump: {bump}')
 
