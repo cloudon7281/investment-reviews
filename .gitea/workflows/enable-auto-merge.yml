@@ -27,6 +27,28 @@ jobs:
               -H "Authorization: token ${TOKEN}" \
               "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
           else
+            # Refresh mergeability before arming (tier-1-gitea#14). Arming
+            # auto-merge while Gitea is still running its first mergeability
+            # check (mergeable reported false during "checking") can wedge the
+            # cache to a stuck mergeable:false that never recovers -- the
+            # go-gitea bug behind tier-1-gitea#6, amplified when the base
+            # advances mid-check in a busy multi-PR epic. Re-poll until the
+            # check settles to mergeable:true, then arm on a confirmed-true
+            # state instead of trusting a possibly-stale false. Fail open (arm
+            # anyway) if it never settles, so behaviour is never worse than the
+            # arm-immediately baseline.
+            for _ in $(seq 1 15); do
+              MERGEABLE=$(curl -fsSL -H "Authorization: token ${TOKEN}" \
+                "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}" \
+                | python3 -c "import sys,json; print(json.load(sys.stdin).get('mergeable'))" 2>/dev/null || true)
+              [ "${MERGEABLE}" = "True" ] && break
+              sleep 2
+            done
+            if [ "${MERGEABLE}" = "True" ]; then
+              echo "mergeable confirmed; arming auto-merge for PR ${PR_NUMBER}"
+            else
+              echo "mergeability unresolved after polling; arming auto-merge anyway (fail-open) for PR ${PR_NUMBER}"
+            fi
             curl -fsSL -X POST \
               -H "Authorization: token ${TOKEN}" \
               -H "Content-Type: application/json" \
