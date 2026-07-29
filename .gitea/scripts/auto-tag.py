@@ -28,16 +28,18 @@ def gitea(method, path, body=None):
 _, pr = gitea('GET', f'pulls/{PR_NUM}')
 
 if not SKIP_TAG:
-    # 0. If deploy/service.yaml changed, re-register BEFORE tagging so the deploy lands on
-    #    a fresh registry (tier2-project#47). Register and deploy stay decoupled — this only
-    #    sequences them. A registration failure withholds the tag (no broken deploy). Rollout-
-    #    safe: only active where REGISTRARD_URL is configured; otherwise behaviour is unchanged.
+    # 0. Registration-freshness gate BEFORE tagging, so the deploy lands on a fresh registry
+    #    (tier2-project#47). Ask registrard on EVERY tag-driven deploy, not just when this PR's
+    #    diff touched deploy/service.yaml (tier2-project#127): registrard compares the current
+    #    manifest digest against the one recorded at registration and applies devops-model#74
+    #    §13.7 to the result, so a manifest change an earlier blocked PR left unregistered cannot
+    #    slip out on the next unrelated merge. Register and deploy stay decoupled — this only
+    #    sequences them. A gate failure withholds the tag (no broken deploy). Rollout-safe: only
+    #    active where REGISTRARD_URL is configured; otherwise behaviour is unchanged.
     REGISTRARD_URL = os.environ.get('REGISTRARD_URL', '')
     REGISTRARD_SECRET = os.environ.get('REGISTRARD_SECRET', '')
-    _, files = gitea('GET', f'pulls/{PR_NUM}/files')
-    changed = [f.get('filename') for f in (files if isinstance(files, list) else [])]
-    if 'deploy/service.yaml' in changed and REGISTRARD_URL:
-        print('service.yaml changed -> re-registering via registrard before tagging')
+    if REGISTRARD_URL:
+        print('checking registration freshness via registrard before tagging')
         req = urllib.request.Request(
             REGISTRARD_URL,
             data=json.dumps({'repo': REPO}).encode(),
@@ -49,12 +51,15 @@ if not SKIP_TAG:
                 print(f'registrard: {json.loads(r.read() or b"{}")}')
         except urllib.error.HTTPError as e:
             detail = e.read().decode('utf-8', 'replace')
-            raise SystemExit(f'registrard re-register FAILED (HTTP {e.code}): {detail} -- not tagging; deploy blocked')
+            raise SystemExit(f'registrard freshness gate FAILED (HTTP {e.code}): {detail} -- not tagging; deploy blocked')
         except Exception as e:
             raise SystemExit(f'registrard call failed: {e} -- not tagging; deploy blocked')
-    elif 'deploy/service.yaml' in changed:
-        print('NOTE: service.yaml changed but REGISTRARD_URL unset -- tagging anyway; '
-              'ensure the service was re-registered manually (tier2-project#47).')
+    else:
+        _, files = gitea('GET', f'pulls/{PR_NUM}/files')
+        changed = [f.get('filename') for f in (files if isinstance(files, list) else [])]
+        if 'deploy/service.yaml' in changed:
+            print('NOTE: service.yaml changed but REGISTRARD_URL unset -- tagging anyway; '
+                  'ensure the service was re-registered manually (tier2-project#47).')
 
     # 1. Determine version bump from the PR's labels OR the linked issue's labels.
     #    Historically only the PR's own labels were read, so a correctly-labelled
