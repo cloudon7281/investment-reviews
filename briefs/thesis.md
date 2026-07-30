@@ -2,44 +2,22 @@
 
 This document records the current live investment theses for the actively managed stock sleeve of the portfolio.
 
-It is intended to sit between the high-level rules in the Investment Strategy document and the month-by-month actions in the Investment Decisions documents.
+It sits between the high-level rules in the Investment Strategy document and the month-by-month actions in the Investment Decisions documents. It records why capital is allocated to particular themes, what evidence supports or weakens them, and what should be monitored between reviews.
 
-## Purpose
-
-The purpose of this document is to:
-
-- record the core investment theses currently driving stock selection
-- explain why each thesis exists and what evidence supports it
-- identify the preferred investable expressions of each thesis
-- identify what would strengthen, weaken, or invalidate each thesis
-- maintain continuity across monthly reviews so that changes in stock-level decisions can be understood in the context of the underlying thesis
-- maintain a short rolling list of thesis watchpoints: tentative developments, sub-themes, or unresolved questions that may matter for future capital allocation, but which do not yet justify creating, changing, or retiring a thesis
-
-## How this document is used
-
-This document is a live working record and should be reviewed briefly at each monthly portfolio review.
-
-At each review, each thesis should be assessed as one of:
-
-- unchanged
-- strengthened
-- weakened
-- split / refined
-- retired
-- promoted from watchlist to active thesis
-
-Changes to this document do not by themselves change the Investment Strategy rules; they only change the current interpretation and prioritisation of themes within those rules.
+Thesis labels inform stock selection and interpretation of evidence. They do not change the stock-level risk rules on profit-taking, stop-loss, volatility, fundamentals, or time held.
 
 ## Thesis summary table
 
 | Thesis | Status | Current strength | Preferred expressions | Last reviewed |
 |---|---|---:|---|---|
-| Defence | Active | High | European defence primes; radar/sensor; drone/counter-drone; selective defence ETFs | 2026-05 |
-| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, interconnects, selective optical/connectivity names | 2026-05 |
-| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-05 |
-| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technology with credible traction | 2026-05 |
-| Crowd-sourced ideas | Supporting source of ideas, not a thesis in its own right | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-05 |
-| Quantum | Watchlist / optionality only | Low-Medium | Small speculative sleeve only if evidence improves | 2026-05 |
+| Defence | Active | High | European defence primes; air defence; missiles; radar/sensors; drones; counter-drone; EW; battlefield integration | 2026-06 |
+| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, water efficiency, permitting-enabling infrastructure, interconnects, optical/connectivity names | 2026-06 |
+| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-06 |
+| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technologies with credible traction | 2026-06 |
+| Quantum | Watchlist / small optionality sleeve | Low-Medium | Small speculative sleeve only; strongest or best-capitalised names only | 2026-06 |
+| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-06 |
+
+---
 
 ## Defence
 
@@ -47,57 +25,38 @@ Changes to this document do not by themselves change the Investment Strategy rul
 **Current strength:** High  
 **Time horizon:** Multi-year structural  
 
-#### Thesis statement
-European and allied defence spending is in a sustained structural upcycle, driven by Russian aggression, Middle Eastern instability, NATO rearmament, and the rapid evolution of battlefield technology. The most attractive investable expressions are not generic defence exposure but firms with direct exposure to air defence, missiles, radar, sensors, drone warfare, counter-drone systems, and related integration.
+### Thesis statement
 
-#### Why this thesis exists
-- European states are rearming on a multi-year basis rather than responding with a one-off spending spike.
-- Modern warfare is increasing demand for air defence, electronic warfare, sensing, drones, counter-drone systems, and software-led battlefield integration.
-- Middle Eastern instability strengthens demand for layered base and infrastructure defence, especially against Iranian-style drone and missile attack.
-- Ukraine has become the world’s most important source of practical battlefield learning in drones and counter-drone warfare, and that learning is increasingly being absorbed into Western procurement.
+European and allied defence spending remains in a structural upcycle, driven by Russian aggression, Middle Eastern instability, NATO rearmament, and rapid battlefield innovation. The most attractive public-market expressions are firms exposed to air defence, missiles, radar, sensors, electronic warfare, drones, counter-drone systems, command-and-control, and battlefield integration.
 
-#### Current evidence in favour
-- Rising European defence budgets and procurement commitments.
-- Strong order books and backlogs at major European defence firms.
-- Growing prominence of drone and counter-drone systems in both Ukrainian and Middle Eastern theatres.
-- Increasing evidence of Ukrainian defence know-how being exported through training, integration, joint ventures, and co-production arrangements with allied countries.
+The thesis has increasingly shifted from generic defence exposure toward firms that can absorb or scale **Ukraine-derived battlefield learning**.
 
-#### Main risks / counter-arguments
-- Valuations in some defence names may already discount a large part of the rearmament story.
-- Some firms may benefit less than expected if spending shifts toward cheaper drones and software rather than traditional platforms.
-- Political de-escalation could reduce short-term enthusiasm even if the long-term trend remains intact.
-- ETFs provide diversification but may dilute the clearest winners.
+### Evidence and rationale
 
-#### Preferred investable expressions
-- European defence primes with direct exposure to missiles, air defence, drones, and radar
-- radar / sensor / electronic warfare specialists
-- counter-drone and layered-air-defence integrators
-- selective diversified defence ETFs where useful for breadth
+- European rearmament remains a multi-year programme rather than a one-off spending spike.
+- Ukraine has become the leading real-world testbed for drone, counter-drone, electronic-warfare and rapid battlefield-autonomy development.
+- Ukrainian defence firms are increasingly moving beyond domestic production into partnerships, Western production lines, technology transfer and potential controlled exports.
+- Counter-drone is becoming a procurement category in its own right, not merely an accessory to traditional air defence.
 
-#### Less preferred / avoided expressions
-- generic defence exposure without clear link to the current procurement priorities
-- subscale or fragile names whose battlefield relevance is real but whose commercial quality or financing resilience is weak
-- names that are interesting technologically but inaccessible or impractical to own directly
+### Preferred expressions
 
-#### What would strengthen this thesis
-- further evidence of sustained European rearmament budgets
-- additional procurement wins in air defence, missiles, radar, drone and counter-drone systems
-- broader adoption of Ukrainian battlefield-proven drone / counter-drone methods by NATO and Gulf countries
-- more joint ventures between Ukrainian and Western defence firms that create scalable industrial routes into allied procurement
+- European defence primes with exposure to missiles, air defence, drones, sensors, EW and integration.
+- Listed firms that can scale or absorb Ukrainian battlefield-proven systems.
+- Radar, optical, RF, EW, communications and command-and-control suppliers.
+- Selective defence ETFs where diversification is useful, though these may dilute the clearest winners.
 
-#### What would weaken or invalidate this thesis
-- a sustained political reversal in European defence spending commitments
-- evidence that procurement is being delayed materially rather than merely announced
-- a prolonged valuation-driven derating without earnings / order-book support
-- evidence that expected drone / counter-drone demand is being captured mainly by inaccessible private firms with limited spillover to listed partners
+### Main risks
 
-#### Current portfolio relevance
-This remains one of the highest-conviction and highest-priority themes in the actively managed stock sleeve. Within the thesis, emphasis should increasingly be on air defence, sensors, drones, counter-drone systems, and integration rather than simply generic defence exposure.
+- Valuations may already discount much of the rearmament story.
+- Spending announcements may translate slowly into revenue.
+- Some value may accrue to private Ukrainian firms or inaccessible ventures rather than listed companies.
+- Procurement may favour low-cost drones/software over traditional platforms.
 
-#### Notes from latest review
-- 2026-04: Thesis remains strong; increased emphasis on drone / counter-drone and Ukrainian battlefield learning.
-- 2026-05: Thesis remains high-conviction. Ceasefire/Hormuz de-escalation reduces immediate oil-shock pressure but does not weaken the structural rearmament, air-defence, drone and counter-drone thesis. Continue to monitor whether counter-drone deserves explicit sub-thesis treatment.
-2026-05: Counter-drone moved closer to being a distinct investable sub-thesis. NATO’s planned C-UAS vendor pool, the EU-Ukraine Drone Alliance, Baltic airspace incidents and growing critical-infrastructure concerns all suggest C-UAS is becoming a procurement category in its own right. Do not yet split it into a full thesis, because investable routes remain blurred and overlap heavily with defence, but begin evaluating defence holdings explicitly for their counter-drone exposure: sensors, radar, EW, jamming, optical detection, AI classification, C2 integration, interceptors, directed energy and drone-on-drone systems.
+### June 2026 assessment
+
+Strengthened. The defence thesis should now explicitly evaluate holdings through a Ukraine / counter-drone lens: detect, classify, jam/spoof, command, intercept and integrate. Direct investment into Ukrainian defence remains difficult, but Western listed partners, component suppliers, integrators and JV beneficiaries are becoming increasingly important routes.
+
+---
 
 ## Data-centre infrastructure
 
@@ -105,52 +64,37 @@ This remains one of the highest-conviction and highest-priority themes in the ac
 **Current strength:** High  
 **Time horizon:** Multi-year structural  
 
-#### Thesis statement
-Global demand for compute and AI workloads continues to drive structural expansion in data-centre capacity. The most attractive expressions are the enabling layers that remain essential even if sentiment around AI fluctuates: power, grid resilience, cooling, connectivity, interconnects, and selective optical infrastructure.
+### Thesis statement
 
-#### Why this thesis exists
-- Global compute demand continues to rise even outside the AI boom narrative.
-- Data-centre growth requires not only chips but also power, thermal management, connectivity, and physical infrastructure.
-- Resilient power and on-site generation are becoming more valuable as energy security becomes a strategic concern.
+AI and compute demand continue to drive structural growth in data-centre capacity, but the best investment expression is not generic AI hype. The thesis is now best framed as **AI/data-centre bottleneck infrastructure**: power, grid connection, cooling, water, permitting, resilient generation, interconnects and physical connectivity.
 
-#### Current evidence in favour
-- Continued hyperscaler and AI-infrastructure capex
-- persistent demand for data-centre power and network infrastructure
-- increasing overlap between data-centre growth and resilient-power / energy-security themes
-- further evidence that electricity availability, grid connection delays, resilient on-site generation and power-management infrastructure are becoming central bottlenecks in AI/data-centre buildout.
+### Evidence and rationale
 
-#### Main risks / counter-arguments
-- parts of the semiconductor and optical supply chain may be exposed to cyclical corrections
-- geopolitical disruption can affect feedstocks, supply chains, and capex timing
-- some names may have run too far ahead of fundamentals
+- AI and cloud revenues are real and growing, but the capital intensity of AI buildout is creating investor concern about returns on capex.
+- Public backlash against data centres, especially in the US, is increasing around power use, water use, local permitting and grid strain.
+- These pressures do not necessarily weaken the thesis; they shift value toward companies that solve the bottlenecks.
+- Data-centre infrastructure demand increasingly overlaps with resilient power and energy security.
 
-#### Preferred investable expressions
-- power and grid-resilience exposures
-- cooling and power-management infrastructure
-- broad interconnect / connectivity names
-- selective optical / specialist infrastructure names where execution remains strong
+### Preferred expressions
 
-#### Less preferred / avoided expressions
-- fragile, subscale names dependent on a narrow customer or supply chain
-- names whose investment case relies mainly on short-term AI hype rather than durable infrastructure need
+- Power and grid-resilience equipment.
+- On-site or resilient generation where economics are credible.
+- Cooling, water-efficiency and power-management infrastructure.
+- Interconnect, optical, RF and connectivity suppliers.
+- High-quality infrastructure enablers rather than narrow AI-hype names.
 
-#### What would strengthen this thesis
-- continued data-centre buildout and power-demand growth
-- stronger order flow in power, cooling, and interconnect infrastructure
-- evidence that resilient-power and on-site generation are becoming standard parts of the buildout stack
+### Main risks
 
-#### What would weaken or invalidate this thesis
-- a sustained collapse in hyperscaler / enterprise capex
-- evidence that power and infrastructure bottlenecks are causing broad project cancellations rather than just delays
-- material execution failures in key holdings
+- Hyperscaler capex could slow if AI returns disappoint.
+- Local opposition could delay or cancel projects.
+- Some supply-chain names may be cyclical or overvalued.
+- Narrative-driven names may swing sharply even when the long-term thesis remains valid.
 
-#### Current portfolio relevance
-This remains a core active theme, with preference currently tilted toward power/resilience over the more speculative supply-chain layers.
+### June 2026 assessment
 
-#### Notes from latest review
-- 2026-04: Thesis still strong; emphasis remains on power, resilience, and infrastructure rather than the most supply-chain-sensitive names.
-- 2026-05: Further evidence that electricity availability, grid connection delays, resilient on-site generation and power-management infrastructure are becoming central bottlenecks in AI/data-centre buildout.
-- 2026-05: Add orbital compute infrastructure as an active watchpoint. The base case remains that terrestrial data centres dominate for the foreseeable future, but local resistance around power, water and permitting may accelerate R&D into space-based compute. The most attractive investment angle is not necessarily orbital data-centre operators themselves, but early-stage picks-and-shovels companies addressing the bottlenecks: radiation tolerance, thermal management, optical links, autonomous operations, power systems, launch/manufacturing scale-up and space cybersecurity. This should be actively monitored as a high-priority source of small, speculative, potentially asymmetric positions.
+Refined, not weakened. Bearish and bullish narratives are both present: investor scepticism about AI profitability and data-centre backlash are real, but so is strong cloud/AI revenue growth. The thesis should therefore focus on bottlenecks rather than broad AI enthusiasm.
+
+---
 
 ## Nuclear / SMR / energy security
 
@@ -158,211 +102,119 @@ This remains a core active theme, with preference currently tilted toward power/
 **Current strength:** Medium-High  
 **Time horizon:** Multi-year structural  
 
-#### Thesis statement
-Rising electricity demand, energy-security concerns, and the need for resilient low-carbon baseload power support a multi-year thesis in nuclear energy. The most attractive investable expressions are fuel-cycle and engineering enablers, with more speculative SMR / advanced-reactor names treated as optionality rather than core holdings.
+### Thesis statement
 
-#### Why this thesis exists
-- Data-centre growth and electrification increase demand for reliable power.
-- Geopolitical stress increases the strategic value of domestic and resilient energy supply.
-- Nuclear is increasingly being reconsidered as part of long-term energy infrastructure.
+Rising electricity demand, energy-security concerns, and the need for reliable low-carbon power support a multi-year nuclear thesis. The best expressions remain fuel-cycle and engineering enablers, with reactor-focused names treated selectively and sized as optionality.
 
-#### Current evidence in favour
-- policy support for nuclear in multiple jurisdictions
-- rising interest in SMRs and advanced reactors
-- growing strategic emphasis on fuel supply, engineering capability, and enabling infrastructure
+### Evidence and rationale
 
-#### Main risks / counter-arguments
-- many reactor-focused names are long-duration and speculative
-- licensing, cost overruns, financing, and execution risk remain high
-- narrative enthusiasm can run well ahead of commercial reality
+- AI/data-centre power demand is increasing interest in reliable baseload and resilient power.
+- Energy security remains strategically important.
+- Nuclear policy support is improving in several jurisdictions.
+- Fuel-cycle security and nuclear engineering capability are more investable than many promotional SMR stories.
 
-#### Preferred investable expressions
-- nuclear fuel cycle
-- engineering and defence-adjacent nuclear enablers
-- high-quality infrastructure-linked names
-- only selective optionality in more speculative reactor names
+### Preferred expressions
 
-#### Less preferred / avoided expressions
-- low-quality or highly promotional reactor optionality without clear path to commercialisation
-- names whose appeal is mainly narrative rather than execution-backed
+- Nuclear fuel cycle.
+- Engineering and defence-adjacent nuclear enablers.
+- High-quality resilient-power infrastructure.
+- Selective reactor optionality only where commercial progress is credible.
 
-#### What would strengthen this thesis
-- concrete progress on licensing, deployment, and fuel-cycle security
-- evidence of rising long-term power demand from industry and data centres
-- more government / utility commitments translating into real contracts
+### Main risks
 
-#### What would weaken or invalidate this thesis
-- sustained delays or policy reversals
-- worsening financing conditions for advanced-reactor deployment
-- repeated evidence that optionality names are not progressing beyond narrative
+- Licensing, financing and deployment timelines remain long.
+- Reactor names can run far ahead of fundamentals.
+- Policy support may not translate quickly into contracts.
 
-#### Current portfolio relevance
-This remains an important supporting theme, but emphasis should be on quality and enabling infrastructure rather than the weakest speculative names.
+### June 2026 assessment
 
-#### Notes from latest review
-- 2026-04: Thesis remains valid; maintain preference for higher-quality names over weaker optionality.
-- 2026-05: Thesis modestly strengthened by further evidence that AI/data-centre electricity demand is increasing interest in reliable baseload and SMR-linked power solutions. Maintain preference for fuel-cycle and engineering enablers over promotional reactor optionality.
+Slightly strengthened. Data-centre power constraints support the thesis, but the portfolio should continue to prefer enablers over indiscriminate reactor optionality.
+
+---
 
 ## EVs and battery tech
 
 **Status:** Active  
-**Current strength:** Medium-High 
+**Current strength:** Medium  
 **Time horizon:** Multi-year structural  
 
-#### Thesis statement
-The long-term shift toward EVs and improved battery technology remains intact, though the path is more cyclical and competitive than in defence or data-centre infrastructure. The preferred investable expressions are scaled operators and battery technologies with genuine traction rather than fragile concept names.
+### Thesis statement
 
-#### Why this thesis exists
-- EV adoption remains a major long-term industrial shift.
-- battery performance and economics continue to improve
-- higher oil prices can strengthen the economic case for EV adoption
+The long-term shift toward EVs and better battery technology remains intact, but the path is competitive, cyclical and policy-sensitive. This is a second-tier thesis versus defence and data-centre / resilient-power infrastructure.
 
-#### Current evidence in favour
-- continued growth in EV penetration in major markets
-- ongoing improvements in battery performance and manufacturing scale
-- strategic interest in battery supply chains and energy storage
+### Preferred expressions
 
-#### Main risks / counter-arguments
-- fierce competition and margin pressure
-- policy / tariff / subsidy shifts
-- cyclical consumer demand and uneven adoption rates
+- Scaled EV manufacturers with durable competitive advantages.
+- Battery technologies with credible customers, production traction or differentiated performance.
+- Selective energy-storage adjacencies where commercial traction is visible.
 
-#### Preferred investable expressions
-- scaled EV manufacturers
-- battery technology names with real traction and credible customers
-- selected supply-chain / storage adjacencies where warranted
+### Main risks
 
-#### Less preferred / avoided expressions
-- weak subscale manufacturers without durable advantage
-- concept names without evidence of commercial traction
+- Margin pressure and intense competition.
+- Policy, tariff and subsidy changes.
+- Speculative battery names may fail to commercialise.
 
-#### What would strengthen this thesis
-- evidence of continued EV market-share growth
-- improving battery cost / performance / commercial adoption
-- sustained high hydrocarbon prices improving EV economics
+### June 2026 assessment
 
-#### What would weaken or invalidate this thesis
-- demand stagnation beyond a cyclical pause
-- worsening competitive intensity without offsetting growth
-- technological disappointment in the more speculative battery names
+Unchanged to slightly lower priority. Keep the thesis live, but treat speculative battery names stock-by-stock rather than as broad thesis buys.
 
-#### Current portfolio relevance
-This remains a live but second-tier theme versus defence and data-centre infrastructure.
-
-#### Notes from latest review
-- 2026-04: Thesis remains valid; preference continues to be for scale and credibility.
-- 2026-05: Thesis remains valid but second-tier. Energy-price volatility briefly strengthened the EV adoption case, but partial de-escalation around Hormuz reduces the immediacy of that tailwind.
-
-## Crowd-sourced ideas
-
-**Status:** Supporting source of ideas, not a thesis in its own right  
-**Current strength:** Low-Medium  
-**Time horizon:** Opportunistic  
-
-#### Thesis statement
-Third-party idea sources such as Simply Wall Street, Insider Monkey, and Seeking Alpha can be useful generators of candidate stocks, but they do not themselves constitute a portfolio thesis. Any such idea must stand on its own merits within the portfolio framework.
-
-#### Why this category exists
-- idea-generation sources can surface names that might otherwise be missed
-- they can be useful prompts for further analysis
-
-#### Current evidence in favour
-- some useful names have come from these sources
-- they broaden the initial search space
-
-#### Main risks / counter-arguments
-- ideas may be shallow, momentum-driven, or low-conviction
-- they can consume attention disproportionate to their value
-- they can create a “miscellaneous bucket” of non-core holdings
-
-#### Preferred investable expressions
-- only names that independently fit a stronger underlying thesis or clearly satisfy the portfolio’s asymmetry / quality requirements
-
-#### Less preferred / avoided expressions
-- names retained mainly because they came from a recommendation source rather than from a thesis
-- positions that are neither core nor among the best uses of capital and attention
-
-#### What would strengthen this category
-- repeated evidence that such ideas add differentiated returns without excessive review effort
-
-#### What would weaken or invalidate this category
-- repeated evidence that it functions mainly as an attention sink
-- underperformance relative to clearer thesis-driven allocations
-
-#### Current portfolio relevance
-This should remain a source of candidates, not a standalone conviction sleeve.
-
-#### Notes from latest review
-- 2026-04: Continue to tighten quality and attention-efficiency; treat as idea source only.
+---
 
 ## Quantum
 
-**Status:** Watchlist / small optionality sleeve
+**Status:** Watchlist / small optionality sleeve  
 **Current strength:** Low-Medium  
 **Time horizon:** Long-duration optionality  
 
-#### Thesis statement
-Quantum computing may again become investable as a small optionality sleeve if technological and commercial progress improves and market conditions support selective exposure. For now it is not a core thesis but a watchlist theme.
+### Thesis statement
 
-#### Why this thesis is on watchlist
-- recent theoretical, technical, and financial developments have revived market interest
-- the upside can still be large if a small number of firms establish durable advantage
-- the area remains highly speculative and narrative-driven
+Quantum computing may produce very large winners, but commercial timelines remain uncertain and the sector remains highly narrative-driven. Any exposure should be small, explicit optionality rather than a core thesis.
 
-#### Current evidence in favour
-- renewed sector momentum
-- selected company-specific technical and financial progress
-- strategic relevance to computing and advanced technology
+### Preferred expressions
 
-#### Main risks / counter-arguments
-- commercial timelines remain uncertain
-- valuations can move far ahead of fundamentals
-- the space is prone to hype cycles and sharp reversals
+- Small position sizes only.
+- Strongest or best-capitalised names.
+- Companies showing technical progress, commercial traction or financing resilience.
 
-#### Preferred investable expressions
-- only a very small sleeve, if any
-- preference for the highest-quality or best-capitalised names if re-entering
+### Main risks
 
-#### Less preferred / avoided expressions
-- broad, undifferentiated exposure
-- large sizing based on narrative enthusiasm alone
+- Hype cycles without commercial validation.
+- Dilution and financial fragility.
+- Long timelines to useful advantage.
 
-#### What would strengthen this thesis
-- clearer commercial traction
-- stronger technical milestones translating into credible competitive positioning
-- evidence that selected names are moving from narrative to durable business quality
+### June 2026 assessment
 
-#### What would weaken or invalidate this thesis
-- another hype-driven spike without commercial follow-through
-- worsening financial fragility among leading names
+Unchanged. Sharp price moves, including the June drawdown, confirm that this remains optionality rather than a promoted thesis.
 
-#### Current portfolio relevance
-Monitor only. Any re-entry should be small and explicitly treated as optionality rather than a core sleeve.
+---
 
-#### Notes from latest review
-- 2026-04: Return to watchlist after renewed sector strength; not yet promoted to active thesis.
-- 2026-05: Early performance of the initial IonQ / Rigetti optionality sleeve is encouraging, but this is not yet evidence of durable commercial validation. Keep sizing small and require further technical / commercial progress before promotion to active thesis.
+## Crowd-sourced ideas
 
-## Thesis watchpoints
+**Status:** Supporting source of ideas, not a thesis  
+**Current strength:** Low-Medium  
+**Time horizon:** Opportunistic  
 
-This section records tentative developments, sub-themes, and unresolved questions that may matter for future capital allocation, but which do not yet justify creating, changing, or retiring a thesis.
+### Role
 
-It is the thesis-level analogue of the "Process watchpoints" section in the monthly decision document.
+Third-party idea sources such as Seeking Alpha, Insider Monkey and Simply Wall Street can surface useful candidates, but they do not create conviction by themselves.
 
-Watchpoints are for continuity and monitoring only. They must not be used to make implicit thesis changes without explicit discussion.
+Any such stock must either:
+- fit one of the live theses above; or
+- independently justify its place as a high-quality asymmetric opportunity.
 
-At each monthly review, each watchpoint should be revisited and one of the following actions recorded:
+### June 2026 assessment
 
-- keep monitoring
-- close as noise / resolved
-- promote into a live thesis change
-- spin out into a new thesis or sub-thesis
+Unchanged. Continue to avoid turning this into a miscellaneous high-beta bucket. Where possible, reclassify holdings into real theses or judge them as standalone optionality.
 
-### Current thesis watchpoints
+---
 
-| Issue being monitored | Related thesis | Why it might matter | First noted | Evidence so far | Trigger for escalation | Current status |
+# Thesis watchpoints
+
+Watchpoints are tentative developments that may matter for future allocation but do not yet justify creating, changing or retiring a thesis.
+
+| Issue being monitored | Related thesis | Why it matters | First noted | Evidence so far | Trigger for escalation | Current status |
 |---|---|---|---|---|---|---|
-| How best to invest in Ukrainian defence tech, especially drone and counter-drone capability | Defence | Ukrainian firms increasingly appear to be the world leaders in practical drone, counter-drone, electronic-warfare and battlefield-autonomy adaptation. The main investment challenge remains that many of the most attractive companies are private, export-constrained or inaccessible; value may accrue instead to listed Western partners, integrators, sensor/EW suppliers, component firms, or specialist venture/private vehicles. | 2026-04 | EU-Ukraine Drone Alliance launched; Build with Ukraine co-production model accelerating; named German/Ukrainian and wider European JVs; Western firms using Ukraine as battlefield testbed; Baltic/NATO counter-drone urgency increasing; direct public-market routes still limited. | Escalate if listed companies win material revenue-bearing contracts tied to Ukrainian-origin systems; a credible listed vehicle or accessible private fund emerges; or repeated JV/co-production announcements identify public companies as primary scale-up beneficiaries. | Strengthened; actively monitor investable routes. Not yet a separate investable thesis. |
-| Whether counter-drone should be treated as a distinct sub-thesis rather than simply part of generic defence | Defence; Ukrainian defence tech | Counter-drone may become a major procurement category in its own right, changing which firms are the best expressions of the defence theme | 2026-04 | Strengthened materially. NATO and EU activity now suggest counter-drone is becoming a distinct procurement and industrial category. Baltic airspace incidents and Ukraine-derived doctrine reinforce urgency. | Multiple reviews showing differentiated winners and procurement patterns in counter-drone vs broader defence | Strengthened; near-candidate for sub-thesis. Keep monitoring, but begin evaluating stocks explicitly for C-UAS exposure. |
-| Whether resilient power / energy security should be elevated from cross-cutting theme to explicit thesis | Data-centre infrastructure; Nuclear / SMR; Defence; EVs / battery tech | Power availability, grid connection, energy security and resilience are increasingly becoming first-order constraints across AI/data-centres, defence infrastructure, electrification and critical national infrastructure. If this continues, resilient power may deserve treatment as a standalone investable thesis rather than merely a supporting angle within data-centres and nuclear. | 2026-03 | AI/data-centre electricity demand projections continue to rise; grid interconnection, local power cost and community pushback are becoming major constraints; Hormuz/Iran shock has reinforced geopolitical energy fragility; Bloom and other resilient-power exposures are increasingly central to the portfolio’s data-centre interpretation. | Promote if another 1–2 reviews show that power availability, grid resilience, on-site generation, storage, grid equipment or nuclear-enabling infrastructure are driving distinct stock selection beyond existing data-centre and nuclear categories. | Strengthened materially. Near-thesis; actively use as a stock-selection lens. Not yet a separate capital-allocation thesis. |
-| Orbital compute infrastructure as a speculative picks-and-shovels opportunity | Data-centre infrastructure; Defence / space; Energy security | Space-based data centres may never become commercially dominant, but the attempt to build them creates technical bottlenecks that could attract meaningful R&D spend. Early-stage companies solving enabling problems — radiation-tolerant compute, thermal management, optical links, autonomous orbital operations, power systems, launch/manufacturing scale-up and space cybersecurity — may offer highly asymmetric upside before the theme becomes widely hyped. | 2026-05 | Growing terrestrial data-centre pushback over power, water, permitting and local environmental impact e.g. Utah Stratos; increasing public discussion of orbital AI/data-centre infrastructure; emerging activity from major and specialist space/AI infrastructure players. | Identification of credible investible public companies or accessible private opportunities; material contracts or funding rounds in enabling technologies; successful orbital compute / optical networking / thermal-management demonstrations; evidence that hype is beginning to enter public-market valuations. | Actively monitor. High priority for small, speculative positions if credible investible opportunities appear. Not yet a core capital-allocation thesis. |
+| Ukrainian defence-tech investability | Defence | Ukrainian firms may become major sources of drone, counter-drone, EW and battlefield-autonomy technology, but direct public-market access remains limited. | 2026-04 | Growing Ukraine-Western partnerships, Western production lines, co-production models and possible controlled exports. | Listed firms win material contracts tied to Ukrainian-origin systems; credible public or private investment vehicle emerges; repeated JV evidence identifies public beneficiaries. | Strengthened; actively monitor investable routes. |
+| Counter-drone as distinct sub-thesis | Defence | C-UAS may become a major procurement category with different winners from generic defence. | 2026-04 | Ukraine, NATO and European activity point to growing demand across sensors, EW, jamming, AI classification, C2 and interceptors. | Multiple reviews show differentiated C-UAS winners and procurement patterns. | Strengthened materially; near-candidate for sub-thesis. |
+| Resilient power / energy security as standalone thesis | Data-centre infrastructure; Nuclear; Defence; EVs | Power availability, grid connection and resilience are becoming first-order constraints across AI/data centres, defence infrastructure and electrification. | 2026-03 | Data-centre power constraints, local backlash, grid strain and resilient-power demand increasingly drive stock selection. | Promote if another 1–2 reviews show distinct capital allocation beyond data-centre and nuclear categories. | Strengthened; near-thesis. |
+| Orbital compute infrastructure | Data-centre infrastructure; Defence / space; Energy security | Space-based data centres may fail commercially, but the attempt to build them could create asymmetric opportunities in enabling technologies. | 2026-05 | Terrestrial data-centre backlash, public discussion of orbital AI infrastructure, and early technical work on space compute. Feasibility remains uncertain. | Credible investible public companies or accessible private opportunities; material contracts/funding; successful demos in optical links, thermal management, radiation-tolerant compute or autonomous operations. | Strengthened as a watchpoint; not promoted to live thesis. June produced real new evidence: SpaceX became directly investible, SpaceX and Orbital both set 2027 demonstration paths, venture funding appeared, and technical papers clarified the relevant bottlenecks. But there is still no demonstrated orbital-compute revenue, no proven unit economics, and no clean public picks-and-shovels basket. |
