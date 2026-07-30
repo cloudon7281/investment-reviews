@@ -33,6 +33,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Stocks categorized as: new purchases (stocks bought within date range), retained holdings (stocks already owned before date range), sold positions (stocks completely sold during date range)
 - Performance metrics for each category
 - Tag-based grouping for thematic investing
+- Optional thesis candidate analysis: how the wider candidate universe for each investment thesis performed, and how the candidates actually held compare with it
 
 **Tax Report Mode**
 - Capital gains calculations for UK tax years
@@ -150,6 +151,53 @@ python3 portfolio.py --mode periodic-review \
 - `--start-date`: Beginning of review period
 - `--end-date`: End of review period
 - `--eval-date`: Date for portfolio valuation (default: today)
+- `--thesis-candidates`: JSON file defining a candidate universe per investment thesis (optional)
+
+#### Thesis Candidate Analysis
+
+Supplying `--thesis-candidates` measures how the wider investable set behind each thesis
+performed, which distinguishes a weak thesis from a weak expression of a good thesis:
+
+```bash
+python3 portfolio.py --mode periodic-review \
+  --base-dir ~/path/to/data \
+  --start-date 2024-12-01 \
+  --end-date 2025-01-01 \
+  --thesis-candidates ~/path/to/theses.json
+```
+
+The file lists the candidate stocks for each thesis:
+
+```json
+{
+  "schema_version": 1,
+  "theses": [
+    {
+      "name": "European Defence",
+      "candidates": [
+        {"ticker": "RHM.DE", "name": "Rheinmetall"},
+        {"ticker": "KOG.OL", "name": "Kongsberg Gruppen"}
+      ]
+    }
+  ]
+}
+```
+
+Tickers are Yahoo Finance symbols, as used elsewhere in the tool. Whether a candidate is
+held is derived by matching the ticker against the parsed portfolio (holdings at the end of
+the review period) and is never recorded in the file.
+
+Each candidate is valued on the same basis as a benchmark: £1,000 invested at the start date
+and valued at the evaluation date. Candidates with no usable price data are omitted and
+warned about. Three outputs are added:
+
+- **Summary tab**: one candidate-basket row per thesis, after the benchmark rows.
+- **Thesis Summary tab**: per thesis, the equal-weighted candidate basket return, the
+  equal-weighted return of the held candidates (each counted once, whatever the position
+  size), the difference between them, and breadth — the proportion of candidates with a
+  positive return, out of those with valid returns.
+- **Thesis Candidate Performance tab**: every candidate, whether it is held, and its
+  return, price, 90-day high and volatility.
 
 ### Tax Report
 
@@ -242,6 +290,7 @@ The tool follows a three-layer architecture with strict separation of concerns:
 - `mhtml_parser.py` - IBKR transaction HTML
 - `csv_parser.py` - II pension CSV format
 - `yaml_parser.py` - Manual transactions (corporate actions, splits)
+- `thesis_config.py` - Thesis candidate configuration (`--thesis-candidates`)
 
 ### Layer 2: Portfolio Analysis (Modular Architecture)
 **Responsibility:** StockNotes → mode-specific Pandas DataFrames

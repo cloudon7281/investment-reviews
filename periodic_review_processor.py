@@ -13,6 +13,7 @@ from portfolio_review import PortfolioReview
 import transaction_processor
 import holdings_calculator
 import financial_metrics
+import thesis_config
 
 
 # ---------------------------------------------------------------------------
@@ -95,9 +96,141 @@ def calculate_benchmark_performance(price_data: Dict, start_date: datetime,
     return pd.DataFrame(results)
 
 
+def calculate_thesis_candidate_performance(theses: List[Dict], price_data: Dict,
+                                           highs_and_vol: Dict, held_tickers: set,
+                                           start_date: datetime,
+                                           eval_date: datetime) -> pd.DataFrame:
+    """Calculate normalised performance for every configured thesis candidate.
+
+    Uses the same date boundaries and normalisation as the benchmark analysis: each
+    candidate starts at BENCHMARK_NORMALISED_START (£1000) at start_date and is valued
+    at eval_date.  Candidates without usable price data are omitted.
+
+    Args:
+        theses: Thesis definitions as returned by thesis_config.load_thesis_config
+        price_data: Pre-fetched candidate price data keyed by ticker (GBP)
+        highs_and_vol: Pre-computed highs and volatility data keyed by ticker
+        held_tickers: Upper-cased tickers held in the portfolio at the end of the period
+        start_date: Period start date — price used to normalise start value
+        eval_date: Evaluation date — price used to compute current value
+
+    Returns:
+        DataFrame with one row per candidate that has valid performance data.
+    """
+    results = []
+    for thesis in theses:
+        for candidate in thesis['candidates']:
+            ticker = candidate['ticker']
+            start_price = holdings_calculator.get_stock_price_from_data(ticker, start_date, price_data)
+            eval_price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+
+            if start_price is None or start_price == 0:
+                logger.warning(f"Thesis candidate {ticker}: no start price at {start_date.date()}, skipping")
+                continue
+            if eval_price is None:
+                logger.warning(f"Thesis candidate {ticker}: no eval price at {eval_date.date()}, skipping")
+                continue
+
+            scale = BENCHMARK_NORMALISED_START / start_price
+            current_value = eval_price * scale
+            pnl = current_value - BENCHMARK_NORMALISED_START
+            roi = pnl / BENCHMARK_NORMALISED_START
+
+            is_held = ticker.upper() in held_tickers
+
+            recent_high = None
+            volatility = None
+            current_price_pct_of_high = None
+            if ticker in highs_and_vol:
+                recent_high = highs_and_vol[ticker]['recent_high']
+                volatility = highs_and_vol[ticker]['annualized_volatility']
+                if recent_high and recent_high > 0:
+                    current_price_pct_of_high = eval_price / recent_high
+
+            results.append({
+                'thesis': thesis['name'],
+                'ticker': ticker,
+                'company_name': candidate['name'],
+                'is_held': is_held,
+                'held': 'Yes' if is_held else '',
+                'start_value': (BENCHMARK_NORMALISED_START, 'GBP'),
+                'current_value': (current_value, 'GBP'),
+                'pnl': (pnl, 'GBP'),
+                'simple_roi': roi,
+                'current_price': (eval_price, 'GBP'),
+                'recent_high': (recent_high, 'GBP') if recent_high is not None else None,
+                'volatility': volatility,
+                'current_price_pct_of_high': current_price_pct_of_high,
+            })
+            logger.debug(f"Thesis candidate {ticker} ({thesis['name']}): roi={roi:.2%}, held={is_held}")
+
+    configured = sum(len(thesis['candidates']) for thesis in theses)
+    logger.info(f"Thesis candidate performance calculated for {len(results)}/{configured} candidates")
+    return pd.DataFrame(results)
+
+
+def create_thesis_summary(theses: List[Dict], candidates_df: pd.DataFrame) -> pd.DataFrame:
+    """Create the per-thesis summary of candidate, held and relative performance.
+
+    Baskets are equal-weighted: the basket return is the arithmetic mean of the
+    individual candidate returns.  A holding counts once regardless of position size.
+
+    Args:
+        theses: Thesis definitions as returned by thesis_config.load_thesis_config
+        candidates_df: DataFrame from calculate_thesis_candidate_performance
+
+    Returns:
+        DataFrame with one row per thesis that has at least one valid candidate.
+    """
+    if candidates_df.empty:
+        logger.warning("No thesis candidates have valid returns; thesis summary is empty")
+        return pd.DataFrame()
+
+    summary_data = []
+
+    for thesis in theses:
+        name = thesis['name']
+        configured = len(thesis['candidates'])
+
+        thesis_rows = candidates_df[candidates_df['thesis'] == name]
+        if thesis_rows.empty:
+            logger.warning(f"Thesis '{name}': no candidates with valid returns, omitting from summary")
+            continue
+
+        candidate_return = thesis_rows['simple_roi'].mean()
+
+        held_rows = thesis_rows[thesis_rows['is_held']]
+        if held_rows.empty:
+            held_return = None
+            held_vs_candidates = None
+            logger.info(f"Thesis '{name}': no configured candidates are held")
+        else:
+            held_return = held_rows['simple_roi'].mean()
+            held_vs_candidates = held_return - candidate_return
+
+        valid_candidates = len(thesis_rows)
+        positive_candidates = int((thesis_rows['simple_roi'] > 0).sum())
+
+        summary_data.append({
+            'thesis': name,
+            'candidate_return': candidate_return,
+            'held_return': held_return,
+            'held_vs_candidates': held_vs_candidates,
+            'positive_candidates': positive_candidates,
+            'valid_candidates': valid_candidates,
+            'configured_candidates': configured,
+            'breadth': positive_candidates / valid_candidates,
+        })
+        logger.info(f"Thesis '{name}': {valid_candidates}/{configured} valid candidates, "
+                    f"{len(held_rows)} held, candidate basket {candidate_return:.2%}")
+
+    return pd.DataFrame(summary_data)
+
+
 def process_periodic_review(portfolio_review: PortfolioReview, start_date: datetime,
                             end_date: datetime, eval_date: Optional[datetime],
-                            market_data_fetcher) -> Dict[str, pd.DataFrame]:
+                            market_data_fetcher,
+                            thesis_candidates_path: Optional[str] = None) -> Dict[str, pd.DataFrame]:
     """Process a periodic review analysis.
 
     Args:
@@ -106,6 +239,8 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         end_date: End of the review period (date B)
         eval_date: Evaluation date (date C), defaults to today
         market_data_fetcher: MarketDataFetcher instance for price fetching
+        thesis_candidates_path: Optional path to a thesis candidate configuration file.
+            When supplied, 'thesis_candidates' and 'thesis_summary' DataFrames are added.
 
     Returns:
         Dictionary with 'summary', 'per_tag', 'new', 'retained', and 'sold' DataFrames
@@ -114,6 +249,9 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         eval_date = datetime.now()
 
     logger.info(f"Processing periodic review from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}, evaluated on {eval_date.strftime('%Y-%m-%d')}")
+
+    # Load the thesis configuration up front so a bad file fails before any price fetching
+    theses = thesis_config.load_thesis_config(thesis_candidates_path) if thesis_candidates_path else None
 
     # Step 1: Classify stocks
     classification = classify_stocks_by_review_period(portfolio_review, start_date, end_date)
@@ -226,16 +364,43 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     )
     results['benchmarks'] = calculate_benchmark_performance(benchmark_price_data, start_date, eval_date)
 
-    # Step 5: Create summary
+    # Step 5: Thesis candidate performance (only when a configuration file was supplied).
+    # Candidate prices are fetched separately for the same reason as benchmarks: they must
+    # never pollute portfolio price_data or category totals.
+    results['thesis_candidates'] = pd.DataFrame()
+    results['thesis_summary'] = pd.DataFrame()
+    if theses:
+        candidate_tickers = sorted({c['ticker'] for t in theses for c in t['candidates']})
+        logger.info(f"Fetching thesis candidate prices for {len(candidate_tickers)} tickers")
+        candidate_price_data = market_data_fetcher.batch_get_stock_prices(
+            candidate_tickers, start_date, eval_date
+        )
+        candidate_highs_and_vol = financial_metrics.calculate_highs_and_volatility(
+            candidate_price_data, eval_date
+        )
+
+        # A candidate is held if it is in the portfolio at the end of the review period,
+        # i.e. classified as new or retained.  Never recorded in the configuration file.
+        held_tickers = {ticker.upper() for ticker, *_ in classification['new']}
+        held_tickers |= {ticker.upper() for ticker, *_ in classification['retained']}
+
+        results['thesis_candidates'] = calculate_thesis_candidate_performance(
+            theses, candidate_price_data, candidate_highs_and_vol, held_tickers,
+            start_date, eval_date
+        )
+        results['thesis_summary'] = create_thesis_summary(theses, results['thesis_candidates'])
+
+    # Step 6: Create summary
     results['summary'] = create_periodic_review_summary(
         results, start_date, end_date, eval_date,
         benchmarks_df=results['benchmarks']
     )
 
-    # Step 6: Create tag-level summary (keep individual DataFrames clean)
+    # Step 7: Create tag-level summary (keep individual DataFrames clean)
     results['per_tag'] = create_tag_summary(
         results, start_date, end_date, eval_date,
-        benchmarks_df=results['benchmarks']
+        benchmarks_df=results['benchmarks'],
+        thesis_candidates_df=results['thesis_candidates']
     )
 
     logger.info(f"Periodic review processing completed: {len(classification['new'])} new, {len(classification['retained'])} retained, {len(classification['increased'])} increased, {len(classification['sold'])} sold, {len(results['benchmarks'])} benchmarks")
@@ -610,7 +775,8 @@ def create_periodic_review_summary(results: Dict[str, pd.DataFrame], start_date:
 
 def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, end_date: datetime,
                       eval_date: datetime,
-                      benchmarks_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+                      benchmarks_df: Optional[pd.DataFrame] = None,
+                      thesis_candidates_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Create tag-level summary for periodic review.
 
     Args:
@@ -621,6 +787,10 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
         benchmarks_df: Optional DataFrame of benchmark rows.  When provided, one
             summary row per benchmark tag is appended with is_benchmark=True.
             These rows are excluded from portfolio totals.
+        thesis_candidates_df: Optional DataFrame of thesis candidate rows.  When
+            provided, one candidate-basket row per thesis is appended after the
+            benchmark rows.  Like benchmarks these are notional £1000-per-stock
+            baskets and are excluded from portfolio totals.
 
     Returns:
         DataFrame with tag-level summary data
@@ -675,6 +845,23 @@ def create_tag_summary(results: Dict[str, pd.DataFrame], start_date: datetime, e
                 'roi': roi,
                 'is_benchmark': True,
                 'sort_category': 'benchmark',
+                'sort_pnl': pnl,
+            })
+
+    # Append one candidate-basket row per thesis, after the benchmark rows
+    if thesis_candidates_df is not None and not thesis_candidates_df.empty:
+        for thesis_name, group_df in thesis_candidates_df.groupby('thesis', sort=False):
+            start_value, current_value, pnl, roi = _calculate_periodic_summary_metrics(group_df)
+            tag_summary_data.append({
+                'category': f"Thesis - {thesis_name}",
+                'tag': thesis_name,
+                'count': len(group_df),
+                'start_value': (start_value, 'GBP'),
+                'current_value': (current_value, 'GBP'),
+                'pnl': (pnl, 'GBP'),
+                'roi': roi,
+                'is_benchmark': True,
+                'sort_category': 'thesis',
                 'sort_pnl': pnl,
             })
 

@@ -293,6 +293,60 @@ COLUMN_CONFIGS = {
             STOCKS_PROFIT_TAKING_THRESHOLD,  # ROI
         ]
     },
+    'thesis_summary': {
+        'headers': ['Thesis', 'Candidate Basket', 'Held Basket', 'Held vs. Candidates', 'Positive Candidates', 'Total Candidates', 'Breadth'],
+        'columns': ['thesis', 'candidate_return', 'held_return', 'held_vs_candidates', 'positive_candidates', 'valid_candidates', 'breadth'],
+        'column_formats': [
+            None,                # Thesis - text
+            PERCENTAGE_FORMAT,   # Candidate Basket
+            PERCENTAGE_FORMAT,   # Held Basket
+            PERCENTAGE_FORMAT,   # Held vs. Candidates
+            None,                # Positive Candidates - integer
+            None,                # Total Candidates - integer
+            PERCENTAGE_FORMAT,   # Breadth
+        ],
+        'column_thresholds': [
+            None,                            # Thesis
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # Candidate Basket
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # Held Basket
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # Held vs. Candidates
+            None,                            # Positive Candidates
+            None,                            # Total Candidates
+            None,                            # Breadth
+        ]
+    },
+    'thesis_candidate_detail': {
+        'headers': ['Thesis', 'Company', 'Ticker', 'Held', 'Start Value (£1k)', 'Current Value', 'P&L', 'Simple ROI', 'Current Price', '90d High', '% of High', 'Volatility'],
+        'columns': ['thesis', 'company_name', 'ticker', 'held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],
+        'column_formats': [
+            None,  # Thesis - text
+            None,  # Company - text
+            None,  # Ticker - text
+            None,  # Held - text
+            CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
+            CURRENCY_FORMAT_NO_DECIMALS,  # P&L
+            PERCENTAGE_FORMAT,  # Simple ROI
+            CURRENCY_FORMAT,  # Current Price
+            CURRENCY_FORMAT,  # 90d High
+            PERCENTAGE_FORMAT,  # % of High
+            PERCENTAGE_FORMAT,  # Volatility
+        ],
+        'column_thresholds': [
+            None,  # Thesis
+            None,  # Company
+            None,  # Ticker
+            None,  # Held
+            None,  # Start Value
+            None,  # Current Value
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # P&L
+            STOCKS_PROFIT_TAKING_THRESHOLD,  # Simple ROI
+            None,  # Current Price
+            None,  # 90d High
+            STOP_LOSS_THRESHOLD,  # % of High
+            STOCKS_VOLATILITY_THRESHOLD,  # Volatility
+        ]
+    },
     'list_trades': {
         'headers': ['Company', 'Ticker', 'Date', 'Type', 'Units', 'Value (£)'],
         'columns': ['stock_name', 'ticker', 'date', 'transaction_type', 'quantity', 'value_gbp'],

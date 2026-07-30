@@ -38,6 +38,9 @@ def parse_args():
                       help='End date for periodic review (YYYY-MM-DD format)')
     parser.add_argument('--eval-date', type=str,
                       help='Evaluation date for periodic review (YYYY-MM-DD format, defaults to today)')
+    parser.add_argument('--thesis-candidates', type=str, metavar='FILENAME',
+                      help='JSON file defining a universe of candidate stocks per investment thesis; '
+                           'adds thesis performance analysis to the review (periodic-review mode only)')
     
     # Tax reporting specific arguments
     parser.add_argument('--tax-year', type=str,
@@ -125,6 +128,10 @@ def main():
     # Validate filter arguments
     if args.include_tags and args.exclude_tags:
         logger.error("Cannot specify both --include-tags and --exclude-tags")
+        sys.exit(1)
+
+    if args.thesis_candidates and args.mode != 'periodic-review':
+        logger.error("--thesis-candidates is only supported in periodic-review mode")
         sys.exit(1)
     
     try:
@@ -271,7 +278,10 @@ def main():
                 eval_date = datetime.strptime(args.eval_date, '%Y-%m-%d')
 
             # Process periodic review
-            periodic_results = portfolio_analysis.process_periodic_review(portfolio_review, start_date, end_date, eval_date)
+            periodic_results = portfolio_analysis.process_periodic_review(
+                portfolio_review, start_date, end_date, eval_date,
+                thesis_candidates_path=args.thesis_candidates
+            )
             reporter.display_periodic_review(periodic_results, start_date, end_date, eval_date)
         
     except Exception as e:

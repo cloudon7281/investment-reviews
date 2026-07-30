@@ -1356,6 +1356,8 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestProgressToDoubling))
     suite.addTests(loader.loadTestsFromTestCase(TestDoublingMetrics))
     suite.addTests(loader.loadTestsFromTestCase(TestTaxPnlPoolCostBasis))
+    suite.addTests(loader.loadTestsFromTestCase(TestThesisConfig))
+    suite.addTests(loader.loadTestsFromTestCase(TestThesisCandidatePerformance))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
@@ -1541,6 +1543,255 @@ class TestBenchmarkPerformance(unittest.TestCase):
         self.assertEqual(tag_rows.iloc[0]['sort_category'], 'benchmark')
         # Aggregated start_value should be sum (2 x £1000)
         self.assertEqual(tag_rows.iloc[0]['start_value'], (2000.0, 'GBP'))
+
+
+# ---------------------------------------------------------------------------
+# Thesis candidate tests
+# ---------------------------------------------------------------------------
+
+import json
+import os
+import tempfile
+
+from periodic_review_processor import (
+    calculate_thesis_candidate_performance,
+    create_thesis_summary,
+)
+from thesis_config import load_thesis_config
+
+
+class TestThesisConfig(unittest.TestCase):
+    """Tests for loading and validating the thesis candidate configuration file."""
+
+    VALID_CONFIG = {
+        'schema_version': 1,
+        'theses': [
+            {
+                'name': 'European Defence',
+                'candidates': [
+                    {'ticker': 'RHM.DE', 'name': 'Rheinmetall'},
+                    {'ticker': 'KOG.OL', 'name': 'Kongsberg Gruppen'},
+                ],
+            }
+        ],
+    }
+
+    def _write_config(self, content):
+        """Write content (str or object) to a temp file and return its path."""
+        fd, path = tempfile.mkstemp(suffix='.json')
+        with os.fdopen(fd, 'w') as f:
+            if isinstance(content, str):
+                f.write(content)
+            else:
+                json.dump(content, f)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_valid_config_loads(self):
+        theses = load_thesis_config(self._write_config(self.VALID_CONFIG))
+        self.assertEqual(len(theses), 1)
+        self.assertEqual(theses[0]['name'], 'European Defence')
+        self.assertEqual(len(theses[0]['candidates']), 2)
+
+    def test_missing_file_raises(self):
+        with self.assertRaises(ValueError):
+            load_thesis_config('/nonexistent/theses.json')
+
+    def test_invalid_json_raises(self):
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config('{not json'))
+
+    def test_unsupported_schema_version_raises(self):
+        config = json.loads(json.dumps(self.VALID_CONFIG))
+        config['schema_version'] = 2
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config(config))
+
+    def test_missing_theses_raises(self):
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config({'schema_version': 1}))
+
+    def test_thesis_without_name_raises(self):
+        config = {'schema_version': 1, 'theses': [{'candidates': [{'ticker': 'VRT', 'name': 'Vertiv'}]}]}
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config(config))
+
+    def test_candidate_without_ticker_raises(self):
+        config = {'schema_version': 1, 'theses': [{'name': 'Quantum', 'candidates': [{'name': 'IonQ'}]}]}
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config(config))
+
+    def test_thesis_with_no_candidates_raises(self):
+        config = {'schema_version': 1, 'theses': [{'name': 'Quantum', 'candidates': []}]}
+        with self.assertRaises(ValueError):
+            load_thesis_config(self._write_config(config))
+
+
+class TestThesisCandidatePerformance(unittest.TestCase):
+    """Tests for thesis candidate performance, baskets and breadth."""
+
+    def setUp(self):
+        self.start_date = datetime(2026, 1, 1)
+        self.eval_date = datetime(2026, 3, 1)
+        self.theses = [
+            {
+                'name': 'European Defence',
+                'candidates': [
+                    {'ticker': 'RHM.DE', 'name': 'Rheinmetall'},
+                    {'ticker': 'KOG.OL', 'name': 'Kongsberg Gruppen'},
+                    {'ticker': 'HAG.DE', 'name': 'Hensoldt'},
+                ],
+            }
+        ]
+
+    def _price_data(self, prices):
+        """Build price data from {ticker: (start_price, eval_price)}."""
+        return {
+            ticker: pd.DataFrame(
+                {'Close': [start, end]},
+                index=[self.start_date, self.eval_date]
+            )
+            for ticker, (start, end) in prices.items()
+        }
+
+    def _performance(self, prices, held_tickers=frozenset(), highs_and_vol=None):
+        return calculate_thesis_candidate_performance(
+            self.theses, self._price_data(prices), highs_and_vol or {},
+            set(held_tickers), self.start_date, self.eval_date
+        )
+
+    def test_normalised_start_value_is_1000(self):
+        """Each candidate starts at £1000, matching the benchmark methodology."""
+        df = self._performance({'RHM.DE': (500.0, 550.0)})
+        self.assertEqual(df.iloc[0]['start_value'], (BENCHMARK_NORMALISED_START, 'GBP'))
+        self.assertAlmostEqual(df.iloc[0]['current_value'][0], 1100.0, places=4)
+        self.assertAlmostEqual(df.iloc[0]['simple_roi'], 0.10, places=6)
+
+    def test_candidate_without_prices_is_omitted(self):
+        """A candidate with no start price contributes no row."""
+        price_data = self._price_data({'RHM.DE': (500.0, 550.0)})
+        price_data['KOG.OL'] = pd.DataFrame({'Close': [300.0]}, index=[self.eval_date])
+        df = calculate_thesis_candidate_performance(
+            self.theses, price_data, {}, set(), self.start_date, self.eval_date
+        )
+        self.assertEqual(sorted(df['ticker']), ['RHM.DE'])
+
+    def test_held_flag_derived_from_portfolio(self):
+        """is_held comes from the portfolio tickers, matched case-insensitively."""
+        df = self._performance(
+            {'RHM.DE': (500.0, 550.0), 'KOG.OL': (100.0, 90.0)},
+            held_tickers={'RHM.DE'}
+        )
+        held = df.set_index('ticker')['is_held']
+        self.assertTrue(held['RHM.DE'])
+        self.assertFalse(held['KOG.OL'])
+        self.assertEqual(df.set_index('ticker')['held']['RHM.DE'], 'Yes')
+
+    def test_pct_of_high_uses_eval_price(self):
+        """% of high is the eval-date price over the 90-day high."""
+        highs = {'RHM.DE': {'recent_high': 600.0, 'annualized_volatility': 0.3}}
+        df = self._performance({'RHM.DE': (500.0, 550.0)}, highs_and_vol=highs)
+        self.assertAlmostEqual(df.iloc[0]['current_price_pct_of_high'], 550.0 / 600.0, places=6)
+        self.assertAlmostEqual(df.iloc[0]['volatility'], 0.3, places=6)
+
+    def test_baskets_are_equal_weighted(self):
+        """Candidate basket is the mean of all valid returns; held basket the mean of held ones."""
+        df = self._performance(
+            {
+                'RHM.DE': (100.0, 120.0),  # +20%, held
+                'KOG.OL': (100.0, 110.0),  # +10%
+                'HAG.DE': (100.0, 90.0),   # -10%
+            },
+            held_tickers={'RHM.DE', 'HAG.DE'}
+        )
+        summary = create_thesis_summary(self.theses, df)
+        row = summary.iloc[0]
+        self.assertAlmostEqual(row['candidate_return'], (0.20 + 0.10 - 0.10) / 3, places=6)
+        self.assertAlmostEqual(row['held_return'], (0.20 - 0.10) / 2, places=6)
+        self.assertAlmostEqual(row['held_vs_candidates'], row['held_return'] - row['candidate_return'], places=6)
+
+    def test_held_basket_counts_a_holding_once(self):
+        """Position size is irrelevant — the held basket is unweighted by definition."""
+        df = self._performance(
+            {'RHM.DE': (100.0, 120.0), 'KOG.OL': (100.0, 110.0)},
+            held_tickers={'RHM.DE', 'KOG.OL'}
+        )
+        summary = create_thesis_summary(self.theses, df)
+        self.assertAlmostEqual(summary.iloc[0]['held_return'], 0.15, places=6)
+
+    def test_breadth_denominator_is_valid_candidates(self):
+        """Breadth is positive returns over candidates with valid returns, not configured count."""
+        price_data = self._price_data({'RHM.DE': (100.0, 120.0), 'KOG.OL': (100.0, 90.0)})
+        df = calculate_thesis_candidate_performance(
+            self.theses, price_data, {}, set(), self.start_date, self.eval_date
+        )
+        summary = create_thesis_summary(self.theses, df)
+        row = summary.iloc[0]
+        self.assertEqual(row['positive_candidates'], 1)
+        self.assertEqual(row['valid_candidates'], 2)
+        self.assertEqual(row['configured_candidates'], 3)
+        self.assertAlmostEqual(row['breadth'], 0.5, places=6)
+
+    def test_no_held_candidates_leaves_held_columns_blank(self):
+        """A thesis with nothing held reports no held basket and no relative performance."""
+        df = self._performance({'RHM.DE': (100.0, 120.0)})
+        summary = create_thesis_summary(self.theses, df)
+        # Missing values may be None or NaN depending on the other rows; both render blank
+        self.assertTrue(pd.isna(summary.iloc[0]['held_return']))
+        self.assertTrue(pd.isna(summary.iloc[0]['held_vs_candidates']))
+
+    def test_held_columns_blank_only_for_theses_with_nothing_held(self):
+        """One thesis holding candidates must not fill in another thesis's held basket."""
+        theses = self.theses + [{
+            'name': 'Data Centre Infrastructure',
+            'candidates': [{'ticker': 'VRT', 'name': 'Vertiv Holdings'}],
+        }]
+        price_data = self._price_data({'RHM.DE': (100.0, 120.0), 'VRT': (50.0, 55.0)})
+        df = calculate_thesis_candidate_performance(
+            theses, price_data, {}, {'RHM.DE'}, self.start_date, self.eval_date
+        )
+        summary = create_thesis_summary(theses, df).set_index('thesis')
+        self.assertAlmostEqual(summary.loc['European Defence', 'held_return'], 0.20, places=6)
+        self.assertTrue(pd.isna(summary.loc['Data Centre Infrastructure', 'held_return']))
+
+    def test_thesis_with_no_valid_candidates_is_omitted(self):
+        """No usable price data for any candidate means no summary row."""
+        summary = create_thesis_summary(self.theses, pd.DataFrame())
+        self.assertTrue(summary.empty)
+
+    def test_tag_summary_thesis_rows(self):
+        """create_tag_summary appends one candidate-basket row per thesis, sorted after benchmarks."""
+        df = self._performance({'RHM.DE': (100.0, 120.0), 'KOG.OL': (100.0, 110.0)})
+        results = {k: pd.DataFrame() for k in ['new', 'retained', 'increased', 'sold']}
+        per_tag = create_tag_summary(
+            results, self.start_date, self.eval_date, self.eval_date,
+            thesis_candidates_df=df
+        )
+
+        thesis_rows = per_tag[per_tag['sort_category'] == 'thesis']
+        self.assertEqual(len(thesis_rows), 1)
+        row = thesis_rows.iloc[0]
+        self.assertEqual(row['category'], 'Thesis - European Defence')
+        self.assertEqual(row['count'], 2)
+        # 2 x £1000 in, £1200 + £1100 out
+        self.assertEqual(row['start_value'], (2000.0, 'GBP'))
+        self.assertAlmostEqual(row['current_value'][0], 2300.0, places=4)
+        self.assertAlmostEqual(row['roi'], 0.15, places=6)
+
+    def test_thesis_rows_excluded_from_portfolio_totals(self):
+        """Thesis baskets are notional and must not be added to portfolio category totals."""
+        df = self._performance({'RHM.DE': (100.0, 120.0)})
+        results = {k: pd.DataFrame() for k in ['new', 'retained', 'increased', 'sold']}
+        summary = create_periodic_review_summary(
+            results, self.start_date, self.eval_date, self.eval_date
+        )
+        self.assertEqual(sum(v[0] for v in summary['start_value']), 0.0)
+
+        per_tag = create_tag_summary(
+            results, self.start_date, self.eval_date, self.eval_date,
+            thesis_candidates_df=df
+        )
+        self.assertTrue(per_tag[per_tag['sort_category'] == 'thesis'].iloc[0]['is_benchmark'])
 
 
 if __name__ == '__main__':

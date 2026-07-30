@@ -32,10 +32,11 @@ class PortfolioAnalysis:
             portfolio_review, value_over_time_days, self.market_data_fetcher
         )
 
-    def process_periodic_review(self, portfolio_review: PortfolioReview, start_date: datetime, end_date: datetime, eval_date: Optional[datetime] = None) -> Dict[str, pd.DataFrame]:
+    def process_periodic_review(self, portfolio_review: PortfolioReview, start_date: datetime, end_date: datetime, eval_date: Optional[datetime] = None, thesis_candidates_path: Optional[str] = None) -> Dict[str, pd.DataFrame]:
         """Process a periodic review analysis."""
         return periodic_review_processor.process_periodic_review(
-            portfolio_review, start_date, end_date, eval_date, self.market_data_fetcher
+            portfolio_review, start_date, end_date, eval_date, self.market_data_fetcher,
+            thesis_candidates_path=thesis_candidates_path
         )
 
     def process_tax_report(self, portfolio_review: PortfolioReview, tax_year_start: datetime, tax_year_end: datetime) -> pd.DataFrame:

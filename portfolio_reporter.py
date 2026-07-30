@@ -278,7 +278,20 @@ class PortfolioReporter:
         # Benchmark detail table
         if not benchmarks_df.empty:
             tables.append((benchmarks_df, 'periodic_review_benchmark', f'Benchmarks ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
-        
+
+        # Thesis tables (only present when --thesis-candidates was supplied)
+        thesis_summary_df = periodic_results.get('thesis_summary', pd.DataFrame())
+        if not thesis_summary_df.empty:
+            tables.append((thesis_summary_df, 'thesis_summary', f'Thesis Summary ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
+
+        thesis_candidates_df = periodic_results.get('thesis_candidates', pd.DataFrame())
+        if not thesis_candidates_df.empty:
+            # Sort by thesis then ROI descending (same convention as the benchmark table)
+            thesis_candidates_df = thesis_candidates_df.copy()
+            thesis_candidates_df['_sort_roi'] = -thesis_candidates_df['simple_roi']
+            thesis_candidates_df = thesis_candidates_df.sort_values(['thesis', '_sort_roi']).drop(columns=['_sort_roi'])
+            tables.append((thesis_candidates_df, 'thesis_candidate_detail', f'Thesis Candidate Performance ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}, evaluated on {eval_date.strftime("%Y-%m-%d")})'))
+
         # 4. Render all tables
         for df_table, config_name, title in tables:
             config = rd.COLUMN_CONFIGS[config_name]
@@ -315,8 +328,9 @@ class PortfolioReporter:
             # Extract P&L value for sorting
             per_tag_df['_sort_pnl'] = per_tag_df['pnl'].apply(lambda x: x[0] if isinstance(x, tuple) else x)
             
-            # Define category order; 'benchmark' rows appear after portfolio rows
-            category_order = {'new': 0, 'retained': 1, 'increased': 2, 'sold': 3, 'benchmark': 4}
+            # Define category order; 'benchmark' rows appear after portfolio rows,
+            # and 'thesis' rows after the benchmark rows
+            category_order = {'new': 0, 'retained': 1, 'increased': 2, 'sold': 3, 'benchmark': 4, 'thesis': 5}
             per_tag_df['_category_order'] = per_tag_df['sort_category'].map(category_order)
             
             # Sort by category order first, then by P&L descending within each category
