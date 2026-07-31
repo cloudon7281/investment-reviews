@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "theses": [
+    {
+      "name": "Defence",
+      "candidates": [
+        {"ticker": "RHM.DE", "name": "Rheinmetall"},
+        {"ticker": "KOG.OL", "name": "Kongsberg Gruppen"},
+        {"ticker": "HAG.DE", "name": "Hensoldt"},
+        {"ticker": "BA.L", "name": "BAE Systems"},
+        {"ticker": "SAAB-B.ST", "name": "Saab"},
+        {"ticker": "LDO.MI", "name": "Leonardo"},
+        {"ticker": "HO.PA", "name": "Thales"},
+        {"ticker": "AVAV", "name": "AeroVironment"},
+        {"ticker": "DRO.AX", "name": "DroneShield"},
+        {"ticker": "RCAT", "name": "Red Cat Holdings"},
+        {"ticker": "MILDEF.ST", "name": "MilDef Group"},
+        {"ticker": "QQ.L", "name": "QinetiQ Group"}
+      ]
+    },
+    {
+      "name": "Data-centre infrastructure",
+      "candidates": [
+        {"ticker": "VRT", "name": "Vertiv Holdings"},
+        {"ticker": "ETN", "name": "Eaton"},
+        {"ticker": "SU.PA", "name": "Schneider Electric"},
+        {"ticker": "APH", "name": "Amphenol"},
+        {"ticker": "ALAB", "name": "Astera Labs"},
+        {"ticker": "ANET", "name": "Arista Networks"},
+        {"ticker": "MRVL", "name": "Marvell Technology"},
+        {"ticker": "BE", "name": "Bloom Energy"},
+        {"ticker": "NVTS", "name": "Navitas Semiconductor"},
+        {"ticker": "JEN.DE", "name": "Jenoptik"}
+      ]
+    },
+    {
+      "name": "Nuclear / SMR / energy security",
+      "candidates": [
+        {"ticker": "LEU", "name": "Centrus Energy"},
+        {"ticker": "BWXT", "name": "BWX Technologies"},
+        {"ticker": "CCJ", "name": "Cameco"},
+        {"ticker": "SLX.AX", "name": "Silex Systems"},
+        {"ticker": "CEG", "name": "Constellation Energy"},
+        {"ticker": "OKLO", "name": "Oklo"},
+        {"ticker": "SMR", "name": "NuScale Power"},
+        {"ticker": "RR.L", "name": "Rolls-Royce Holdings"}
+      ]
+    },
+    {
+      "name": "EVs and battery tech",
+      "candidates": [
+        {"ticker": "1211.HK", "name": "BYD"},
+        {"ticker": "TSLA", "name": "Tesla"},
+        {"ticker": "9868.HK", "name": "XPeng"},
+        {"ticker": "2015.HK", "name": "Li Auto"},
+        {"ticker": "3750.HK", "name": "Contemporary Amperex Technology"},
+        {"ticker": "QS", "name": "QuantumScape"},
+        {"ticker": "SLDP", "name": "Solid Power"},
+        {"ticker": "AMPX", "name": "Amprius Technologies"},
+        {"ticker": "ENVX", "name": "Enovix"}
+      ]
+    },
+    {
+      "name": "Quantum",
+      "candidates": [
+        {"ticker": "IONQ", "name": "IonQ"},
+        {"ticker": "QBTS", "name": "D-Wave Quantum"},
+        {"ticker": "RGTI", "name": "Rigetti Computing"},
+        {"ticker": "QUBT", "name": "Quantum Computing"}
+      ]
+    }
+  ]
+}
