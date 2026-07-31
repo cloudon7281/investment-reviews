@@ -6,16 +6,28 @@ It sits between the high-level rules in the Investment Strategy document and the
 
 Thesis labels inform stock selection and interpretation of evidence. They do not change the stock-level risk rules on profit-taking, stop-loss, volatility, fundamentals, or time held.
 
+Each live thesis includes a maintained **candidate-expression universe**. This is used to compare current holdings with plausible alternatives, measure market performance across the thesis rather than infer it only from holdings, and provide a structured starting point for reinvestment decisions. Inclusion means that a company is sufficiently relevant and investable to be a useful comparator; it does not mean that its valuation, risk or current entry point is attractive.
+
+Candidate universes should be reviewed systematically each quarter and amended between quarterly reviews only where material evidence justifies a change. The qualitative tables in this document are authoritative for why candidates are included. The accompanying `thesis.json` contains only thesis names, tickers and company names for use by the portfolio-review tooling.
+
+Candidate tables use the following concise metadata:
+
+- **Held:** whether the company is currently held at the latest review.
+- **Expression type:** Direct, Diversified beneficiary, Enabler, or Speculative optionality.
+- **Primary exposure:** the specific part of the thesis expressed by the company.
+- **Risk profile:** Established, Growth, High-beta growth, or Speculative.
+- **Reason for inclusion:** why the company is a useful held expression or comparator.
+
 ## Thesis summary table
 
 | Thesis | Status | Current strength | Preferred expressions | Last reviewed |
 |---|---|---:|---|---|
-| Defence | Active | High | European defence primes; air defence; missiles; radar/sensors; drones; counter-drone; EW; battlefield integration | 2026-06 |
-| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, water efficiency, permitting-enabling infrastructure, interconnects, optical/connectivity names | 2026-06 |
-| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-06 |
-| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technologies with credible traction | 2026-06 |
-| Quantum | Watchlist / small optionality sleeve | Low-Medium | Small speculative sleeve only; strongest or best-capitalised names only | 2026-06 |
-| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-06 |
+| Defence | Active | High | European defence primes; air defence; missiles; radar/sensors; drones; counter-drone; EW; battlefield integration | 2026-07 |
+| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, water efficiency, permitting-enabling infrastructure, interconnects, optical/connectivity names | 2026-07 |
+| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-07 |
+| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technologies with credible traction | 2026-07 |
+| Quantum | Watchlist / small optionality sleeve | Low-Medium | Small speculative sleeve only; strongest or best-capitalised names only | 2026-07 |
+| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-07 |
 
 ---
 
@@ -45,6 +57,23 @@ The thesis has increasingly shifted from generic defence exposure toward firms t
 - Radar, optical, RF, EW, communications and command-and-control suppliers.
 - Selective defence ETFs where diversification is useful, though these may dilute the clearest winners.
 
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| Rheinmetall | RHM.DE | Yes | Direct | Land systems, ammunition, air defence, missiles and integration | Established growth | Broad European rearmament exposure with strong positioning in ammunition, air defence and scalable production. |
+| Kongsberg Gruppen | KOG.OL | Yes | Direct | Missiles, air defence, remote weapon systems and maritime defence | Established growth | High-quality European defence technology exposure with strong missile and air-defence relevance. |
+| Hensoldt | HAG.DE | Yes | Enabler | Radar, sensors, electronic warfare and counter-UAS detection | Growth | Direct exposure to the detect/classify layer of modern air and counter-drone defence. |
+| BAE Systems | BA.L | No | Diversified beneficiary | Air, maritime, land, missiles, electronic systems and nuclear defence | Established | Lower-risk benchmark for broad allied defence spending and programme execution. |
+| Saab | SAAB-B.ST | No | Direct | Radar, airborne surveillance, missiles, EW and combat systems | Established growth | Strong European sensor, surveillance and integrated-defence comparator. |
+| Leonardo | LDO.MI | No | Diversified beneficiary | Electronics, helicopters, aircraft, sensors and defence systems | Established growth | Broad European defence exposure with material electronics and sensing capability. |
+| Thales | HO.PA | No | Enabler | Radar, communications, cybersecurity, EW and command systems | Established | High-quality comparator for sensing, communications and integration. |
+| AeroVironment | AVAV | No | Direct | Autonomous systems, loitering munitions, counter-UAS, directed energy and EW | High-beta growth | Scaled US comparator for autonomous and counter-UAS defence technology. |
+| DroneShield | DRO.AX | No | Direct | RF sensing, jamming, sensor fusion and counter-UAS | High-beta growth | One of the clearest listed pure-play counter-drone expressions. |
+| Red Cat Holdings | RCAT | Yes | Speculative optionality | Small military drones and US defence procurement | Speculative | High-upside direct expression of US small-drone procurement, with material execution and financing risk. |
+| MilDef Group | MILDEF.ST | Yes | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
+| QinetiQ Group | QQ.L | Yes | Diversified beneficiary | Test and evaluation, robotics, autonomy and mission systems | Established growth | Comparator for defence technology and integration without pure platform exposure. |
+
 ### Main risks
 
 - Valuations may already discount much of the rearmament story.
@@ -52,7 +81,7 @@ The thesis has increasingly shifted from generic defence exposure toward firms t
 - Some value may accrue to private Ukrainian firms or inaccessible ventures rather than listed companies.
 - Procurement may favour low-cost drones/software over traditional platforms.
 
-### June 2026 assessment
+### July 2026 assessment
 
 Strengthened. The defence thesis should now explicitly evaluate holdings through a Ukraine / counter-drone lens: detect, classify, jam/spoof, command, intercept and integrate. Direct investment into Ukrainian defence remains difficult, but Western listed partners, component suppliers, integrators and JV beneficiaries are becoming increasingly important routes.
 
@@ -83,6 +112,21 @@ AI and compute demand continue to drive structural growth in data-centre capacit
 - Interconnect, optical, RF and connectivity suppliers.
 - High-quality infrastructure enablers rather than narrow AI-hype names.
 
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| Vertiv Holdings | VRT | No | Direct | Data-centre power, thermal management and integrated infrastructure | High-beta growth | One of the clearest listed pure-play physical-infrastructure comparators. |
+| Eaton | ETN | Yes | Diversified beneficiary | Electrical distribution, switchgear, power quality and grid connection | Established growth | High-quality exposure to electrical bottlenecks across data centres and wider electrification. |
+| Schneider Electric | SU.PA | Yes | Diversified beneficiary | Power management, racks, cooling, automation and energy management | Established growth | Broad, lower-risk expression of data-centre power and thermal infrastructure. |
+| Amphenol | APH | Yes | Enabler | High-speed electrical and optical connectors and cabling | Established growth | High-quality connectivity enabler across AI servers, networking and infrastructure. |
+| Astera Labs | ALAB | Yes | Direct | Rack-scale connectivity and intelligent connectivity semiconductors | High-beta growth | Focused exposure to connectivity bottlenecks in AI systems and rack-scale architectures. |
+| Arista Networks | ANET | No | Direct | High-speed data-centre networking | Established growth | Benchmark for scaled AI and cloud networking demand. |
+| Marvell Technology | MRVL | No | Enabler | Custom silicon, optical DSPs and data-infrastructure semiconductors | High-beta growth | Comparator for optical and custom-compute infrastructure exposure. |
+| Bloom Energy | BE | Yes | Direct | On-site power generation and resilient data-centre power | High-beta growth | Direct expression of power scarcity and time-to-power constraints. |
+| Navitas Semiconductor | NVTS | Yes | Speculative optionality | GaN and SiC power semiconductors for high-voltage rack architecture | Speculative | Early-stage asymmetric expression of changing AI rack-power architectures. |
+| Jenoptik | JEN.DE | Yes | Enabler | Photonics, optical systems and semiconductor-equipment exposure | Growth | Diversified optical-enabler comparator with less pure data-centre exposure. |
+
 ### Main risks
 
 - Hyperscaler capex could slow if AI returns disappoint.
@@ -90,7 +134,7 @@ AI and compute demand continue to drive structural growth in data-centre capacit
 - Some supply-chain names may be cyclical or overvalued.
 - Narrative-driven names may swing sharply even when the long-term thesis remains valid.
 
-### June 2026 assessment
+### July 2026 assessment
 
 Refined, not weakened. Bearish and bullish narratives are both present: investor scepticism about AI profitability and data-centre backlash are real, but so is strong cloud/AI revenue growth. The thesis should therefore focus on bottlenecks rather than broad AI enthusiasm.
 
@@ -120,13 +164,26 @@ Rising electricity demand, energy-security concerns, and the need for reliable l
 - High-quality resilient-power infrastructure.
 - Selective reactor optionality only where commercial progress is credible.
 
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| Centrus Energy | LEU | Yes | Direct | US uranium enrichment and HALEU fuel supply | High-beta growth | Scarce listed exposure to Western enrichment and advanced-reactor fuel bottlenecks. |
+| BWX Technologies | BWXT | Yes | Enabler | Nuclear components, naval reactors, microreactors and engineering | Established growth | High-quality engineering and manufacturing expression with defence-supported economics. |
+| Cameco | CCJ | No | Direct | Uranium production and fuel services | Established growth | Scaled benchmark for the upstream nuclear fuel cycle. |
+| Silex Systems | SLX.AX | No | Speculative optionality | Laser uranium enrichment technology | Speculative | Potentially asymmetric fuel-cycle technology exposure with substantial development risk. |
+| Constellation Energy | CEG | No | Direct | Existing nuclear generation and power supply | Established growth | Captures near-term economics of operating nuclear assets and rising reliable-power demand. |
+| Oklo | OKLO | Yes | Speculative optionality | Advanced reactors, power sales and fuel recycling | Speculative | High-upside reactor and fuel-cycle optionality, with licensing and deployment risk. |
+| NuScale Power | SMR | No | Speculative optionality | Light-water small modular reactors | Speculative | Public-market comparator for SMR commercialisation and reactor-project sentiment. |
+| Rolls-Royce Holdings | RR.L | No | Diversified beneficiary | Rolls-Royce SMR and nuclear engineering within broader aerospace | Established growth | Diversified route to UK SMR optionality. |
+
 ### Main risks
 
 - Licensing, financing and deployment timelines remain long.
 - Reactor names can run far ahead of fundamentals.
 - Policy support may not translate quickly into contracts.
 
-### June 2026 assessment
+### July 2026 assessment
 
 Slightly strengthened. Data-centre power constraints support the thesis, but the portfolio should continue to prefer enablers over indiscriminate reactor optionality.
 
@@ -148,13 +205,27 @@ The long-term shift toward EVs and better battery technology remains intact, but
 - Battery technologies with credible customers, production traction or differentiated performance.
 - Selective energy-storage adjacencies where commercial traction is visible.
 
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| BYD | 1211.HK | Yes | Direct | Scaled EV manufacturing, batteries and vertical integration | Established growth | Core comparator for cost-efficient scaled EV and battery integration. |
+| Tesla | TSLA | No | Direct | EVs, charging, energy storage and software | High-beta growth | Major global comparator for EV demand, margins, software and brand economics. |
+| XPeng | 9868.HK | No | Direct | Chinese smart EVs and driver-assistance technology | High-beta growth | Comparator for technology-led Chinese EV competition. |
+| Li Auto | 2015.HK | No | Direct | Premium Chinese electrified vehicles | High-beta growth | Comparator for product execution, margins and Chinese demand. |
+| Contemporary Amperex Technology | 3750.HK | No | Direct | Scaled EV and stationary-storage batteries | Established growth | Global battery-manufacturing and technology leader. |
+| QuantumScape | QS | No | Speculative optionality | Solid-state lithium-metal batteries | Speculative | High-profile solid-state comparator with automotive partnerships and commercialisation risk. |
+| Solid Power | SLDP | No | Speculative optionality | Sulfide solid-state electrolyte and battery technology | Speculative | Alternative solid-state approach with industry partners and material timeline risk. |
+| Amprius Technologies | AMPX | Yes | Speculative optionality | High-energy silicon-anode batteries | Speculative | Differentiated high-energy-density technology with aviation, drone and mobility potential. |
+| Enovix | ENVX | No | Speculative optionality | Silicon-anode battery architecture and manufacturing | Speculative | Comparator for high-energy silicon batteries and manufacturing scale-up. |
+
 ### Main risks
 
 - Margin pressure and intense competition.
 - Policy, tariff and subsidy changes.
 - Speculative battery names may fail to commercialise.
 
-### June 2026 assessment
+### July 2026 assessment
 
 Unchanged to slightly lower priority. Keep the thesis live, but treat speculative battery names stock-by-stock rather than as broad thesis buys.
 
@@ -176,13 +247,22 @@ Quantum computing may produce very large winners, but commercial timelines remai
 - Strongest or best-capitalised names.
 - Companies showing technical progress, commercial traction or financing resilience.
 
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| IonQ | IONQ | No | Direct | Trapped-ion quantum computing, networking and sensing | Speculative | The most scaled listed pure-play comparator, with broad platform ambitions and valuation risk. |
+| D-Wave Quantum | QBTS | No | Direct | Quantum annealing systems, software and services | Speculative | Distinct architecture with relatively near-term commercial-use claims. |
+| Rigetti Computing | RGTI | No | Direct | Superconducting gate-model quantum processors | Speculative | Focused comparator for superconducting hardware and government-supported development. |
+| Quantum Computing | QUBT | No | Speculative optionality | Photonic and quantum-optimisation technologies | Speculative | Alternative-architecture comparator with especially high execution and narrative risk. |
+
 ### Main risks
 
 - Hype cycles without commercial validation.
 - Dilution and financial fragility.
 - Long timelines to useful advantage.
 
-### June 2026 assessment
+### July 2026 assessment
 
 Unchanged. Sharp price moves, including the June drawdown, confirm that this remains optionality rather than a promoted thesis.
 
@@ -202,7 +282,9 @@ Any such stock must either:
 - fit one of the live theses above; or
 - independently justify its place as a high-quality asymmetric opportunity.
 
-### June 2026 assessment
+Crowd-sourced ideas do not have a candidate universe in `thesis.json`, because this category is an idea source rather than an economic thesis whose market performance can be meaningfully measured.
+
+### July 2026 assessment
 
 Unchanged. Continue to avoid turning this into a miscellaneous high-beta bucket. Where possible, reclassify holdings into real theses or judge them as standalone optionality.
 
