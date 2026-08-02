@@ -49,7 +49,7 @@
     {
       "name": "EVs and battery tech",
       "candidates": [
-        {"ticker": "1211.HK", "name": "BYD"},
+        {"ticker": "BYDDY", "name": "BYD"},
         {"ticker": "TSLA", "name": "Tesla"},
         {"ticker": "9868.HK", "name": "XPeng"},
         {"ticker": "2015.HK", "name": "Li Auto"},

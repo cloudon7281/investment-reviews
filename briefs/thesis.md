@@ -4,15 +4,15 @@ This document records the current live investment theses for the actively manage
 
 It sits between the high-level rules in the Investment Strategy document and the month-by-month actions in the Investment Decisions documents. It records why capital is allocated to particular themes, what evidence supports or weakens them, and what should be monitored between reviews.
 
-Thesis labels inform stock selection and interpretation of evidence. They do not change the stock-level risk rules on profit-taking, stop-loss, volatility, fundamentals, or time held.
+Thesis labels inform stock selection, position sizing and interpretation of evidence. They do not by themselves override the stock-level risk rules on profit-taking, stop-loss, volatility, fundamentals or time held. Pre-proof moonshots and transient price spikes are governed by the separate process rules agreed in the July 2026 review.
 
 Each live thesis includes a maintained **candidate-expression universe**. This is used to compare current holdings with plausible alternatives, measure market performance across the thesis rather than infer it only from holdings, and provide a structured starting point for reinvestment decisions. Inclusion means that a company is sufficiently relevant and investable to be a useful comparator; it does not mean that its valuation, risk or current entry point is attractive.
 
-Candidate universes should be reviewed systematically each quarter and amended between quarterly reviews only where material evidence justifies a change. The qualitative tables in this document are authoritative for why candidates are included. The accompanying `thesis.json` contains only thesis names, tickers and company names for use by the portfolio-review tooling.
+Candidate universes should be reviewed systematically each quarter and amended between quarterly reviews only where material evidence justifies a change. The qualitative tables in this document are authoritative for why candidates are included. The accompanying `thesis.json` should contain the corresponding thesis names, tickers and company names for use by the portfolio-review tooling.
 
 Candidate tables use the following concise metadata:
 
-- **Held:** whether the company is currently held at the latest review.
+- **Held:** whether the company is currently held at the latest review. **Planned** denotes an agreed July purchase that may still be awaiting execution.
 - **Expression type:** Direct, Diversified beneficiary, Enabler, or Speculative optionality.
 - **Primary exposure:** the specific part of the thesis expressed by the company.
 - **Risk profile:** Established, Growth, High-beta growth, or Speculative.
@@ -22,12 +22,13 @@ Candidate tables use the following concise metadata:
 
 | Thesis | Status | Current strength | Preferred expressions | Last reviewed |
 |---|---|---:|---|---|
-| Defence | Active | High | European defence primes; air defence; missiles; radar/sensors; drones; counter-drone; EW; battlefield integration | 2026-07 |
-| Data-centre infrastructure | Active | High | Power, grid resilience, cooling, water efficiency, permitting-enabling infrastructure, interconnects, optical/connectivity names | 2026-07 |
-| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle, engineering enablers, resilient-power infrastructure, selective reactor optionality | 2026-07 |
-| EVs and battery tech | Active | Medium | Scaled EV manufacturers; battery technologies with credible traction | 2026-07 |
-| Quantum | Watchlist / small optionality sleeve | Low-Medium | Small speculative sleeve only; strongest or best-capitalised names only | 2026-07 |
-| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality / asymmetry requirements | 2026-07 |
+| Defence | Active | High | European defence primes; missiles and air defence; counter-drone stack; sensors/EW; battlefield integration; Ukrainian-derived autonomy | 2026-07 |
+| Data-centre infrastructure | Active | High | Scarce bottleneck suppliers in power, grid connection, cooling, interconnect, connectivity and rack architecture | 2026-07 |
+| Nuclear / SMR / energy security | Active | Medium-High | Fuel cycle; proven engineering; existing generation; selective reactor optionality | 2026-07 |
+| EVs and battery technology | Active | Medium | Scaled EV manufacturers; commercially credible step-changes in application-specific battery performance | 2026-07 |
+| Quantum | Watchlist / small optionality sleeve | Low-Medium | One small position in the strongest risk-adjusted listed pure play | 2026-07 |
+| AI systems of record / application incumbents | Candidate thesis / pilot allocation | Medium | Capital-light platforms controlling enterprise workflows, data, permissions and distribution | 2026-07 |
+| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality or asymmetry requirements | 2026-07 |
 
 ---
 
@@ -39,51 +40,80 @@ Candidate tables use the following concise metadata:
 
 ### Thesis statement
 
-European and allied defence spending remains in a structural upcycle, driven by Russian aggression, Middle Eastern instability, NATO rearmament, and rapid battlefield innovation. The most attractive public-market expressions are firms exposed to air defence, missiles, radar, sensors, electronic warfare, drones, counter-drone systems, command-and-control, and battlefield integration.
+European and allied defence spending remains in a structural upcycle, driven by Russian aggression, Middle Eastern instability, NATO rearmament and rapid battlefield innovation. The thesis is no longer simply “defence budgets will rise”. The strongest expressions are firms exposed to the capabilities modern warfare is proving scarce: missiles, air defence, radar, sensors, electronic warfare, drones, counter-drone systems, command-and-control, secure communications and battlefield integration.
 
-The thesis has increasingly shifted from generic defence exposure toward firms that can absorb or scale **Ukraine-derived battlefield learning**.
+Ukraine is both a major source of demand and the leading real-world development environment for low-cost drones, counter-drone systems, electronic warfare and battlefield autonomy. The investable opportunity increasingly lies in companies able to absorb, localise, scale or integrate Ukraine-derived technology into Western procurement systems.
+
+### Counter-drone sub-thesis
+
+Counter-drone has now matured from a watchpoint into an explicit defence sub-thesis. Candidate companies should be assessed by their place in the functional stack:
+
+1. **Detect** — radar, RF, optical and acoustic sensing.
+2. **Classify** — sensor fusion and AI-enabled identification.
+3. **Command** — battle management, targeting and command-and-control.
+4. **Jam / spoof** — electronic warfare and navigation disruption.
+5. **Intercept** — kinetic, directed-energy or drone-on-drone defeat.
+6. **Integrate** — combining sensors, effectors and battlefield networks into a usable system.
+
+The likely winners may differ by layer. A broad defence prime can benefit from system integration, while smaller specialists may capture disproportionate value in sensors, autonomy, RF or low-cost interceptors.
 
 ### Evidence and rationale
 
 - European rearmament remains a multi-year programme rather than a one-off spending spike.
-- Ukraine has become the leading real-world testbed for drone, counter-drone, electronic-warfare and rapid battlefield-autonomy development.
-- Ukrainian defence firms are increasingly moving beyond domestic production into partnerships, Western production lines, technology transfer and potential controlled exports.
-- Counter-drone is becoming a procurement category in its own right, not merely an accessory to traditional air defence.
+- The wars in Ukraine and the Middle East have reinforced the importance of mass, attritable autonomous systems and affordable countermeasures.
+- U.S. policy strongly supports domestic drone manufacture and non-Chinese components, while remaining increasingly open to Ukrainian technology localised through U.S. partners.
+- Ukraine-derived systems and software are beginning to enter Western procurement and partnership structures.
+- Counter-drone procurement is becoming a distinct category across sensing, EW, C2 and interception.
+- Sovereign space, secure communications and tactical reconnaissance are increasingly part of the defence stack.
 
 ### Preferred expressions
 
-- European defence primes with exposure to missiles, air defence, drones, sensors, EW and integration.
-- Listed firms that can scale or absorb Ukrainian battlefield-proven systems.
-- Radar, optical, RF, EW, communications and command-and-control suppliers.
-- Selective defence ETFs where diversification is useful, though these may dilute the clearest winners.
+- European primes with exposure to missiles, air defence, sensors, EW and system integration.
+- Listed firms able to scale or absorb Ukrainian battlefield-proven technology.
+- Radar, RF, optical, communications, rugged-computing and C4ISR enablers.
+- Selective drone and autonomy moonshots with defined commercial proof points.
+- Diversified defence ETFs where broad exposure is useful, while recognising that they dilute the clearest winners.
 
 ### Candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| Rheinmetall | RHM.DE | Yes | Direct | Land systems, ammunition, air defence, missiles and integration | Established growth | Broad European rearmament exposure with strong positioning in ammunition, air defence and scalable production. |
-| Kongsberg Gruppen | KOG.OL | Yes | Direct | Missiles, air defence, remote weapon systems and maritime defence | Established growth | High-quality European defence technology exposure with strong missile and air-defence relevance. |
+| Rheinmetall | RHM.DE | Yes | Direct | Land systems, ammunition, air defence, missiles and integration | Established growth | Broad European rearmament exposure with scalable production and strong air-defence relevance. |
+| Kongsberg Gruppen | KOG.OL | Yes | Direct | Missiles, air defence, remote weapon systems, maritime defence and secure communications | Established growth | High-quality European defence technology exposure with strong missile and integrated-defence relevance. |
 | Hensoldt | HAG.DE | Yes | Enabler | Radar, sensors, electronic warfare and counter-UAS detection | Growth | Direct exposure to the detect/classify layer of modern air and counter-drone defence. |
+| MilDef Group | MILDEF.ST | Yes | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
+| QinetiQ Group | QQ.L | Yes | Diversified beneficiary | Test and evaluation, robotics, autonomy and mission systems | Established growth | Defence-technology and integration exposure without dependence on a single platform. |
+| Cohort | CHRT.L | Yes | Enabler | Sensors, communications, electronic warfare and naval systems | Growth | Smaller listed UK expression of specialist defence electronics and integration. |
+| Firan Technology Group | FTG.TO | Yes | Enabler | Aerospace and defence electronics and cockpit products | Growth | Niche electronics supplier benefiting from defence and aerospace production growth. |
+| Kraken Robotics | PNG.V | Yes | Enabler | Underwater sensing, sonar, batteries and autonomous systems | High-beta growth | Distinct exposure to subsea autonomy and maritime defence, with acquisition-integration risk. |
+| Filtronic | FTC.L | Yes | Enabler | RF, microwave and high-frequency communications | High-beta growth | Scarce RF capability relevant to defence, secure communications and space; position reduced after valuation spike. |
+| OHB | OHB.DE | Yes | Diversified beneficiary | Sovereign satellites, tactical reconnaissance and secure communications | High-beta growth | Listed route to European sovereign-space and military-space investment. |
+| Magellan Aerospace | MAL.TO | Yes | Diversified beneficiary | Aerospace structures, engines, space and defence programmes | Established growth | Lower-profile industrial exposure across commercial aerospace, defence and space. |
+| Red Cat Holdings | RCAT | Yes | Speculative optionality | U.S.-manufactured small military drones | Speculative | Direct expression of U.S. drone procurement, with real programme access but material scale, margin and financing risk. |
+| Swarmer | SWMR | Planned | Speculative optionality | Battlefield-tested multi-drone autonomy software | Speculative | Direct investable route to Ukrainian-origin swarm technology; commercial proof remains extremely early. |
+| AeroVironment | AVAV | No | Direct | Autonomous systems, loitering munitions, counter-UAS, directed energy and EW | High-beta growth | Scaled U.S. comparator for autonomous and counter-UAS defence technology. |
+| DroneShield | DRO.AX | No | Direct | RF sensing, jamming, sensor fusion and counter-UAS | High-beta growth | One of the clearest listed pure-play counter-drone expressions. |
 | BAE Systems | BA.L | No | Diversified beneficiary | Air, maritime, land, missiles, electronic systems and nuclear defence | Established | Lower-risk benchmark for broad allied defence spending and programme execution. |
 | Saab | SAAB-B.ST | No | Direct | Radar, airborne surveillance, missiles, EW and combat systems | Established growth | Strong European sensor, surveillance and integrated-defence comparator. |
 | Leonardo | LDO.MI | No | Diversified beneficiary | Electronics, helicopters, aircraft, sensors and defence systems | Established growth | Broad European defence exposure with material electronics and sensing capability. |
 | Thales | HO.PA | No | Enabler | Radar, communications, cybersecurity, EW and command systems | Established | High-quality comparator for sensing, communications and integration. |
-| AeroVironment | AVAV | No | Direct | Autonomous systems, loitering munitions, counter-UAS, directed energy and EW | High-beta growth | Scaled US comparator for autonomous and counter-UAS defence technology. |
-| DroneShield | DRO.AX | No | Direct | RF sensing, jamming, sensor fusion and counter-UAS | High-beta growth | One of the clearest listed pure-play counter-drone expressions. |
-| Red Cat Holdings | RCAT | Yes | Speculative optionality | Small military drones and US defence procurement | Speculative | High-upside direct expression of US small-drone procurement, with material execution and financing risk. |
-| MilDef Group | MILDEF.ST | Yes | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
-| QinetiQ Group | QQ.L | Yes | Diversified beneficiary | Test and evaluation, robotics, autonomy and mission systems | Established growth | Comparator for defence technology and integration without pure platform exposure. |
 
 ### Main risks
 
-- Valuations may already discount much of the rearmament story.
-- Spending announcements may translate slowly into revenue.
-- Some value may accrue to private Ukrainian firms or inaccessible ventures rather than listed companies.
-- Procurement may favour low-cost drones/software over traditional platforms.
+- Valuations may already discount a substantial part of the rearmament story.
+- Spending announcements may translate slowly into revenue or be captured by private companies.
+- Low-cost Ukrainian systems may disrupt incumbent products faster than listed firms can adapt.
+- U.S. “buy American” policy protects domestic manufacture but does not exclude foreign technology localised through U.S. partners.
+- Procurement may fragment across many suppliers rather than creating one dominant listed winner.
+- Some holdings share common momentum and defence-spending factors despite different product labels.
 
 ### July 2026 assessment
 
-Strengthened. The defence thesis should now explicitly evaluate holdings through a Ukraine / counter-drone lens: detect, classify, jam/spoof, command, intercept and integrate. Direct investment into Ukrainian defence remains difficult, but Western listed partners, component suppliers, integrators and JV beneficiaries are becoming increasingly important routes.
+**Strengthened.** The central demand case for drones, counter-drone systems and battlefield integration has become more explicit and better funded. The U.S. domestic-manufacturing requirement remains helpful to Red Cat, but its scarcity advantage has weakened because Ukrainian and other foreign technology can enter through U.S. partnerships and local production.
+
+Direct Ukrainian defence investability has moved from theoretical to real but highly speculative through Swarmer. A small starter position is appropriate only under the moonshot process, with the proposition that battlefield-tested swarm software can convert into material recurring contracts outside its historic Ukrainian customer base.
+
+Red Cat remains a valid but execution-dependent U.S. drone expression. Its first formal decision point is the end-September 2026 review, using Q2 revenue and margins, delivery execution, programme validation, cash discipline and dilution as the tests.
 
 ---
 
@@ -95,48 +125,67 @@ Strengthened. The defence thesis should now explicitly evaluate holdings through
 
 ### Thesis statement
 
-AI and compute demand continue to drive structural growth in data-centre capacity, but the best investment expression is not generic AI hype. The thesis is now best framed as **AI/data-centre bottleneck infrastructure**: power, grid connection, cooling, water, permitting, resilient generation, interconnects and physical connectivity.
+AI and compute demand continue to drive structural growth in data-centre capacity, but the best investment expression is not generic AI enthusiasm or ownership of rapidly depreciating compute assets. The thesis is best framed as **AI/data-centre bottleneck infrastructure**: power, grid connection, cooling, water, permitting, resilient generation, high-speed connectivity, optical and electrical interconnects, and rack-level power architecture.
+
+The preferred companies sell scarce equipment, components or enabling capability into the buildout. Owners and financiers of compute capacity face a different and potentially less attractive capital-cycle risk: large upfront expenditure, rapid technological depreciation, utilisation risk and uncertain long-run returns.
 
 ### Evidence and rationale
 
-- AI and cloud revenues are real and growing, but the capital intensity of AI buildout is creating investor concern about returns on capex.
-- Public backlash against data centres, especially in the US, is increasing around power use, water use, local permitting and grid strain.
-- These pressures do not necessarily weaken the thesis; they shift value toward companies that solve the bottlenecks.
-- Data-centre infrastructure demand increasingly overlaps with resilient power and energy security.
+- AI and cloud revenues are real and growing, but investors are increasingly questioning the returns earned on exceptional hyperscaler capex.
+- Local opposition to data centres is increasing around electricity use, water, grid strain and permitting.
+- These constraints do not necessarily weaken demand; they shift value toward suppliers that solve time-to-power, cooling, interconnect and efficiency problems.
+- High-voltage rack distribution, direct voltage conversion and GaN/SiC power devices may become important as rack power density rises.
+- Connectivity inside AI systems is becoming as strategically important as the accelerators themselves.
+- Several holdings can behave as one common AI-capex factor despite occupying different thesis labels.
+
+### Expression hierarchy
+
+1. **Proven bottleneck solvers** — established electrical, power-management, connectivity and infrastructure suppliers with current revenue and pricing power.
+2. **High-beta direct exposure** — rapidly growing companies closely tied to AI systems or data-centre deployment.
+3. **Pre-proof architecture bets** — small moonshot positions in technologies whose commercial adoption is not yet established.
+4. **Owners/financiers of compute capacity** — treated more cautiously because technological depreciation and financing can destroy equity value even where end-demand is strong.
 
 ### Preferred expressions
 
-- Power and grid-resilience equipment.
-- On-site or resilient generation where economics are credible.
-- Cooling, water-efficiency and power-management infrastructure.
-- Interconnect, optical, RF and connectivity suppliers.
-- High-quality infrastructure enablers rather than narrow AI-hype names.
+- Power distribution, switchgear, grid connection and resilience.
+- On-site generation where economics and financing are credible.
+- Cooling, water efficiency and energy-management infrastructure.
+- High-speed interconnect, networking, optical, RF and connectivity suppliers.
+- Capital-light or equipment-selling businesses rather than heavily financed owners of fast-depreciating compute.
 
 ### Candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| Vertiv Holdings | VRT | No | Direct | Data-centre power, thermal management and integrated infrastructure | High-beta growth | One of the clearest listed pure-play physical-infrastructure comparators. |
+| Schneider Electric | SU.PA | Yes | Diversified beneficiary | Power management, racks, cooling, automation and energy management | Established growth | Broad lower-risk expression of power, cooling and automation bottlenecks. |
 | Eaton | ETN | Yes | Diversified beneficiary | Electrical distribution, switchgear, power quality and grid connection | Established growth | High-quality exposure to electrical bottlenecks across data centres and wider electrification. |
-| Schneider Electric | SU.PA | Yes | Diversified beneficiary | Power management, racks, cooling, automation and energy management | Established growth | Broad, lower-risk expression of data-centre power and thermal infrastructure. |
+| Vertiv Holdings | VRT | No | Direct | Data-centre power, thermal management and integrated infrastructure | High-beta growth | One of the clearest listed pure-play physical-infrastructure comparators. |
 | Amphenol | APH | Yes | Enabler | High-speed electrical and optical connectors and cabling | Established growth | High-quality connectivity enabler across AI servers, networking and infrastructure. |
-| Astera Labs | ALAB | Yes | Direct | Rack-scale connectivity and intelligent connectivity semiconductors | High-beta growth | Focused exposure to connectivity bottlenecks in AI systems and rack-scale architectures. |
+| Astera Labs | ALAB | Yes | Direct | Rack-scale connectivity and intelligent connectivity semiconductors | High-beta growth | Focused exposure to connectivity bottlenecks and emerging rack-scale architectures. |
+| Celestica | CLS | Yes | Enabler | Advanced manufacturing, networking and hyperscaler infrastructure | High-beta growth | Strong current execution and a direct beneficiary of scaled AI-system deployment. |
 | Arista Networks | ANET | No | Direct | High-speed data-centre networking | Established growth | Benchmark for scaled AI and cloud networking demand. |
 | Marvell Technology | MRVL | No | Enabler | Custom silicon, optical DSPs and data-infrastructure semiconductors | High-beta growth | Comparator for optical and custom-compute infrastructure exposure. |
-| Bloom Energy | BE | Yes | Direct | On-site power generation and resilient data-centre power | High-beta growth | Direct expression of power scarcity and time-to-power constraints. |
+| Bloom Energy | BE | Yes | Direct | On-site power generation and resilient data-centre power | High-beta growth | Direct expression of power scarcity and time-to-power constraints, with financing and concentration risk. |
 | Navitas Semiconductor | NVTS | Yes | Speculative optionality | GaN and SiC power semiconductors for high-voltage rack architecture | Speculative | Early-stage asymmetric expression of changing AI rack-power architectures. |
-| Jenoptik | JEN.DE | Yes | Enabler | Photonics, optical systems and semiconductor-equipment exposure | Growth | Diversified optical-enabler comparator with less pure data-centre exposure. |
 
 ### Main risks
 
 - Hyperscaler capex could slow if AI returns disappoint.
-- Local opposition could delay or cancel projects.
-- Some supply-chain names may be cyclical or overvalued.
-- Narrative-driven names may swing sharply even when the long-term thesis remains valid.
+- Many apparently distinct holdings share the same AI-capex, semiconductor-momentum and discount-rate factor.
+- Local opposition and grid constraints can delay projects.
+- Supply-chain names may be cyclical or already valued for exceptional growth.
+- Hyperscalers can internalise designs, dual-source or use purchasing power to compress supplier economics.
+- Pre-proof architecture bets can fail despite the broad infrastructure thesis remaining valid.
 
 ### July 2026 assessment
 
-Refined, not weakened. Bearish and bullish narratives are both present: investor scepticism about AI profitability and data-centre backlash are real, but so is strong cloud/AI revenue growth. The thesis should therefore focus on bottlenecks rather than broad AI enthusiasm.
+**Refined, not weakened.** The July sell-off did not by itself invalidate the thesis. Astera, Celestica, Amphenol and Bloom continue to show evidence of real operating demand, while Navitas remains a bounded pre-proof architecture option.
+
+Jenoptik is removed as a held expression because it is a weaker and less direct route to AI upside. The replacement capital is directed toward a combination of Schneider Electric and capital-light AI software rather than simply adding another high-beta infrastructure supplier.
+
+Navitas remains a small moonshot with a first formal decision point at Q4/FY2026 results, expected around February 2027. The proposition is that its GaN/SiC and 800V ecosystem position converts into identifiable production-stage AI-infrastructure revenue. There should be no increase before validation.
+
+Astera Labs is not a moonshot: it is commercially proven but highly valued. It is retained only through a short, results-linked exception, with continued growth, Scorpio execution, margin resilience and broader customer adoption as the tests.
 
 ---
 
@@ -148,48 +197,58 @@ Refined, not weakened. Bearish and bullish narratives are both present: investor
 
 ### Thesis statement
 
-Rising electricity demand, energy-security concerns, and the need for reliable low-carbon power support a multi-year nuclear thesis. The best expressions remain fuel-cycle and engineering enablers, with reactor-focused names treated selectively and sized as optionality.
+Rising electricity demand, energy-security concerns and the need for reliable low-carbon power support a multi-year nuclear thesis. The best expressions are not indiscriminate reactor developers. The preferred hierarchy is:
+
+1. **Fuel-cycle scarcity and security.**
+2. **Proven nuclear engineering and manufacturing.**
+3. **Existing operating generation.**
+4. **Selective reactor optionality with credible regulatory, fuel and commercial progress.**
 
 ### Evidence and rationale
 
-- AI/data-centre power demand is increasing interest in reliable baseload and resilient power.
-- Energy security remains strategically important.
-- Nuclear policy support is improving in several jurisdictions.
-- Fuel-cycle security and nuclear engineering capability are more investable than many promotional SMR stories.
+- AI and data-centre power demand is increasing interest in reliable baseload and resilient generation.
+- Western enrichment, HALEU and fuel-fabrication capacity remain strategic bottlenecks.
+- Naval, government and commercial nuclear engineering provide current economics while preserving advanced-reactor optionality.
+- Existing nuclear fleets can capture near-term power scarcity without first-of-a-kind construction risk.
+- Advanced-reactor developers may produce very large winners, but licensing, fuel, construction and financing remain long-duration risks.
 
 ### Preferred expressions
 
-- Nuclear fuel cycle.
+- Western enrichment and advanced-reactor fuel.
 - Engineering and defence-adjacent nuclear enablers.
-- High-quality resilient-power infrastructure.
-- Selective reactor optionality only where commercial progress is credible.
+- Existing nuclear generation where valuation is acceptable.
+- Selective reactor moonshots only where commercial funding, licensing and deployment evidence are concrete.
 
 ### Candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| Centrus Energy | LEU | Yes | Direct | US uranium enrichment and HALEU fuel supply | High-beta growth | Scarce listed exposure to Western enrichment and advanced-reactor fuel bottlenecks. |
-| BWX Technologies | BWXT | Yes | Enabler | Nuclear components, naval reactors, microreactors and engineering | Established growth | High-quality engineering and manufacturing expression with defence-supported economics. |
-| Cameco | CCJ | No | Direct | Uranium production and fuel services | Established growth | Scaled benchmark for the upstream nuclear fuel cycle. |
-| Silex Systems | SLX.AX | No | Speculative optionality | Laser uranium enrichment technology | Speculative | Potentially asymmetric fuel-cycle technology exposure with substantial development risk. |
+| Centrus Energy | LEU | Yes | Direct | U.S. uranium enrichment and HALEU fuel supply | High-beta growth | Scarce listed exposure to Western enrichment and advanced-reactor fuel bottlenecks. |
+| BWX Technologies | BWXT | Yes / Planned increase | Enabler | Nuclear components, naval reactors, microreactors and engineering | Established growth | High-quality engineering and manufacturing expression with defence-supported economics. |
+| Cameco | CCJ | No | Direct | Uranium production, fuel services and Westinghouse | Established growth | Scaled benchmark for the upstream fuel cycle and existing nuclear-services economics. |
 | Constellation Energy | CEG | No | Direct | Existing nuclear generation and power supply | Established growth | Captures near-term economics of operating nuclear assets and rising reliable-power demand. |
-| Oklo | OKLO | Yes | Speculative optionality | Advanced reactors, power sales and fuel recycling | Speculative | High-upside reactor and fuel-cycle optionality, with licensing and deployment risk. |
+| Silex Systems | SLX.AX | No | Speculative optionality | Laser uranium enrichment technology | Speculative | Potentially asymmetric fuel-cycle technology exposure with substantial development risk. |
+| Oklo | OKLO | Yes | Speculative optionality | Advanced reactors, power sales and fuel recycling | Speculative | High-upside integrated reactor and fuel-cycle option, with licensing, construction and capital-intensity risk. |
 | NuScale Power | SMR | No | Speculative optionality | Light-water small modular reactors | Speculative | Public-market comparator for SMR commercialisation and reactor-project sentiment. |
 | Rolls-Royce Holdings | RR.L | No | Diversified beneficiary | Rolls-Royce SMR and nuclear engineering within broader aerospace | Established growth | Diversified route to UK SMR optionality. |
 
 ### Main risks
 
-- Licensing, financing and deployment timelines remain long.
-- Reactor names can run far ahead of fundamentals.
-- Policy support may not translate quickly into contracts.
+- Licensing, financing, fuel and deployment timelines remain long.
+- Reactor names can run far ahead of operating evidence.
+- Policy support may not translate quickly into revenue.
+- Integrated owner-operator models can consume substantial capital and dilute shareholders.
+- The nuclear sleeve can still behave as part of the wider AI-power trade when data-centre capex sentiment reverses.
 
 ### July 2026 assessment
 
-Slightly strengthened. Data-centre power constraints support the thesis, but the portfolio should continue to prefer enablers over indiscriminate reactor optionality.
+**Modestly strengthened.** The broad power-security case continues to improve, but July reinforced the value of expression hierarchy. Centrus and BWXT remain preferred core holdings; Constellation and Cameco remain important comparators; Oklo is retained only as bounded reactor optionality.
+
+Oklo’s formal decision point is the end-August 2026 review after Q2 results. Retention requires an intact or credibly revised first-power timetable, concrete Aurora-INL and NRC progress, Groves operating progress, identifiable use of Meta funding, sufficient liquidity and no evidence of uncontrolled cost escalation. No increase is permitted before that review.
 
 ---
 
-## EVs and battery tech
+## EVs and battery technology
 
 **Status:** Active  
 **Current strength:** Medium  
@@ -197,37 +256,62 @@ Slightly strengthened. Data-centre power constraints support the thesis, but the
 
 ### Thesis statement
 
-The long-term shift toward EVs and better battery technology remains intact, but the path is competitive, cyclical and policy-sensitive. This is a second-tier thesis versus defence and data-centre / resilient-power infrastructure.
+Demand for batteries should increase substantially across EVs, drones, aviation, consumer devices, grid storage, data centres and other technologies. Battery progress, however, is multidimensional: energy density, volumetric density, power, charging speed, cycle life, safety, cost and manufacturability trade against one another.
+
+The investable opportunity is therefore not necessarily a universal “10× battery”. A company can create very large value by achieving a **commercially validated 30–100% improvement in the binding parameter for a valuable application**, without unacceptable losses elsewhere.
+
+The thesis has two distinct sleeves:
+
+- **Scaled EV and battery manufacturers**, where cost, production scale and vertical integration matter most.
+- **Application-specific battery moonshots**, where differentiated chemistry or architecture may transform a high-value niche.
+
+### Evidence and rationale
+
+- EV adoption remains a major long-term source of battery demand, but competition and policy make the path cyclical.
+- Drones, aviation and defence place unusually high value on gravimetric energy density and may tolerate higher cost.
+- Grid and stationary storage prioritise cost, safety, cycle life and duration rather than weight.
+- Silicon-anode technologies are closer to commercial scale than many solid-state or lithium-metal approaches.
+- AI and automated experimentation should accelerate material screening, electrolyte design, degradation prediction and manufacturing optimisation, but cannot eliminate full-cell testing, safety validation or industrial scale-up.
 
 ### Preferred expressions
 
-- Scaled EV manufacturers with durable competitive advantages.
-- Battery technologies with credible customers, production traction or differentiated performance.
-- Selective energy-storage adjacencies where commercial traction is visible.
+- Scaled EV manufacturers with durable cost, manufacturing and supply-chain advantages.
+- Battery companies with real customers, repeat orders and evidence of qualified manufacturing.
+- Moonshots that deliver a step-change in the parameter that constrains a valuable application.
+- Small position sizes with dated commercial decision points; no averaging down before validation.
 
 ### Candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| BYD | 1211.HK | Yes | Direct | Scaled EV manufacturing, batteries and vertical integration | Established growth | Core comparator for cost-efficient scaled EV and battery integration. |
+| BYD ADR | BYDDY | Yes | Direct | Scaled EV manufacturing, batteries and vertical integration | Established growth | Preferred scaled EV expression; the ticker should match the actual holding used by portfolio tooling. |
+| BYD | 1211.HK | No | Direct | Hong Kong-listed reference line for BYD | Established growth | Economic comparator for the same company; avoid double-counting in `thesis.json`. |
 | Tesla | TSLA | No | Direct | EVs, charging, energy storage and software | High-beta growth | Major global comparator for EV demand, margins, software and brand economics. |
 | XPeng | 9868.HK | No | Direct | Chinese smart EVs and driver-assistance technology | High-beta growth | Comparator for technology-led Chinese EV competition. |
 | Li Auto | 2015.HK | No | Direct | Premium Chinese electrified vehicles | High-beta growth | Comparator for product execution, margins and Chinese demand. |
 | Contemporary Amperex Technology | 3750.HK | No | Direct | Scaled EV and stationary-storage batteries | Established growth | Global battery-manufacturing and technology leader. |
-| QuantumScape | QS | No | Speculative optionality | Solid-state lithium-metal batteries | Speculative | High-profile solid-state comparator with automotive partnerships and commercialisation risk. |
-| Solid Power | SLDP | No | Speculative optionality | Sulfide solid-state electrolyte and battery technology | Speculative | Alternative solid-state approach with industry partners and material timeline risk. |
-| Amprius Technologies | AMPX | Yes | Speculative optionality | High-energy silicon-anode batteries | Speculative | Differentiated high-energy-density technology with aviation, drone and mobility potential. |
-| Enovix | ENVX | No | Speculative optionality | Silicon-anode battery architecture and manufacturing | Speculative | Comparator for high-energy silicon batteries and manufacturing scale-up. |
+| Amprius Technologies | AMPX | Yes | Speculative optionality | High-energy silicon-anode batteries | Speculative | Best current listed expression of a battery moonshot, with real drone/aviation revenue and pre-scale risk. |
+| Enovix | ENVX | No | Speculative optionality | Silicon-anode battery architecture and manufacturing | Speculative | Closest listed silicon-anode alternative, with manufacturing-yield and qualification risk. |
+| QuantumScape | QS | No | Speculative optionality | Solid-state lithium-metal batteries | Speculative | More technically transformational EV option, but further from commercial proof. |
+| Solid Power | SLDP | No | Speculative optionality | Sulfide solid electrolyte and battery technology | Speculative | Potential enabling-material route to solid state, with long timelines and uncertain value capture. |
+| SES AI | SES | No | Speculative optionality | Lithium-metal batteries and AI-assisted materials discovery | Speculative | Most direct listed expression of AI-enabled battery discovery, but with an evolving strategy and limited commercial proof. |
 
 ### Main risks
 
-- Margin pressure and intense competition.
-- Policy, tariff and subsidy changes.
-- Speculative battery names may fail to commercialise.
+- Intense price competition and policy sensitivity in EVs.
+- Laboratory metrics may not survive full-cell, pack, safety or manufacturing constraints.
+- Cheaper “good enough” silicon composites may beat technically superior nanowire cells.
+- New chemistries may eventually overtake current silicon-anode products.
+- Revenue can be lumpy and customer qualification slow.
+- Speculative names may require repeated equity financing.
 
 ### July 2026 assessment
 
-Unchanged to slightly lower priority. Keep the thesis live, but treat speculative battery names stock-by-stock rather than as broad thesis buys.
+**Thesis unchanged; expression sharpened.** BYD remains the preferred scaled EV holding. Amprius is retained as the best current expression of the battery moonshot because it combines unusually high gravimetric energy density with real commercial shipments and stronger current proof than listed solid-state alternatives.
+
+Amprius is classified as a **pre-scale asymmetric moonshot**, with its first formal decision point at Q3 2026 results, expected around November 2026. The proposition is that differentiated silicon-anode technology can become repeatable, profitable drone and aviation revenue without continual dilution. The essential tests are durable quarterly revenue, sustained positive gross margins, repeat customer orders, qualified contract-manufacturing volume, improved cash consumption and continued technological advantage. No increase before validation.
+
+AI-driven battery discovery remains a watchpoint rather than a separate investable thesis. The likely near-term effect is faster cumulative improvement, not a sudden universal 10× battery.
 
 ---
 
@@ -239,32 +323,97 @@ Unchanged to slightly lower priority. Keep the thesis live, but treat speculativ
 
 ### Thesis statement
 
-Quantum computing may produce very large winners, but commercial timelines remain uncertain and the sector remains highly narrative-driven. Any exposure should be small, explicit optionality rather than a core thesis.
+Useful quantum computing may produce very large winners, but technical architectures remain unsettled, commercial timelines uncertain and listed valuations highly narrative-driven. Exposure should remain a small, explicit optionality sleeve rather than a core allocation.
+
+IonQ is currently the best single risk-adjusted listed expression of the broader universal quantum-computing moonshot. It combines leading reported trapped-ion fidelity, Oxford Ionics’ electronic-control architecture, real system and platform revenue, a strong balance sheet and possible intermediate value from networking and sensing.
+
+The company is no longer a clean single-technology bet. Its acquisition strategy means shareholders are also underwriting capital allocation, integration and the risk of creating a sprawling quantum conglomerate before useful quantum computation is established.
 
 ### Preferred expressions
 
-- Small position sizes only.
-- Strongest or best-capitalised names.
-- Companies showing technical progress, commercial traction or financing resilience.
+- One small position rather than a basket of weak listed pure plays.
+- Strong reported technical performance, adequate capital and commercial traction.
+- Explicit milestones for scalability, fidelity and organic quantum revenue.
+- No increase merely because the sector falls or because another listed architecture rallies.
 
 ### Candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| IonQ | IONQ | No | Direct | Trapped-ion quantum computing, networking and sensing | Speculative | The most scaled listed pure-play comparator, with broad platform ambitions and valuation risk. |
-| D-Wave Quantum | QBTS | No | Direct | Quantum annealing systems, software and services | Speculative | Distinct architecture with relatively near-term commercial-use claims. |
-| Rigetti Computing | RGTI | No | Direct | Superconducting gate-model quantum processors | Speculative | Focused comparator for superconducting hardware and government-supported development. |
-| Quantum Computing | QUBT | No | Speculative optionality | Photonic and quantum-optimisation technologies | Speculative | Alternative-architecture comparator with especially high execution and narrative risk. |
+| IonQ | IONQ | Yes | Direct | Trapped-ion quantum computing, networking, sensing and manufacturing integration | Speculative | Best current listed risk-adjusted universal quantum moonshot, with strong fidelity and resources but acquisition-sprawl risk. |
+| D-Wave Quantum | QBTS | No | Direct | Quantum annealing systems, software and services | Speculative | Strongest near-term commercial-use comparator, but a narrower architecture than universal gate-model computing. |
+| Rigetti Computing | RGTI | No | Direct | Superconducting gate-model quantum processors | Speculative | Cleaner and potentially more leveraged computing bet, but with weaker fidelity and commercial proof. |
+| Quantum Computing | QUBT | No | Speculative optionality | Photonic computing, quantum optimisation and foundry assets | Speculative | Alternative-architecture comparator with especially high execution and strategic-coherence risk. |
 
 ### Main risks
 
-- Hype cycles without commercial validation.
-- Dilution and financial fragility.
-- Long timelines to useful advantage.
+- No architecture has yet established scalable fault-tolerant superiority.
+- Technical milestones may not translate into useful economic advantage.
+- Acquisition-generated revenue can obscure organic quantum progress.
+- Dilution, stock-based compensation and capital-allocation errors may absorb technological value.
+- Private competitors may outperform the listed universe.
 
 ### July 2026 assessment
 
-Unchanged. Sharp price moves, including the June drawdown, confirm that this remains optionality rather than a promoted thesis.
+**Unchanged as small optionality; preferred expression clarified.** IonQ remains the best current single listed moonshot and should not be replaced by Rigetti, D-Wave or QCi. It is classified as a **pre-utility quantum-platform moonshot**.
+
+Q2 results are an immediate checkpoint. The formal decision point is FY2026 results, expected around February 2027. Retention requires credible progress toward the planned 256-qubit system while preserving fidelity, evidence that Oxford Ionics technology is becoming a product, meaningful organic quantum growth, coherent integration of acquired assets and financial discipline. No increase before validation.
+
+---
+
+## AI systems of record / capital-light application incumbents
+
+**Status:** Candidate thesis / pilot allocation  
+**Current strength:** Medium  
+**Time horizon:** Multi-year structural  
+
+### Candidate thesis statement
+
+The AI investment opportunity may not accrue only, or even principally, to owners of capital-intensive compute. Enterprise incumbents that control systems of record, workflow, permissions, data, distribution and customer relationships may be able to embed AI agents into processes for which they already act as a toll booth.
+
+These companies may offer a capital-light counterweight to the portfolio’s substantial exposure to hyperscaler capex, semiconductors, electrical infrastructure and data-centre construction. The thesis is plausible but not yet promoted to a full live thesis: it needs evidence that incumbents can monetise AI without agentic interfaces disintermediating them or materially increasing their own infrastructure costs.
+
+### Evidence and rationale
+
+- Switching costs, proprietary enterprise data and workflow control give incumbents distribution advantages.
+- AI products are beginning to generate identifiable contract value inside established software platforms.
+- Systems of record may retain economic control even where the conversational interface changes.
+- The thesis diversifies the **source of return** away from physical AI buildout, although large platform companies may still own substantial infrastructure.
+- Capital-light software can still be disrupted if agents bypass application interfaces, commoditise features or compress seat-based pricing.
+
+### Pilot allocation
+
+The July reinvestment decision establishes a pilot allocation rather than formally promoting the thesis:
+
+- **ServiceNow:** £15k planned as the cleaner workflow and systems-of-record expression.
+- **Microsoft:** £5k planned as a broader, lower-risk platform combining cloud, productivity, developer tools, security and AI distribution.
+
+### Candidate expressions
+
+| Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
+|---|---|---:|---|---|---|---|
+| ServiceNow | NOW | Planned | Direct | Enterprise workflows, systems of action and AI agents | Established growth | Cleanest candidate for monetising AI within deeply embedded enterprise workflows. |
+| Microsoft | MSFT | Planned | Diversified beneficiary | Productivity, cloud, developer tools, security, business applications and AI distribution | Established growth | Broad lower-risk platform expression with multiple systems-of-record and distribution advantages. |
+| Palantir | PLTR | Yes | Direct | Data integration, operational software and AI deployment | High-beta growth | Strong AI application and decision-platform exposure, but with high valuation and government concentration. |
+| Alphabet | GOOGL | No | Diversified beneficiary | Search, cloud, productivity, AI models and distribution | Established growth | Capital-rich platform with both infrastructure exposure and application-layer distribution. |
+| Salesforce | CRM | No | Direct | Customer systems of record and agentic enterprise software | Established growth | Core comparator for whether AI agents strengthen or disrupt enterprise application incumbents. |
+| Adobe | ADBE | No | Direct | Creative workflows, document systems and generative AI | Established growth | Tests whether proprietary workflow and installed base can withstand AI-native competition. |
+| Intuit | INTU | No | Direct | Financial and tax systems of record | Established growth | Deeply embedded high-value workflows with proprietary customer context. |
+| Veeva Systems | VEEV | No | Direct | Life-sciences systems of record | Established growth | Vertical-software comparator with high switching costs and domain-specific data. |
+
+### Main risks
+
+- AI-native agents may bypass incumbent interfaces and weaken pricing power.
+- Seat-based software models may be disrupted even where usage rises.
+- Large software companies may need heavy AI infrastructure spending, reducing the claimed capital-light advantage.
+- Current valuations may already assume successful AI monetisation.
+- One or two quarters of rotation from infrastructure into software do not prove the long-run thesis.
+
+### July 2026 assessment
+
+**New candidate thesis; pilot allocation only.** The review accepted the strongest part of the “systems of record” argument while rejecting the claim that all infrastructure owners will destroy capital or all software incumbents are protected toll booths.
+
+Promotion to a full thesis should require repeated evidence that AI revenue and contract value are increasing, incumbent workflow control remains intact, pricing models adapt successfully and application-layer returns are less dependent on the same hyperscaler-capex factor that drives the existing infrastructure sleeve.
 
 ---
 
@@ -276,13 +425,14 @@ Unchanged. Sharp price moves, including the June drawdown, confirm that this rem
 
 ### Role
 
-Third-party idea sources such as Seeking Alpha, Insider Monkey and Simply Wall Street can surface useful candidates, but they do not create conviction by themselves.
+Third-party idea sources can surface useful candidates, but they do not create conviction by themselves.
 
 Any such stock must either:
-- fit one of the live theses above; or
+
+- fit one of the live or candidate theses above; or
 - independently justify its place as a high-quality asymmetric opportunity.
 
-Crowd-sourced ideas do not have a candidate universe in `thesis.json`, because this category is an idea source rather than an economic thesis whose market performance can be meaningfully measured.
+Crowd-sourced ideas do not need a candidate universe in `thesis.json`, because this category is an idea source rather than an economic thesis whose market performance can be meaningfully measured.
 
 ### July 2026 assessment
 
@@ -296,7 +446,23 @@ Watchpoints are tentative developments that may matter for future allocation but
 
 | Issue being monitored | Related thesis | Why it matters | First noted | Evidence so far | Trigger for escalation | Current status |
 |---|---|---|---|---|---|---|
-| Ukrainian defence-tech investability | Defence | Ukrainian firms may become major sources of drone, counter-drone, EW and battlefield-autonomy technology, but direct public-market access remains limited. | 2026-04 | Growing Ukraine-Western partnerships, Western production lines, co-production models and possible controlled exports. | Listed firms win material contracts tied to Ukrainian-origin systems; credible public or private investment vehicle emerges; repeated JV evidence identifies public beneficiaries. | Strengthened; actively monitor investable routes. |
-| Counter-drone as distinct sub-thesis | Defence | C-UAS may become a major procurement category with different winners from generic defence. | 2026-04 | Ukraine, NATO and European activity point to growing demand across sensors, EW, jamming, AI classification, C2 and interceptors. | Multiple reviews show differentiated C-UAS winners and procurement patterns. | Strengthened materially; near-candidate for sub-thesis. |
-| Resilient power / energy security as standalone thesis | Data-centre infrastructure; Nuclear; Defence; EVs | Power availability, grid connection and resilience are becoming first-order constraints across AI/data centres, defence infrastructure and electrification. | 2026-03 | Data-centre power constraints, local backlash, grid strain and resilient-power demand increasingly drive stock selection. | Promote if another 1–2 reviews show distinct capital allocation beyond data-centre and nuclear categories. | Strengthened; near-thesis. |
-| Orbital compute infrastructure | Data-centre infrastructure; Defence / space; Energy security | Space-based data centres may fail commercially, but the attempt to build them could create asymmetric opportunities in enabling technologies. | 2026-05 | Terrestrial data-centre backlash, public discussion of orbital AI infrastructure, and early technical work on space compute. Feasibility remains uncertain. | Credible investible public companies or accessible private opportunities; material contracts/funding; successful demos in optical links, thermal management, radiation-tolerant compute or autonomous operations. | Strengthened as a watchpoint; not promoted to live thesis. June produced real new evidence: SpaceX became directly investible, SpaceX and Orbital both set 2027 demonstration paths, venture funding appeared, and technical papers clarified the relevant bottlenecks. But there is still no demonstrated orbital-compute revenue, no proven unit economics, and no clean public picks-and-shovels basket. |
+| Ukrainian defence-tech investability | Defence | Ukraine may produce major drone, EW and autonomy winners, but access, governance and commercial durability remain uncertain. | 2026-04 | Western partnerships and localisation are increasing; Swarmer provides a direct listed route, but revenue is extremely early. | Material contracts outside historic Ukrainian customers; repeat software revenue; additional credible listed or fund routes. | Partly resolved through Swarmer; retain as a commercial-proof watchpoint. |
+| Resilient power / energy security as standalone thesis | Data-centre infrastructure; Nuclear; Defence; EVs | Power availability, grid connection and resilience are becoming first-order constraints across several theses. | 2026-03 | Data-centre power scarcity, grid strain, on-site generation and nuclear demand increasingly drive selection. Candidate overlap remains substantial. | Distinct opportunity set and capital allocation that cannot be represented cleanly within data-centre and nuclear theses. | Strengthened as a cross-thesis lens; not promoted because of overlap and double-counting risk. |
+| Orbital compute and space-native data processing | Data-centre infrastructure; Defence / space | Space-based compute may create demand for optical links, radiation-tolerant processing, thermal management and autonomous data reduction. | 2026-05 | General-purpose orbital frontier training remains economically and technically doubtful; space-native inference, filtering and communications are more credible. | Revenue-bearing demonstrations, material contracts, credible economics or a clean listed enabling basket. | Narrowed to space-native inference, data reduction and communications; remain watchpoint. |
+| AI systems of record / application incumbents | AI; Data-centre infrastructure | Capital-light application platforms may capture AI economics while diversifying away from physical buildout. | 2026-07 | Strong conceptual case and early monetisation evidence; ServiceNow/Microsoft pilot allocation agreed. | Repeated evidence of AI contract growth, retained pricing power and lower dependence on capex-cycle sentiment. | Candidate thesis under active evaluation; do not yet promote. |
+| AI-driven battery discovery | EVs and battery technology | AI and automated labs may accelerate materials, electrolyte and degradation discovery and shorten development cycles. | 2026-07 | Relevant listed exposure is limited; SES AI is an early but strategically evolving comparator. Physical validation and manufacturing remain slow. | A listed company demonstrates repeatable AI-discovered materials entering qualified commercial cells or licenses a valuable discovery platform. | New watchpoint; no separate allocation. |
+| Data-centre bottleneck discovery | Data-centre infrastructure | Specific constraints may create asymmetric winners before the broader market fully recognises them. | 2026-06 | Rack power, grid-interactive storage, cooling, water, interconnect and edge/peering remain areas for screening. Navitas is the first bounded pre-proof expression. | Evidence of genuine supply constraint, pricing power or customer urgency before major repricing. | Keep as monthly screening lens. |
+
+---
+
+# Required maintenance after the July 2026 review
+
+The qualitative and machine-readable candidate universes should be reconciled before the next portfolio report:
+
+1. Use **BYDDY** as the held BYD line in `thesis.json`, while avoiding double-counting 1211.HK.
+2. Change **IONQ** to held.
+3. Remove Jenoptik from held status and consider removing it from the data-centre candidate universe entirely.
+4. Add or update **Swarmer, ServiceNow and Microsoft** once purchases are executed.
+5. Reconcile the actual held status of **Eaton and Schneider Electric** against the workbook.
+6. Ensure all material held thesis expressions—particularly Celestica and relevant defence/space enablers—are represented consistently where the tooling is intended to compare held and candidate baskets.
+7. Keep candidate universes as diagnostic comparison sets, not automatic buy lists.
