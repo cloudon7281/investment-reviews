@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import logging
 
+import alerts
 from console_parser import ConsoleOutputParser
 from google_sheets_client import GoogleSheetsClient
 from logger import configure_logging
@@ -26,15 +27,19 @@ from logger import configure_logging
 class PortfolioUpdater:
     """Coordinates daily portfolio updates to Google Sheets."""
 
-    def __init__(self, config_path: str, dry_run: bool = False):
+    def __init__(self, config_path: str, dry_run: bool = False,
+                 daily_change_threshold: float = 3.0):
         """Initialize the updater.
 
         Args:
             config_path: Path to config.yaml
             dry_run: If True, show what would be done without doing it
+            daily_change_threshold: Daily price change (percent) above which a
+                                    stock is reported as a big mover
         """
         self.config_path = config_path
         self.dry_run = dry_run
+        self.daily_change_threshold = daily_change_threshold
         self.logger = logging.getLogger(__name__)
 
         # Load configuration
@@ -174,7 +179,10 @@ class PortfolioUpdater:
                     # Note: Chart updates are complex and may need manual adjustment
                     # For now, just log that they might need updating
                     self.logger.info("Note: Charts may need range adjustment in Google Sheets UI")
-            
+
+            # Step 8: Send alerts for stocks needing attention before the next review
+            self._send_alerts(console_output)
+
             self.logger.info("="*80)
             self.logger.info("✓ Update complete")
             self.logger.info("="*80)
@@ -185,6 +193,32 @@ class PortfolioUpdater:
             self.logger.exception("Full traceback:")
             return False
     
+    def _send_alerts(self, console_output: str) -> None:
+        """Identify stocks needing attention and email them if any are found.
+
+        Args:
+            console_output: Console output from the portfolio analysis run
+        """
+        alert_config = self.config.get('notifications', {}).get('alerts', {})
+        if not alert_config.get('to'):
+            self.logger.info("No alert recipient configured, skipping alerts")
+            return
+
+        stocks = ConsoleOutputParser.extract_stocks_from_output(console_output)
+        found = alerts.find_alerts(stocks, self.daily_change_threshold)
+
+        if not found['approaching_doubling'] and not found['big_movers']:
+            self.logger.info("No alerts to report")
+            return
+
+        subject, body = alerts.format_alert_email(found, self.daily_change_threshold)
+
+        if self.dry_run:
+            self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: {subject}\n{body}")
+            return
+
+        alerts.send_alert_email(alert_config, subject, body)
+
     def _run_portfolio_analysis(self) -> str:
         """Run the portfolio analysis tool and capture console output.
         
@@ -415,13 +449,20 @@ def main():
         action='store_true',
         help='Show what would be done without actually doing it'
     )
-    
+    parser.add_argument(
+        '--daily-change-threshold',
+        type=float,
+        default=3.0,
+        help='Daily price change (percent) above which a stock is alerted on (default: 3.0)'
+    )
+
     args = parser.parse_args()
 
     configure_logging()
 
     # Run update
-    updater = PortfolioUpdater(args.config, dry_run=args.dry_run)
+    updater = PortfolioUpdater(args.config, dry_run=args.dry_run,
+                               daily_change_threshold=args.daily_change_threshold)
     success = updater.run()
     
     sys.exit(0 if success else 1)

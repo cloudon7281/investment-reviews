@@ -1358,6 +1358,9 @@ def run_unit_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestTaxPnlPoolCostBasis))
     suite.addTests(loader.loadTestsFromTestCase(TestThesisConfig))
     suite.addTests(loader.loadTestsFromTestCase(TestThesisCandidatePerformance))
+    suite.addTests(loader.loadTestsFromTestCase(TestDailyChange))
+    suite.addTests(loader.loadTestsFromTestCase(TestFullHistoryStockParsing))
+    suite.addTests(loader.loadTestsFromTestCase(TestAlertSelection))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
@@ -1792,6 +1795,211 @@ class TestThesisCandidatePerformance(unittest.TestCase):
             thesis_candidates_df=df
         )
         self.assertTrue(per_tag[per_tag['sort_category'] == 'thesis'].iloc[0]['is_benchmark'])
+
+
+import io
+from contextlib import redirect_stdout
+
+import alerts
+import full_history_processor
+import reporter_definitions as rd
+from console_parser import ConsoleOutputParser
+from console_table_writer import ConsoleTableWriter
+from data_table_builder import DataTableBuilder
+
+
+class TestDailyChange(unittest.TestCase):
+    """Tests for full_history_processor.calculate_daily_change."""
+
+    @staticmethod
+    def _prices(closes):
+        dates = pd.date_range('2026-07-01', periods=len(closes))
+        return pd.DataFrame({'Close': closes}, index=dates)
+
+    def test_rise(self):
+        """Change is measured between the last two closes."""
+        change = full_history_processor.calculate_daily_change(self._prices([100.0, 102.0, 105.06]))
+        self.assertAlmostEqual(change, 0.03, places=6)
+
+    def test_fall(self):
+        """A fall gives a negative change."""
+        change = full_history_processor.calculate_daily_change(self._prices([100.0, 95.0]))
+        self.assertAlmostEqual(change, -0.05, places=6)
+
+    def test_trailing_nan_ignored(self):
+        """NaN closes are skipped rather than producing NaN."""
+        change = full_history_processor.calculate_daily_change(self._prices([100.0, 110.0, np.nan]))
+        self.assertAlmostEqual(change, 0.1, places=6)
+
+    def test_single_close(self):
+        """A single close (e.g. live-price fallback) has no comparison point."""
+        self.assertIsNone(full_history_processor.calculate_daily_change(self._prices([100.0])))
+
+    def test_empty_and_missing(self):
+        """Empty, absent, and column-less price data return None."""
+        self.assertIsNone(full_history_processor.calculate_daily_change(None))
+        self.assertIsNone(full_history_processor.calculate_daily_change(pd.DataFrame()))
+        self.assertIsNone(full_history_processor.calculate_daily_change(pd.DataFrame({'Open': [1.0, 2.0]})))
+
+    def test_zero_previous_close(self):
+        """A zero previous close cannot yield a ratio."""
+        self.assertIsNone(full_history_processor.calculate_daily_change(self._prices([0.0, 10.0])))
+
+
+class TestFullHistoryStockParsing(unittest.TestCase):
+    """Tests for ConsoleOutputParser.parse_stocks against real console output."""
+
+    @staticmethod
+    def _render(rows):
+        """Render rows through the real console writer, as portfolio.py does."""
+        df = pd.DataFrame(rows)
+        config = rd.COLUMN_CONFIGS['full_history']
+        table_data = DataTableBuilder().build_table(df, config, 'Full Investment History')
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            ConsoleTableWriter().write_table(table_data, config)
+        return buffer.getvalue()
+
+    @staticmethod
+    def _row(**overrides):
+        row = {
+            'tag': 'AI', 'stock_name': 'Palantir', 'ticker': 'PLTR', 'account_type': 'ISA',
+            'total_invested': 5000.0, 'total_received': 0.0, 'units_held': 100,
+            'current_value': 12000.0, 'total_pnl': 7000.0, 'unrealized_profit': 7000.0,
+            'simple_roi': 1.4, 'mwrr': 0.5, 'current_price': 120.0, 'daily_change': 0.042,
+            'recent_high': 130.0, 'current_price_pct_of_high': 0.92, 'volatility': 0.31,
+            'progress_to_doubling': '1.97x', 'doubling_count': 1,
+            'first_transaction_date': datetime(2023, 1, 5),
+            'final_transaction_date': datetime(2025, 6, 2),
+        }
+        row.update(overrides)
+        return row
+
+    def test_parses_stock_row(self):
+        """Company, ticker, tag, value, daily change and progress are recovered."""
+        output = self._render([self._row()])
+        stocks = ConsoleOutputParser.extract_stocks_from_output(output)
+
+        self.assertEqual(len(stocks), 1)
+        stock = stocks[0]
+        self.assertEqual(stock['company'], 'Palantir')
+        self.assertEqual(stock['ticker'], 'PLTR')
+        self.assertEqual(stock['tag'], 'AI')
+        self.assertAlmostEqual(stock['current_value'], 12000.0)
+        self.assertAlmostEqual(stock['daily_change'], 0.042, places=4)
+        self.assertAlmostEqual(stock['progress_to_2x'], 1.97)
+
+    def test_negative_change_survives_colour_coding(self):
+        """ANSI colour codes around cell values are stripped before parsing."""
+        output = self._render([self._row(daily_change=-0.051, simple_roi=-0.3, current_price_pct_of_high=0.7)])
+        stock = ConsoleOutputParser.extract_stocks_from_output(output)[0]
+        self.assertAlmostEqual(stock['daily_change'], -0.051, places=4)
+
+    def test_sold_stock_has_no_change_or_progress(self):
+        """A fully sold row (no price) yields None rather than a bogus number."""
+        output = self._render([self._row(
+            units_held=0, current_value=0.0, current_price=None, daily_change=None,
+            recent_high=None, current_price_pct_of_high=None, volatility=None,
+            progress_to_doubling='—', doubling_count=2,
+        )])
+        stock = ConsoleOutputParser.extract_stocks_from_output(output)[0]
+        self.assertIsNone(stock['daily_change'])
+        self.assertIsNone(stock['progress_to_2x'])
+        self.assertEqual(stock['ticker'], 'PLTR')
+
+    def test_all_rows_returned(self):
+        """Every stock row is returned, not just the first."""
+        output = self._render([
+            self._row(ticker='PLTR'),
+            self._row(ticker='NVDA', stock_name='Nvidia'),
+            self._row(ticker='RR.L', stock_name='Rolls-Royce', tag='Defense'),
+        ])
+        stocks = ConsoleOutputParser.extract_stocks_from_output(output)
+        self.assertEqual([s['ticker'] for s in stocks], ['PLTR', 'NVDA', 'RR.L'])
+
+    def test_missing_table_raises(self):
+        """Output without the detail table is an error, not an empty result."""
+        with self.assertRaises(ValueError):
+            ConsoleOutputParser.extract_stocks_from_output('Portfolio Summary\n=================\n')
+
+
+class TestAlertSelection(unittest.TestCase):
+    """Tests for alerts.find_alerts and alert email formatting."""
+
+    @staticmethod
+    def _stock(ticker, progress=None, change=None, company=None, tag='AI', value=1000.0):
+        return {
+            'company': company or ticker,
+            'ticker': ticker,
+            'tag': tag,
+            'current_value': value,
+            'daily_change': change,
+            'progress_to_2x': progress,
+        }
+
+    def test_doubling_threshold_is_exclusive(self):
+        """1.95x does not alert; anything above it does."""
+        stocks = [
+            self._stock('BELOW', progress=1.94),
+            self._stock('EQUAL', progress=1.95),
+            self._stock('ABOVE', progress=1.96),
+        ]
+        found = alerts.find_alerts(stocks, 3.0)
+        self.assertEqual([s['ticker'] for s in found['approaching_doubling']], ['ABOVE'])
+
+    def test_movers_in_both_directions(self):
+        """Rises and falls beyond the threshold both alert; smaller moves do not."""
+        stocks = [
+            self._stock('UP', change=0.045),
+            self._stock('DOWN', change=-0.062),
+            self._stock('FLAT', change=0.012),
+        ]
+        found = alerts.find_alerts(stocks, 3.0)
+        self.assertEqual({s['ticker'] for s in found['big_movers']}, {'UP', 'DOWN'})
+
+    def test_threshold_is_inclusive_and_configurable(self):
+        """A move of exactly the threshold alerts, and the threshold is honoured."""
+        stocks = [self._stock('EXACT', change=0.05), self._stock('UNDER', change=0.049)]
+        found = alerts.find_alerts(stocks, 5.0)
+        self.assertEqual([s['ticker'] for s in found['big_movers']], ['EXACT'])
+
+    def test_missing_values_never_alert(self):
+        """Stocks with no price data are skipped rather than treated as zero."""
+        found = alerts.find_alerts([self._stock('SOLD')], 3.0)
+        self.assertEqual(found['approaching_doubling'], [])
+        self.assertEqual(found['big_movers'], [])
+
+    def test_sorted_most_notable_first(self):
+        """Doublings sort by progress, movers by size of move regardless of sign."""
+        stocks = [
+            self._stock('A', progress=1.98, change=0.04),
+            self._stock('B', progress=2.40, change=-0.09),
+        ]
+        found = alerts.find_alerts(stocks, 3.0)
+        self.assertEqual([s['ticker'] for s in found['approaching_doubling']], ['B', 'A'])
+        self.assertEqual([s['ticker'] for s in found['big_movers']], ['B', 'A'])
+
+    def test_email_reports_both_sections(self):
+        """The email names both categories and the stocks in them."""
+        found = alerts.find_alerts(
+            [self._stock('PLTR', progress=2.1, company='Palantir'),
+             self._stock('NVDA', change=-0.08, company='Nvidia')],
+            3.0
+        )
+        subject, body = alerts.format_alert_email(found, 3.0)
+
+        self.assertIn('1 near 2x', subject)
+        self.assertIn('1 big mover', subject)
+        self.assertIn('Palantir (PLTR) [AI], £1,000 — 2.10x', body)
+        self.assertIn('Nvidia (NVDA) [AI], £1,000 — -8.0%', body)
+        self.assertIn('3.0%', body)
+
+    def test_email_omits_empty_section(self):
+        """A quiet category is left out of the email entirely."""
+        found = alerts.find_alerts([self._stock('PLTR', progress=2.1)], 3.0)
+        subject, body = alerts.format_alert_email(found, 3.0)
+        self.assertNotIn('big mover', subject)
+        self.assertNotIn('Moved at least', body)
 
 
 if __name__ == '__main__':

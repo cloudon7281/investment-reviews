@@ -7,12 +7,15 @@ Extracts the Portfolio Summary table which contains:
 - Category totals (ISA, Taxable, Pension)
 - Tag totals
 
+and the per-stock rows of the Full Investment History table, used for the
+nightly alerts.
+
 Used by update_google_sheet.py for daily updates.
 """
 
 import re
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -164,6 +167,129 @@ class ConsoleOutputParser:
             logger.debug(f"      Failed to parse value '{current_value_str}': {e}")
             return None
     
+    def parse_stocks(self, console_output: str) -> List[Dict]:
+        """Parse the per-stock rows of the Full Investment History table.
+
+        Args:
+            console_output: Full console output from portfolio.py
+
+        Returns:
+            List of dictionaries, one per stock, with keys:
+                'company': str
+                'ticker': str
+                'tag': str
+                'current_value': float or None
+                'daily_change': float or None (fraction, e.g. 0.032 for +3.2%)
+                'progress_to_2x': float or None (e.g. 1.97)
+
+        Raises:
+            ValueError: If the Full Investment History table cannot be found
+        """
+        rows = self._extract_grid_rows(console_output, 'Full Investment History')
+        if not rows:
+            raise ValueError("Could not find Full Investment History table in console output")
+
+        stocks = []
+        for row in rows:
+            stocks.append({
+                'company': row.get('Company', ''),
+                'ticker': row.get('Ticker', ''),
+                'tag': row.get('Tag', ''),
+                'current_value': self._parse_currency(row.get('Current Value')),
+                'daily_change': self._parse_percentage(row.get('1d Change')),
+                'progress_to_2x': self._parse_multiple(row.get('Progress to 2x')),
+            })
+
+        logger.info(f"Parsed {len(stocks)} stock rows from Full Investment History")
+        return stocks
+
+    def _extract_grid_rows(self, console_output: str, table_name: str) -> List[Dict[str, str]]:
+        """Extract rows of a tabulate 'grid' table as header -> cell dictionaries.
+
+        Args:
+            console_output: Full console output
+            table_name: Title printed immediately above the table
+
+        Returns:
+            List of dictionaries keyed by column header (empty if table not found)
+        """
+        lines = console_output.split('\n')
+
+        # Locate the table title, then read the grid that follows it
+        start_index = None
+        for i, line in enumerate(lines):
+            if line.strip() == table_name:
+                start_index = i + 1
+                break
+
+        if start_index is None:
+            logger.error(f"Could not find '{table_name}' title in console output")
+            return []
+
+        headers = None
+        rows = []
+        for line in lines[start_index:]:
+            stripped = self._strip_ansi(line).strip()
+
+            if stripped.startswith('+'):
+                continue  # grid rule
+            if not stripped.startswith('|'):
+                if headers is not None:
+                    break  # end of the table
+                continue  # title underline / blank lines before the table
+
+            cells = [cell.strip() for cell in stripped.strip('|').split('|')]
+
+            if headers is None:
+                headers = cells
+                continue
+
+            # Skip the separator rows written between row types
+            if all(set(cell) <= {'-'} for cell in cells):
+                continue
+
+            rows.append(dict(zip(headers, cells)))
+
+        return rows
+
+    @staticmethod
+    def _strip_ansi(text: str) -> str:
+        """Remove ANSI colour codes from a line of console output."""
+        return re.sub(r'\x1b\[[0-9;]*m', '', text)
+
+    @staticmethod
+    def _parse_currency(value: Optional[str]) -> Optional[float]:
+        """Parse a formatted currency cell (e.g. '£1,234.56') into a float."""
+        if not value:
+            return None
+        try:
+            return float(value.replace('£', '').replace(',', ''))
+        except ValueError:
+            logger.debug(f"Could not parse currency value '{value}'")
+            return None
+
+    @staticmethod
+    def _parse_percentage(value: Optional[str]) -> Optional[float]:
+        """Parse a formatted percentage cell (e.g. '3.2%') into a fraction."""
+        if not value:
+            return None
+        try:
+            return float(value.replace('%', '').replace(',', '')) / 100
+        except ValueError:
+            logger.debug(f"Could not parse percentage value '{value}'")
+            return None
+
+    @staticmethod
+    def _parse_multiple(value: Optional[str]) -> Optional[float]:
+        """Parse a formatted multiple cell (e.g. '1.9x'); '—' returns None."""
+        if not value or not value.endswith('x'):
+            return None
+        try:
+            return float(value[:-1])
+        except ValueError:
+            logger.debug(f"Could not parse multiple value '{value}'")
+            return None
+
     @staticmethod
     def extract_values_from_output(console_output: str) -> Dict[str, float]:
         """Convenience method to parse output in one call.
@@ -176,6 +302,19 @@ class ConsoleOutputParser:
         """
         parser = ConsoleOutputParser()
         return parser.parse(console_output)
+
+    @staticmethod
+    def extract_stocks_from_output(console_output: str) -> List[Dict]:
+        """Convenience method to parse the per-stock rows in one call.
+
+        Args:
+            console_output: Full console output from portfolio.py
+
+        Returns:
+            List of per-stock dictionaries (see parse_stocks)
+        """
+        parser = ConsoleOutputParser()
+        return parser.parse_stocks(console_output)
 
 
 if __name__ == '__main__':

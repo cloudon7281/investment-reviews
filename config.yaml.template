@@ -42,6 +42,18 @@ notifications:
   # Leave empty to disable email notifications
   email_on_error: ""
 
+  # Nightly alerts for stocks approaching a doubling (Progress to 2x above 1.95)
+  # or moving sharply today (see --daily-change-threshold, default 3%).
+  # An email is only sent on nights where at least one stock qualifies.
+  alerts:
+    # Recipient address; leave empty to disable alerts
+    to: ""
+    from: investment-reviews@calumlabs.co.uk
+    # SMTP relay (Proton Bridge). From inside the container on jarvis this is
+    # the infra_mail relay on the host; use localhost for a local run.
+    smtp_host: host.docker.internal
+    smtp_port: 1025
+
 calculated_columns:
   # Columns that should auto-generate SUM formulas
   # Format: "Column Name": ["Col1", "Col2", "Col3", ...]
