@@ -26,6 +26,8 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Current holdings with valuations
 - Realized and unrealized profit/loss
 - ROI and Money-Weighted Rate of Return (MWRR) calculations
+- Progress towards the next doubling and count of completed profit-takings
+- Daily price change for held stocks
 - Optional value-over-time CSV for charts
 
 **Periodic Review Mode**
@@ -272,6 +274,23 @@ python3 portfolio.py --mode test --test-data ~/path/to/test/data
 ```bash
 python3 update_google_sheet.py
 ```
+
+### Nightly Alerts
+
+The Google Sheets wrapper also watches for stocks that need attention before the next
+monthly review, so brief price spikes are not missed:
+
+- **Approaching a doubling** - `Progress to 2x` above 1.95, i.e. close to the profit-taking rule
+- **Big movers** - a daily price change of at least the threshold, 3% by default
+
+```bash
+python3 update_google_sheet.py --daily-change-threshold 5
+```
+
+An email is sent only on nights where at least one stock qualifies. Configure the recipient
+and SMTP relay under `notifications.alerts` in `config.yaml`; leaving `to` empty disables
+alerts. On jarvis the relay is the `infra_mail` Proton Bridge on the host
+(`host.docker.internal:1025`).
 
 ## Architecture
 

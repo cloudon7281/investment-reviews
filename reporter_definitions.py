@@ -53,8 +53,8 @@ TIME_HELD_THRESHOLD = [
 # Define column configurations for each report type
 COLUMN_CONFIGS = {
     'full_history': {
-        'headers': ['Tag', 'Company', 'Ticker', 'Category', 'Total Invested', 'Total Received', 'Units Held', 'Current Value', 'P&L', 'Unrealized Profit', 'Simple ROI', 'MWRR', 'Current price', '90d High', '% of High', 'Volatility', 'First Transaction', 'Last Transaction'],
-        'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'total_invested', 'total_received', 'units_held', 'current_value', 'total_pnl', 'unrealized_profit', 'simple_roi', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility', 'first_transaction_date', 'final_transaction_date'],
+        'headers': ['Tag', 'Company', 'Ticker', 'Category', 'Total Invested', 'Total Received', 'Units Held', 'Current Value', 'P&L', 'Unrealized Profit', 'Simple ROI', 'MWRR', 'Current price', '1d Change', '90d High', '% of High', 'Volatility', 'Progress to 2x', '# Doublings', 'First Transaction', 'Last Transaction'],
+        'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'total_invested', 'total_received', 'units_held', 'current_value', 'total_pnl', 'unrealized_profit', 'simple_roi', 'mwrr', 'current_price', 'daily_change', 'recent_high', 'current_price_pct_of_high', 'volatility', 'progress_to_doubling', 'doubling_count', 'first_transaction_date', 'final_transaction_date'],
         'column_formats': [
             None,  # Tag - text
             None,  # Company - text
@@ -69,9 +69,12 @@ COLUMN_CONFIGS = {
             PERCENTAGE_FORMAT,  # Simple ROI
             PERCENTAGE_FORMAT,  # MWRR
             CURRENCY_FORMAT,  # Current price
+            PERCENTAGE_FORMAT,  # 1d Change
             CURRENCY_FORMAT,  # 90d High
             PERCENTAGE_FORMAT,  # % of High
             PERCENTAGE_FORMAT,  # Volatility
+            None,  # Progress to 2x - pre-formatted string ("1.7x" or "—")
+            None,  # # Doublings - integer
             DATE_FORMAT,  # First Transaction - date formatting
             DATE_FORMAT,  # Last Transaction - date formatting
         ],
@@ -89,9 +92,12 @@ COLUMN_CONFIGS = {
             STOCKS_PROFIT_TAKING_THRESHOLD,  # Simple ROI
             STOCKS_PROFIT_TAKING_THRESHOLD,  # MWRR
             None,  # Current price
+            None,  # 1d Change
             None,  # 90d High
             STOP_LOSS_THRESHOLD,  # % of High
             STOCKS_VOLATILITY_THRESHOLD,  # Volatility
+            None,  # Progress to 2x
+            None,  # # Doublings
             DATE_FORMAT,  # First Transaction - date formatting
             DATE_FORMAT,  # Last Transaction - date formatting
         ]

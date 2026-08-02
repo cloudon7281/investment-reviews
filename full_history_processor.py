@@ -263,6 +263,28 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
         if data['units_held'] > 0 and current_value > 0:
             current_price_per_share = current_value / data['units_held']
 
+        # Lifetime doubling metrics (progress towards the next 2x, and completed
+        # profit-takings). calculate_doubling_metrics compares against transaction
+        # prices, which are in the stock's native currency, so back-convert the GBP
+        # price using the current exchange rate (same approach as periodic review).
+        if current_price_per_share is None:
+            current_price_native = None
+        else:
+            stock_currency = portfolio_review.get_stock_currency(ticker, category)
+            if stock_currency and stock_currency not in ('GBP', 'GBp') and market_data_fetcher is not None:
+                ex_rate = market_data_fetcher.get_current_exchange_rate(stock_currency, 'GBP')
+                current_price_native = current_price_per_share / ex_rate if ex_rate and ex_rate > 0 else current_price_per_share
+            else:
+                current_price_native = current_price_per_share
+        progress_to_doubling, doubling_count = transaction_processor.calculate_doubling_metrics(
+            data['transactions'], current_price_native
+        )
+
+        # Daily price change (held stocks only) — drives the wrapper's big-mover alerts
+        daily_change = None
+        if data['units_held'] > 0:
+            daily_change = calculate_daily_change(current_prices.get(current_ticker))
+
         # Calculate unrealized profit (profit from currently held units)
         unrealized_profit = 0.0
         if data['units_held'] > 0 and data['gross_units_bought'] > 0 and current_price_per_share is not None:
@@ -290,7 +312,10 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             'num_transactions': data['num_transactions'],
             'recent_high': recent_high,
             'volatility': volatility,
-            'current_price_pct_of_high': current_price_pct_of_high
+            'current_price_pct_of_high': current_price_pct_of_high,
+            'daily_change': daily_change,
+            'progress_to_doubling': progress_to_doubling,
+            'doubling_count': doubling_count
         }
 
         results.append(result)
@@ -343,6 +368,26 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
         'per_category': per_category_df,
         'value_over_time': value_over_time_df
     }
+
+
+def calculate_daily_change(price_df: Optional[pd.DataFrame]) -> Optional[float]:
+    """Calculate the change between the two most recent closing prices.
+
+    Args:
+        price_df: Price history for a single ticker (GBP 'Close' column), or None
+
+    Returns:
+        Fractional change (e.g. 0.032 for +3.2%), or None if fewer than two
+        closing prices are available
+    """
+    if price_df is None or price_df.empty or 'Close' not in price_df.columns:
+        return None
+
+    closes = price_df['Close'].dropna()
+    if len(closes) < 2 or closes.iloc[-2] <= 0:
+        return None
+
+    return closes.iloc[-1] / closes.iloc[-2] - 1
 
 
 def _calculate_summary_row(df: pd.DataFrame, name: str, mwrr: Optional[float] = None) -> Dict:
