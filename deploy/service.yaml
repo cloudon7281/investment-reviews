@@ -3,6 +3,13 @@
 
 stack: investment-reviews
 
+# SDI §1.2a state budget (devops-model#114). An expected ceiling for ${STATE_DIR}, not a
+# quota — nothing enforces it. Tier-4 alerts at 80%/100% so the shared host volume filling
+# is announced rather than discovered.
+# state/history appends indefinitely but slowly (~87M today).
+state:
+  maxSizeGb: 1
+
 # No inbound ports for this stack.
 ports: []
 
