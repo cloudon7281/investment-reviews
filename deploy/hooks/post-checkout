@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Alert-email secret placeholder (investment-reviews#20). Compose fails hard if a
+# `secrets: file:` target is missing, so a first deploy would break before an operator
+# could seed it. Create an empty one if absent; never overwrite a seeded value.
+#
+# The value is the BRIDGE-GENERATED proton-bridge password (the same credential monitoring
+# uses for Grafana alerting), not the Proton account password and not an SMTP-submission
+# token — see tier-4-infra/docs/operations.md.
+SMTP_SECRET="${STATE_DIR}/secrets/smtp_password"
+if [[ ! -f "$SMTP_SECRET" ]]; then
+  mkdir -p "$(dirname "$SMTP_SECRET")"
+  : > "$SMTP_SECRET"
+  chmod 600 "$SMTP_SECRET"
+  echo "[post-checkout] created empty $SMTP_SECRET — seed the bridge-generated password to enable alert email"
+fi

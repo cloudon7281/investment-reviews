@@ -2002,6 +2002,200 @@ class TestAlertSelection(unittest.TestCase):
         self.assertNotIn('Moved at least', body)
 
 
+class _FakeSMTP:
+    """Minimal stand-in for smtplib.SMTP recording the conversation.
+
+    The original alert bug was entirely in the parts of the send that no test touched —
+    whether we authenticate at all, and as whom — so these tests assert on the sequence of
+    calls rather than just "no exception raised".
+    """
+
+    instances = []
+
+    def __init__(self, host, port, timeout=None, starttls_offered=True, fail_on=None):
+        self.host, self.port, self.timeout = host, port, timeout
+        self.starttls_offered = starttls_offered
+        self.fail_on = fail_on or {}
+        self.calls = []
+        self.login_args = None
+        self.sent = None
+        _FakeSMTP.instances.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def _maybe_fail(self, name):
+        if name in self.fail_on:
+            raise self.fail_on[name]
+
+    def ehlo(self):
+        self.calls.append('ehlo')
+
+    def has_extn(self, name):
+        return name == 'starttls' and self.starttls_offered
+
+    def starttls(self, context=None):
+        self.calls.append('starttls')
+
+    def login(self, user, password):
+        self.calls.append('login')
+        self.login_args = (user, password)
+        self._maybe_fail('login')
+
+    def send_message(self, message):
+        self.calls.append('send_message')
+        self._maybe_fail('send_message')
+        self.sent = message
+
+
+class TestAlertDelivery(unittest.TestCase):
+    """Tests for alerts.send_alert_email — the path that silently broke in #20."""
+
+    def setUp(self):
+        _FakeSMTP.instances = []
+        self._real_smtp = alerts.smtplib.SMTP
+
+    def tearDown(self):
+        alerts.smtplib.SMTP = self._real_smtp
+
+    def _patch(self, **kwargs):
+        def factory(host, port, timeout=None):
+            return _FakeSMTP(host, port, timeout, **kwargs)
+        alerts.smtplib.SMTP = factory
+
+    @staticmethod
+    def _config(**overrides):
+        config = {
+            'to': 'someone@example.com',
+            'from': 'alerts@calumlabs.uk',
+            'smtp_host': 'host.docker.internal',
+            'smtp_port': 1025,
+            'smtp_user': 'account@proton.me',
+            'smtp_password': 'bridge-generated',
+        }
+        config.update(overrides)
+        return config
+
+    def test_authenticates_before_sending(self):
+        """STARTTLS then login must both precede the message (the #20 regression)."""
+        self._patch()
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        smtp = _FakeSMTP.instances[0]
+        self.assertEqual(smtp.calls, ['ehlo', 'starttls', 'ehlo', 'login', 'send_message'])
+
+    def test_authenticates_as_the_account_not_the_sender(self):
+        """Username is the bridge account address; From stays the send-as address."""
+        self._patch()
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        smtp = _FakeSMTP.instances[0]
+        self.assertEqual(smtp.login_args, ('account@proton.me', 'bridge-generated'))
+        self.assertEqual(smtp.sent['From'], 'alerts@calumlabs.uk')
+
+    def test_password_read_from_file_when_configured(self):
+        """A secret file wins over an inline value, and is stripped of its trailing newline."""
+        self._patch()
+        with tempfile.NamedTemporaryFile('w', suffix='.secret', delete=False) as handle:
+            handle.write('from-a-file\n')
+            path = handle.name
+        try:
+            alerts.send_alert_email(
+                self._config(smtp_password_file=path), 'subject', 'body')
+        finally:
+            os.unlink(path)
+        self.assertEqual(_FakeSMTP.instances[0].login_args[1], 'from-a-file')
+
+    def test_unreadable_secret_file_is_a_delivery_error(self):
+        """A missing secret must not surface as a bare OSError."""
+        self._patch()
+        with self.assertRaises(alerts.AlertDeliveryError):
+            alerts.send_alert_email(
+                self._config(smtp_password_file='/nonexistent/smtp_password'),
+                'subject', 'body')
+
+    def test_user_without_password_refuses_to_send(self):
+        """An unseeded placeholder must fail loudly, not send unauthenticated."""
+        self._patch()
+        with self.assertRaises(alerts.AlertDeliveryError):
+            alerts.send_alert_email(self._config(smtp_password=''), 'subject', 'body')
+        self.assertEqual(_FakeSMTP.instances[0].calls, ['ehlo', 'starttls', 'ehlo'])
+
+    def test_starttls_skipped_when_not_offered(self):
+        """A relay without STARTTLS still authenticates rather than erroring."""
+        self._patch(starttls_offered=False)
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        self.assertEqual(_FakeSMTP.instances[0].calls, ['ehlo', 'login', 'send_message'])
+
+    def test_rejection_at_data_becomes_a_delivery_error(self):
+        """The exact 554 the bridge returns for an unowned From address."""
+        self._patch(fail_on={'send_message': alerts.smtplib.SMTPDataError(
+            554, b'5.0.0 Error: no such user')})
+        with self.assertRaises(alerts.AlertDeliveryError) as caught:
+            alerts.send_alert_email(self._config(), 'subject', 'body')
+        self.assertIn('no such user', str(caught.exception))
+
+    def test_unreachable_relay_becomes_a_delivery_error(self):
+        """A connection failure is a delivery error, not an unhandled OSError."""
+        def factory(host, port, timeout=None):
+            raise ConnectionRefusedError(61, 'Connection refused')
+        alerts.smtplib.SMTP = factory
+        with self.assertRaises(alerts.AlertDeliveryError):
+            alerts.send_alert_email(self._config(), 'subject', 'body')
+
+
+class TestAlertFailureIsNonFatal(unittest.TestCase):
+    """A dead mail relay must not be reported as a failed portfolio update (#20).
+
+    The spreadsheet is already written by the time alerts are sent, so an undeliverable
+    email has to stay distinguishable from a broken pipeline — that conflation is what made
+    the dashboard show DOWN for ten days while the sheet updated correctly every night.
+    """
+
+    def _updater(self, alert_config):
+        import logging
+        import update_google_sheet
+        updater = update_google_sheet.PortfolioUpdater.__new__(
+            update_google_sheet.PortfolioUpdater)
+        updater.logger = logging.getLogger('test')
+        updater.dry_run = False
+        updater.daily_change_threshold = 3.0
+        updater.alert_delivery_ok = True
+        updater.config = {'notifications': {'alerts': alert_config}}
+        return updater
+
+    def test_delivery_failure_is_recorded_not_raised(self):
+        """The exception is swallowed, but the failure is recorded for the metric."""
+        updater = self._updater({'to': 'someone@example.com'})
+        console_output = 'irrelevant — the parser is stubbed below'
+        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
+                          return_value=[{'company': 'Palantir', 'ticker': 'PLTR',
+                                         'tag': 'AI', 'current_value': 1000.0,
+                                         'progress_to_2x': 2.5, 'daily_change': 0.01}]), \
+             patch.object(alerts, 'send_alert_email',
+                          side_effect=alerts.AlertDeliveryError('554 no such user')):
+            updater._send_alerts(console_output)
+        self.assertFalse(updater.alert_delivery_ok)
+
+    def test_successful_delivery_leaves_the_channel_healthy(self):
+        """The happy path must not flip the alert-delivery flag."""
+        updater = self._updater({'to': 'someone@example.com'})
+        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
+                          return_value=[{'company': 'Palantir', 'ticker': 'PLTR',
+                                         'tag': 'AI', 'current_value': 1000.0,
+                                         'progress_to_2x': 2.5, 'daily_change': 0.01}]), \
+             patch.object(alerts, 'send_alert_email'):
+            updater._send_alerts('irrelevant')
+        self.assertTrue(updater.alert_delivery_ok)
+
+    def test_no_recipient_configured_is_not_a_delivery_failure(self):
+        """Alerts switched off must leave the channel reported healthy, not broken."""
+        updater = self._updater({'to': ''})
+        updater._send_alerts('irrelevant')
+        self.assertTrue(updater.alert_delivery_ok)
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()

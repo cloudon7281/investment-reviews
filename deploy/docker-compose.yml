@@ -23,4 +23,15 @@ services:
       - ${STATE_DIR}/outputs:/data/outputs
       # SDI §12 shared store (metrics-textfile); node_exporter scrapes *.prom here.
       - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
+    secrets:
+      - smtp_password
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
+
+secrets:
+  smtp_password:
+    # Bridge-generated proton-bridge password for the nightly alert email
+    # (investment-reviews#20). NOT the Proton account password and NOT an
+    # SMTP-submission token — see alerts.send_alert_email. post-checkout creates an empty
+    # placeholder so a first deploy cannot fail on the missing file; seed the real value
+    # to enable delivery. Same credential monitoring uses for Grafana alerting.
+    file: ${STATE_DIR}/secrets/smtp_password
