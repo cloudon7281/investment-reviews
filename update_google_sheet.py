@@ -42,6 +42,11 @@ class PortfolioUpdater:
         self.daily_change_threshold = daily_change_threshold
         self.logger = logging.getLogger(__name__)
 
+        # Whether the alert channel is working, tracked separately from whether the
+        # spreadsheet update worked. Surfaced as its own metric so a silently broken
+        # notification path is visible on the dashboard (investment-reviews#20).
+        self.alert_delivery_ok = True
+
         # Load configuration
         with open(os.path.expanduser(config_path), 'r') as f:
             self.config = yaml.safe_load(f)
@@ -180,14 +185,17 @@ class PortfolioUpdater:
                     # For now, just log that they might need updating
                     self.logger.info("Note: Charts may need range adjustment in Google Sheets UI")
 
-            # Step 8: Send alerts for stocks needing attention before the next review
+            # Step 8: Send alerts for stocks needing attention before the next review.
+            # Deliberately not inside the try below's failure path: by this point the
+            # spreadsheet has already been updated, so a dead mail relay must not be
+            # reported as a failed portfolio update (investment-reviews#20).
             self._send_alerts(console_output)
 
             self.logger.info("="*80)
             self.logger.info("✓ Update complete")
             self.logger.info("="*80)
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Update failed: {e}")
             self.logger.exception("Full traceback:")
@@ -217,7 +225,14 @@ class PortfolioUpdater:
             self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: {subject}\n{body}")
             return
 
-        alerts.send_alert_email(alert_config, subject, body)
+        try:
+            alerts.send_alert_email(alert_config, subject, body)
+        except alerts.AlertDeliveryError as e:
+            # Record, do not raise. The spreadsheet is already updated and correct;
+            # failing the whole run here is what made a broken mail relay look like a
+            # broken portfolio pipeline for ten days (investment-reviews#20).
+            self.alert_delivery_ok = False
+            self.logger.error(f"Alert email delivery failed: {e}")
 
     def _run_portfolio_analysis(self) -> str:
         """Run the portfolio analysis tool and capture console output.
@@ -464,8 +479,17 @@ def main():
     updater = PortfolioUpdater(args.config, dry_run=args.dry_run,
                                daily_change_threshold=args.daily_change_threshold)
     success = updater.run()
-    
-    sys.exit(0 if success else 1)
+
+    # Exit-code contract, consumed by deploy/entrypoints/run-once.sh:
+    #   0  spreadsheet updated and the alert channel is healthy
+    #   2  spreadsheet updated but the alert email could not be delivered
+    #   1  the update itself failed
+    # 2 is deliberately not a job failure: the nightly pipeline did its job. It drives a
+    # separate alert-delivery metric instead, so the two failure modes stay distinguishable
+    # on the dashboard rather than collapsing into one red panel (investment-reviews#20).
+    if not success:
+        sys.exit(1)
+    sys.exit(0 if updater.alert_delivery_ok else 2)
 
 
 if __name__ == '__main__':

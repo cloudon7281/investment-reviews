@@ -48,11 +48,19 @@ notifications:
   alerts:
     # Recipient address; leave empty to disable alerts
     to: ""
-    from: investment-reviews@calumlabs.co.uk
+    # Sender. MUST be an address on the Proton Bridge account below — any other address
+    # is accepted at MAIL FROM and then rejected at DATA with "no such user".
+    from: alerts@calumlabs.uk
     # SMTP relay (Proton Bridge). From inside the container on jarvis this is
     # the infra_mail relay on the host; use localhost for a local run.
     smtp_host: host.docker.internal
     smtp_port: 1025
+    # The bridge account's PRIMARY address, not the send-as address above: the bridge runs
+    # in combined-address mode and issues one username/password pair for SMTP and IMAP.
+    smtp_user: cloudon7281@proton.me
+    # Bridge-generated password, mounted as a compose secret. Not the Proton account
+    # password and not an SMTP-submission token (those target smtp.protonmail.ch:587).
+    smtp_password_file: /run/secrets/smtp_password
 
 calculated_columns:
   # Columns that should auto-generate SUM formulas
