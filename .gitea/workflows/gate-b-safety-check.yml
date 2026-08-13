@@ -1,0 +1,30 @@
+name: gate-b-safety-check
+
+# Gate B, pre-merge half (deploy-model §1a.3). Asks whether this PR changes a field that would
+# relocate the service's live state — `stack` or `srvName` (SDI §1.2b). The AUTHORITATIVE gate is
+# at registration, which fails closed; this one exists because a pre-merge conversation is cheap and
+# a post-merge one leaves `main` carrying a manifest that cannot be deployed.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  gate-b:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Would this relocate live state?
+        env:
+          TOKEN: ${{ secrets.AUTO_TAG_TOKEN }}
+          REPO: ${{ github.repository }}
+          API_BASE: ${{ github.server_url }}/api/v1
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: token ${TOKEN}" \
+            "${API_BASE}/repos/${REPO}/contents/.gitea/scripts/gate-b.py" \
+            | python3 -c "import sys,json,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
+            > /tmp/gate-b.py
+          python3 /tmp/gate-b.py
