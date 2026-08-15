@@ -66,13 +66,25 @@ if not SKIP_TAG:
     #    `enhancement` *issue* whose PR was left unlabelled got a patch bump instead of
     #    a minor one (london-travel#14 shipped as v1.1.7, not v1.2.0). The issue is
     #    almost always the source of truth for enhancement-vs-fix, so inherit its labels
-    #    via the PR body's issue reference (closes/fixes/resolves/refs/references #N).
+    #    via the PR's issue reference (closes/fixes/resolves/refs/references #N).
+    #    Search the title as well as the body: `... (refs #N)` in the title is the house
+    #    convention for a fix held open until it is verified, and body-only matching let
+    #    exactly the same silent patch bump back in (tier2-project#148,
+    #    tier4-guinea-pig#22 shipped as v1.2.3, not v1.3.0). Which reference decides the
+    #    bump is logged, so a miss shows up in the Actions log rather than only in a
+    #    surprising version number. NB the issue-close step below still reads the body
+    #    alone — closing is a stronger action than bumping and Gitea's own keyword
+    #    handling already covers the title.
     labels = [l['name'] for l in pr.get('labels', [])]
     ref = re.search(r'(?:closes|fixes|resolves|refs|references)\s+#(\d+)',
-                    pr.get('body') or '', re.IGNORECASE)
+                    f"{pr.get('title') or ''}\n{pr.get('body') or ''}", re.IGNORECASE)
     if ref:
         _, ref_issue = gitea('GET', f'issues/{ref.group(1)}')
-        labels += [l['name'] for l in (ref_issue.get('labels') or [])]
+        inherited = [l['name'] for l in (ref_issue.get('labels') or [])]
+        labels += inherited
+        print(f'Inherited labels from linked issue #{ref.group(1)}: {inherited}')
+    else:
+        print('No linked issue reference in PR title or body — using the PR labels alone')
     print(f'Labels (PR + linked issue): {labels}')
     bump = 'minor' if 'enhancement' in labels else 'patch'
     print(f'Bump: {bump}')
