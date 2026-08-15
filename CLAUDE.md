@@ -111,3 +111,25 @@ Status names the blocking artefact — an issue, PR or approval — never just "
 - Agreed but never → `wontfix` per issue-workflow.md.
 
 This licence is bounded by §3: it covers debt within the plan's scope, not incidental adjacent code.
+
+## Communications style
+
+Your replies to Calum should be simple, factual and architectural.  Up-level them where possible.  For example, when describing a problem:
+- be clear about the architectural context: in what components are the issues, where do they sit in the stack, does this have implications for cross-tier interfaces or responsibilities etc.
+- describe the issue in terms of high-level functions rather than low-level code paths
+- spell out the concrete implications as simply as you can
+- avoid florid descriptions, analogies and metaphors.
+
+For example, here is a bad way to describe an issue (you initially used this to describe tier2-project#176):
+
+"The design point worth your eye: the tombstone gate isn't a safety wrapper bolted onto an otherwise-fine fix. It's the distinction the check was missing. "No declaration produces this key" has two causes that look identical from the artefact alone — deliberately de-registered and we couldn't read the declaration — and only one of them means residue.
+
+It also closes the hole I flagged earlier, and does it by construction rather than by a second guard: tombstones live in the same export as the records, so a truncated or empty export yields no tombstones and nothing becomes fixable."
+
+And here is the much clearer way you described it after I prompted you:
+
+"Here's what #176 actually did, plainly.
+
+The deployd-registry check finds keys in deployd's services.json that no service manifest declares. It used to report them and never offer a fix, because deleting a routing key could break deploys.
+
+It now offers a fix when the registry holds a de-registration tombstone for that service on that host. deregister-service writes the tombstone, so if one exists, someone removed the service deliberately and the leftover key is residue. If there's no tombstone, the check stays report-only, because an unclaimed key with no tombstone might just mean we failed to read the manifest."
