@@ -83,3 +83,31 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 5. Multi-Phase Development
+
+**Agree the phases. Restate the whole plan, not just the last one. Converge, don't fragment.**
+
+Use phases when work spans more than one repo, more than one PR, or more than one session.
+- Agree the phase list with Calum before starting; re-agree it when it materially changes.
+- Give each phase a completion condition, not just a description.
+- Keep the table in the main plan issue, not only in chat, so it survives a session boundary.
+
+Restate the **entire** table — every phase — at each phase boundary and when resuming the arc in a new session. Add what has changed in the plan since it was agreed, and what decisions later phases now depend on.
+
+**Plan and progress**
+
+| Phase | Description | Done when | Status |
+|-------|-------------|-----------|--------|
+| 1 | Mechanism gaps | SO#72 + tier2#172 merged and tagged | Half merged (SO#70, tier2#170); SO#72 + tier2#172 awaiting approval |
+| 2 | Canary covers ufw | Canary green with ufw assertions | Not started — needs SO#72 installed |
+| 3 | Re-registration sweep | All 20 projects re-registered | Not started — the keystone |
+
+Status names the blocking artefact — an issue, PR or approval — never just "in progress".
+
+**Avoid fractal development.** A multi-phase plan will surface real problems: tech debt, spec drift, bugs. Raising an issue for each one feels like diligence and is not — a tree of true issues with no completion condition can never be declared finished. Instead:
+- In scope and fixable in the current PR → fix it, referencing the plan issue.
+- Larger, or it changes the plan → add it to the plan as residue; raise it at the next phase boundary. Open a new issue only once Calum has agreed it is a separate arc.
+- Agreed but never → `wontfix` per issue-workflow.md.
+
+This licence is bounded by §3: it covers debt within the plan's scope, not incidental adjacent code.
