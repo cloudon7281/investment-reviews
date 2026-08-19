@@ -68,9 +68,20 @@ schedules:
 # SDI §11 (devops-model#85 / #87 Phase 3): nightly pipeline — emits its own node_exporter textfile,
 # and its liveness is whether that file was written recently. maxAgeSec ~36h (matches the retired
 # health-rule's window) so one missed night is tolerated.
+# SDI §11.1: a LIST, one entry per family (devops-model#164). The alert-channel health is tracked
+# independently of the pipeline — that is the whole point of it, so "the email is broken" cannot hide
+# behind a green pipeline — and until the list existed it could not be declared alongside the
+# pipeline metric, so it was invisible to the §12.6 audit.
 metrics:
-  mode: prom
-  file: investment-reviews.prom
+  - mode: prom
+    file: investment-reviews.prom
+  - mode: prom
+    file: investment-reviews-alert.prom
+# SDI §11.2: with more than one family the platform must not pick, so name the one that carries the
+# verdict. Liveness is "did the nightly pipeline run" — the alert-channel file is deliberately a
+# SEPARATE signal, so that a broken email channel cannot hide behind a green pipeline, and it must
+# not be the thing that decides whether this service is alive.
 health:
   mode: prom
+  file: investment-reviews.prom
   maxAgeSec: 129600
