@@ -116,6 +116,7 @@ SPECIAL_EXCHANGE_SUFFIX_MAP = {
     'POET': '',     # POET has no suffix
     'CLS': '.TO',   # CLS is CLS.TO in Toronto
     'SSLV': '.L',   # SSLV is SSLV.L in London
+    'ARMR': '.L',   # ARMR is ARMR.L in London
 }
 
 STOCK_RENAME_MAP = {
