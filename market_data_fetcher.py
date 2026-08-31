@@ -71,6 +71,20 @@ class MarketDataFetcher:
             logger.error(f"Error getting exchange rate for {pair_symbol}: {str(e)}")
             return 1.0
 
+    @staticmethod
+    def _close_series(data: pd.DataFrame) -> pd.Series:
+        """Return a downloaded frame's Close column as a Series.
+
+        yfinance returns columns keyed by ticker, so data['Close'] is a one-column
+        DataFrame rather than a Series.  Exchange rates are stored from this and then
+        indexed positionally by their callers, where a DataFrame silently yields a row
+        Series instead of a rate and `float()` raises (investment-reviews#28).  Squeezing
+        here makes every stored rate a Series by construction, so the read sites do not
+        each have to guess at the shape.
+        """
+        close = data['Close']
+        return close.iloc[:, 0] if isinstance(close, pd.DataFrame) else close
+
     def batch_get_ticker_info(self, tickers: List[str]) -> Dict[str, Dict]:
         """Get comprehensive ticker info for multiple tickers in a single API call.
 
@@ -186,16 +200,12 @@ class MarketDataFetcher:
                             logger.debug(f"Requesting {pair_symbol} from {buffer_start_date} to {buffer_end_date}")
                             rate_data = yf.download(pair_symbol, start=buffer_start_date, end=buffer_end_date, progress=False)
                             if not rate_data.empty:
-                                exchange_rates[currency] = rate_data['Close']
+                                exchange_rates[currency] = self._close_series(rate_data)
                                 logger.debug(f"Got {currency}/GBP exchange rate data: {len(rate_data)} points")
                                 logger.debug(f"  Returned date range: {rate_data.index[0]} to {rate_data.index[-1]}")
-                                # Log last 3 rates (extract scalar value carefully)
-                                for idx in rate_data.index[-3:]:
-                                    rate_val = rate_data.loc[idx, 'Close']
-                                    # Handle both scalar and Series return types
-                                    if hasattr(rate_val, 'iloc'):
-                                        rate_val = rate_val.iloc[0]
-                                    logger.debug(f"    {idx.date()}: {float(rate_val):.6f}")
+                                # Log last 3 rates
+                                for idx in exchange_rates[currency].index[-3:]:
+                                    logger.debug(f"    {idx.date()}: {exchange_rates[currency][idx]:.6f}")
                             else:
                                 # Try two-step conversion via USD if direct pair doesn't exist
                                 logger.warning(f"No direct {currency}/GBP data, trying two-step conversion via USD")
@@ -207,15 +217,8 @@ class MarketDataFetcher:
                                     gbp_data = yf.download(gbp_pair, start=buffer_start_date, end=buffer_end_date, progress=False)
 
                                     if not usd_data.empty and not gbp_data.empty:
-                                        # Extract Close prices, handling multi-level columns
-                                        usd_close = usd_data['Close']
-                                        gbp_close = gbp_data['Close']
-
-                                        # Handle multi-level columns (when downloading single ticker, YF may return multi-level)
-                                        if hasattr(usd_close, 'columns'):
-                                            usd_close = usd_close.iloc[:, 0]
-                                        if hasattr(gbp_close, 'columns'):
-                                            gbp_close = gbp_close.iloc[:, 0]
+                                        usd_close = self._close_series(usd_data)
+                                        gbp_close = self._close_series(gbp_data)
 
                                         # Multiply the two rates: CZK/USD * USD/GBP = CZK/GBP
                                         # Align the indices
@@ -234,14 +237,154 @@ class MarketDataFetcher:
 
                 # Step 4: Process each ticker and convert to GBP
                 for ticker in uncached_tickers:
-                    currency = ticker_info[ticker].get('currency', 'USD')
+                    try:
+                        currency = ticker_info[ticker].get('currency', 'USD')
 
-                    # Extract price data for this ticker
-                    if len(uncached_tickers) == 1:
-                        # Single ticker case
-                        if data.empty:
-                            # No historical data - try to use live price from ticker.info
-                            logger.warning(f"No historical data from yf.download() for {ticker}, trying ticker.info")
+                        # Extract price data for this ticker
+                        if len(uncached_tickers) == 1:
+                            # Single ticker case
+                            if data.empty:
+                                # No historical data - try to use live price from ticker.info
+                                logger.warning(f"No historical data from yf.download() for {ticker}, trying ticker.info")
+                                live_price = ticker_info[ticker].get('regularMarketPrice')
+                                if live_price:
+                                    # Convert to GBP if needed
+                                    if currency not in ['GBP', 'GBp']:
+                                        if use_live_rates:
+                                            exchange_rate = self.get_current_exchange_rate(currency, 'GBP')
+                                        elif currency in exchange_rates:
+                                            # Use most recent exchange rate from historical data
+                                            exchange_rate = float(exchange_rates[currency].iloc[-1])
+                                        else:
+                                            logger.warning(f"No exchange rate available for {currency}, using 1:1")
+                                            exchange_rate = 1.0
+                                        live_price = live_price * exchange_rate
+                                        logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.4f} {currency} = £{live_price:.4f}")
+                                        currency = 'GBP'  # Mark as converted to avoid double conversion
+                                    elif currency == 'GBp':
+                                        live_price = live_price / 100
+                                        logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.2f}p = £{live_price:.4f}")
+                                        currency = 'GBP'  # Mark as converted to avoid double conversion
+                                    else:
+                                        logger.info(f"Using live price from ticker.info for {ticker}: £{live_price:.4f}")
+                                    # Create single-row DataFrame with today's price
+                                    df = pd.DataFrame({'Close': [live_price]}, index=[end_date])
+                                else:
+                                    logger.warning(f"No live price available for {ticker} in ticker.info")
+                                    self.price_cache[ticker] = pd.DataFrame()
+                                    continue
+                            else:
+                                close_prices = data['Close'].squeeze()
+                                volume = data['Volume'].squeeze()
+                                df = pd.DataFrame({'Close': close_prices})
+                        else:
+                            # Multi-ticker case
+                            if ticker in data['Close'].columns:
+                                close_prices = data['Close'][ticker].squeeze()
+                                volume = data['Volume'][ticker].squeeze()
+                                df = pd.DataFrame({'Close': close_prices})
+                            else:
+                                # No historical data - try to use live price from ticker.info
+                                logger.warning(f"No historical data from yf.download() for {ticker}, trying ticker.info")
+                                live_price = ticker_info[ticker].get('regularMarketPrice')
+                                if live_price:
+                                    # Convert to GBP if needed
+                                    if currency not in ['GBP', 'GBp']:
+                                        if use_live_rates:
+                                            exchange_rate = self.get_current_exchange_rate(currency, 'GBP')
+                                        elif currency in exchange_rates:
+                                            # Use most recent exchange rate from historical data
+                                            exchange_rate = float(exchange_rates[currency].iloc[-1])
+                                        else:
+                                            logger.warning(f"No exchange rate available for {currency}, using 1:1")
+                                            exchange_rate = 1.0
+                                        live_price = live_price * exchange_rate
+                                        logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.4f} {currency} = £{live_price:.4f}")
+                                        currency = 'GBP'  # Mark as converted to avoid double conversion
+                                    elif currency == 'GBp':
+                                        live_price = live_price / 100
+                                        logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.2f}p = £{live_price:.4f}")
+                                        currency = 'GBP'  # Mark as converted to avoid double conversion
+                                    else:
+                                        logger.info(f"Using live price from ticker.info for {ticker}: £{live_price:.4f}")
+                                    # Create single-row DataFrame with today's price
+                                    df = pd.DataFrame({'Close': [live_price]}, index=[end_date])
+                                else:
+                                    logger.warning(f"No live price available for {ticker} in ticker.info")
+                                    self.price_cache[ticker] = pd.DataFrame()
+                                    continue
+
+                        # Filter out outliers: single-day spikes that are implausible
+                        # Yahoo Finance sometimes returns bad data with huge spikes (e.g., VWRL.L Oct 6)
+                        # Strategy: Remove any row where price differs >20% from both previous AND next day
+                        # (requires price to be surrounded by "normal" values to be suspicious)
+                        initial_rows = len(df)
+                        filtered_indices = []
+
+                        logger.info(f"Spike filter: Checking {ticker} ({initial_rows} rows from {df.index[0].date() if len(df) > 0 else 'N/A'} to {df.index[-1].date() if len(df) > 0 else 'N/A'})")
+
+                        # Build a list of valid (non-NaN) price indices
+                        valid_indices = [i for i in range(len(df)) if pd.notna(df.iloc[i]['Close'])]
+
+                        # Check each valid price point against its neighbors
+                        for valid_idx in range(1, len(valid_indices) - 1):
+                            i = valid_indices[valid_idx]  # Current row index
+                            prev_i = valid_indices[valid_idx - 1]  # Previous valid row
+                            next_i = valid_indices[valid_idx + 1]  # Next valid row
+
+                            prev_price = df.iloc[prev_i]['Close']
+                            curr_price = df.iloc[i]['Close']
+                            next_price = df.iloc[next_i]['Close']
+
+                            # All three should be valid (we filtered for non-NaN), but double-check
+                            if prev_price > 0 and curr_price > 0 and next_price > 0:
+                                # Check if this is a V-shaped spike (reversal, not trend)
+                                # Pattern: price goes up then down, or down then up
+                                # AND the magnitude is >20% in both directions
+
+                                prev_diff = abs(curr_price - prev_price) / prev_price
+                                next_diff = abs(curr_price - next_price) / next_price
+
+                                # Check if it's a reversal (price movement changes direction)
+                                went_up = curr_price > prev_price
+                                goes_down = next_price < curr_price
+                                went_down = curr_price < prev_price
+                                goes_up = next_price > curr_price
+
+                                is_reversal = (went_up and goes_down) or (went_down and goes_up)
+
+                                if is_reversal and prev_diff > 0.20 and next_diff > 0.20:
+                                    # This is a V-shaped spike - probably bad data
+                                    filtered_indices.append(i)
+                                    direction = "up-then-down" if went_up else "down-then-up"
+                                    logger.info(f"Filtering suspicious {direction} spike for {ticker} at {df.index[i].date()}: "
+                                              f"prev={prev_price:.2f}, curr={curr_price:.2f}, next={next_price:.2f}")
+
+                        # Remove filtered indices
+                        if filtered_indices:
+                            df = df.drop(df.index[filtered_indices])
+                            logger.info(f"Filtered out {len(filtered_indices)} suspicious price spikes for {ticker} (kept {len(df)}/{initial_rows} rows)")
+
+                        # Handle UK stock price transitions for both GBP and GBp
+                        # This handles all permutations: YF might say GBP but have pence data,
+                        # or say GBp but have pounds data, or transition mid-stream
+                        if currency in ['GBP', 'GBp']:
+                            df = self._handle_uk_stock_transitions(ticker, df, currency)
+
+                        # Convert to GBP if needed
+                        if currency not in ['GBP', 'GBp']:
+                            if currency in exchange_rates:
+                                # Convert prices to GBP using exchange rates
+                                gbp_prices = self._convert_prices_to_gbp(df['Close'], exchange_rates[currency], df.index)
+                                df['Close'] = gbp_prices
+                                logger.debug(f"Converted {ticker} prices from {currency} to GBP")
+                            else:
+                                logger.warning(f"No exchange rate available for {currency}, using 1:1 conversion")
+
+                        # Check if we have any valid (non-NaN) price data
+                        # If not, fall back to ticker.info
+                        if df.empty or df['Close'].isna().all():
+                            logger.warning(f"All price data is NaN for {ticker}, falling back to ticker.info")
                             live_price = ticker_info[ticker].get('regularMarketPrice')
                             if live_price:
                                 # Convert to GBP if needed
@@ -263,153 +406,25 @@ class MarketDataFetcher:
                                     currency = 'GBP'  # Mark as converted to avoid double conversion
                                 else:
                                     logger.info(f"Using live price from ticker.info for {ticker}: £{live_price:.4f}")
-                                # Create single-row DataFrame with today's price
                                 df = pd.DataFrame({'Close': [live_price]}, index=[end_date])
                             else:
                                 logger.warning(f"No live price available for {ticker} in ticker.info")
-                                self.price_cache[ticker] = pd.DataFrame()
-                                continue
-                        else:
-                            close_prices = data['Close'].squeeze()
-                            volume = data['Volume'].squeeze()
-                            df = pd.DataFrame({'Close': close_prices})
-                    else:
-                        # Multi-ticker case
-                        if ticker in data['Close'].columns:
-                            close_prices = data['Close'][ticker].squeeze()
-                            volume = data['Volume'][ticker].squeeze()
-                            df = pd.DataFrame({'Close': close_prices})
-                        else:
-                            # No historical data - try to use live price from ticker.info
-                            logger.warning(f"No historical data from yf.download() for {ticker}, trying ticker.info")
-                            live_price = ticker_info[ticker].get('regularMarketPrice')
-                            if live_price:
-                                # Convert to GBP if needed
-                                if currency not in ['GBP', 'GBp']:
-                                    if use_live_rates:
-                                        exchange_rate = self.get_current_exchange_rate(currency, 'GBP')
-                                    elif currency in exchange_rates:
-                                        # Use most recent exchange rate from historical data
-                                        exchange_rate = float(exchange_rates[currency].iloc[-1])
-                                    else:
-                                        logger.warning(f"No exchange rate available for {currency}, using 1:1")
-                                        exchange_rate = 1.0
-                                    live_price = live_price * exchange_rate
-                                    logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.4f} {currency} = £{live_price:.4f}")
-                                    currency = 'GBP'  # Mark as converted to avoid double conversion
-                                elif currency == 'GBp':
-                                    live_price = live_price / 100
-                                    logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.2f}p = £{live_price:.4f}")
-                                    currency = 'GBP'  # Mark as converted to avoid double conversion
-                                else:
-                                    logger.info(f"Using live price from ticker.info for {ticker}: £{live_price:.4f}")
-                                # Create single-row DataFrame with today's price
-                                df = pd.DataFrame({'Close': [live_price]}, index=[end_date])
-                            else:
-                                logger.warning(f"No live price available for {ticker} in ticker.info")
-                                self.price_cache[ticker] = pd.DataFrame()
-                                continue
+                                df = pd.DataFrame()  # Empty DataFrame
 
-                    # Filter out outliers: single-day spikes that are implausible
-                    # Yahoo Finance sometimes returns bad data with huge spikes (e.g., VWRL.L Oct 6)
-                    # Strategy: Remove any row where price differs >20% from both previous AND next day
-                    # (requires price to be surrounded by "normal" values to be suspicious)
-                    initial_rows = len(df)
-                    filtered_indices = []
-
-                    logger.info(f"Spike filter: Checking {ticker} ({initial_rows} rows from {df.index[0].date() if len(df) > 0 else 'N/A'} to {df.index[-1].date() if len(df) > 0 else 'N/A'})")
-
-                    # Build a list of valid (non-NaN) price indices
-                    valid_indices = [i for i in range(len(df)) if pd.notna(df.iloc[i]['Close'])]
-
-                    # Check each valid price point against its neighbors
-                    for valid_idx in range(1, len(valid_indices) - 1):
-                        i = valid_indices[valid_idx]  # Current row index
-                        prev_i = valid_indices[valid_idx - 1]  # Previous valid row
-                        next_i = valid_indices[valid_idx + 1]  # Next valid row
-
-                        prev_price = df.iloc[prev_i]['Close']
-                        curr_price = df.iloc[i]['Close']
-                        next_price = df.iloc[next_i]['Close']
-
-                        # All three should be valid (we filtered for non-NaN), but double-check
-                        if prev_price > 0 and curr_price > 0 and next_price > 0:
-                            # Check if this is a V-shaped spike (reversal, not trend)
-                            # Pattern: price goes up then down, or down then up
-                            # AND the magnitude is >20% in both directions
-
-                            prev_diff = abs(curr_price - prev_price) / prev_price
-                            next_diff = abs(curr_price - next_price) / next_price
-
-                            # Check if it's a reversal (price movement changes direction)
-                            went_up = curr_price > prev_price
-                            goes_down = next_price < curr_price
-                            went_down = curr_price < prev_price
-                            goes_up = next_price > curr_price
-
-                            is_reversal = (went_up and goes_down) or (went_down and goes_up)
-
-                            if is_reversal and prev_diff > 0.20 and next_diff > 0.20:
-                                # This is a V-shaped spike - probably bad data
-                                filtered_indices.append(i)
-                                direction = "up-then-down" if went_up else "down-then-up"
-                                logger.info(f"Filtering suspicious {direction} spike for {ticker} at {df.index[i].date()}: "
-                                          f"prev={prev_price:.2f}, curr={curr_price:.2f}, next={next_price:.2f}")
-
-                    # Remove filtered indices
-                    if filtered_indices:
-                        df = df.drop(df.index[filtered_indices])
-                        logger.info(f"Filtered out {len(filtered_indices)} suspicious price spikes for {ticker} (kept {len(df)}/{initial_rows} rows)")
-
-                    # Handle UK stock price transitions for both GBP and GBp
-                    # This handles all permutations: YF might say GBP but have pence data,
-                    # or say GBp but have pounds data, or transition mid-stream
-                    if currency in ['GBP', 'GBp']:
-                        df = self._handle_uk_stock_transitions(ticker, df, currency)
-
-                    # Convert to GBP if needed
-                    if currency not in ['GBP', 'GBp']:
-                        if currency in exchange_rates:
-                            # Convert prices to GBP using exchange rates
-                            gbp_prices = self._convert_prices_to_gbp(df['Close'], exchange_rates[currency], df.index)
-                            df['Close'] = gbp_prices
-                            logger.debug(f"Converted {ticker} prices from {currency} to GBP")
-                        else:
-                            logger.warning(f"No exchange rate available for {currency}, using 1:1 conversion")
-
-                    # Check if we have any valid (non-NaN) price data
-                    # If not, fall back to ticker.info
-                    if df.empty or df['Close'].isna().all():
-                        logger.warning(f"All price data is NaN for {ticker}, falling back to ticker.info")
-                        live_price = ticker_info[ticker].get('regularMarketPrice')
-                        if live_price:
-                            # Convert to GBP if needed
-                            if currency not in ['GBP', 'GBp']:
-                                if use_live_rates:
-                                    exchange_rate = self.get_current_exchange_rate(currency, 'GBP')
-                                elif currency in exchange_rates:
-                                    # Use most recent exchange rate from historical data
-                                    exchange_rate = float(exchange_rates[currency].iloc[-1])
-                                else:
-                                    logger.warning(f"No exchange rate available for {currency}, using 1:1")
-                                    exchange_rate = 1.0
-                                live_price = live_price * exchange_rate
-                                logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.4f} {currency} = £{live_price:.4f}")
-                                currency = 'GBP'  # Mark as converted to avoid double conversion
-                            elif currency == 'GBp':
-                                live_price = live_price / 100
-                                logger.info(f"Using live price from ticker.info for {ticker}: {ticker_info[ticker].get('regularMarketPrice'):.2f}p = £{live_price:.4f}")
-                                currency = 'GBP'  # Mark as converted to avoid double conversion
-                            else:
-                                logger.info(f"Using live price from ticker.info for {ticker}: £{live_price:.4f}")
-                            df = pd.DataFrame({'Close': [live_price]}, index=[end_date])
-                        else:
-                            logger.warning(f"No live price available for {ticker} in ticker.info")
-                            df = pd.DataFrame()  # Empty DataFrame
-
-                    # Store in cache
-                    self.price_cache[ticker] = df
-                    logger.debug(f"Cached price data for {ticker}: {len(df)} points")
+                        # Store in cache
+                        self.price_cache[ticker] = df
+                        logger.debug(f"Cached price data for {ticker}: {len(df)} points")
+                    except RuntimeError:
+                        # Ticker-info failures are fatal for the whole batch
+                        raise
+                    except Exception as e:
+                        # Contain the failure to this ticker.  The batch-level handler below
+                        # blanks every ticker, so without this one bad holding — a delisted
+                        # position taking the ticker.info fallback, say — costs the whole
+                        # review its prices (investment-reviews#28).
+                        logger.error(f"Error processing {ticker}, no price data will be available for it: {str(e)}")
+                        logger.exception("Full traceback:")
+                        self.price_cache[ticker] = pd.DataFrame()
 
             except RuntimeError as e:
                 # Re-raise RuntimeError from ticker info failures - these are fatal
@@ -506,9 +521,7 @@ class MarketDataFetcher:
         # Create a mapping from normalized date to exchange rate
         rate_by_date = {}
         for i, norm_date in enumerate(rate_dates_normalized):
-            rate_value = exchange_rates.iloc[i]
-            rate = float(rate_value.iloc[0] if isinstance(rate_value, pd.Series) else rate_value)
-            rate_by_date[norm_date] = rate
+            rate_by_date[norm_date] = float(exchange_rates.iloc[i])
 
         # Debug: Show last 3 rates in the mapping
         if rate_by_date:
