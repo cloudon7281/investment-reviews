@@ -246,17 +246,10 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             tag_transactions[tag_key].extend(mwrr_transactions)
 
         # Get highs and volatility data
-        recent_high = None
-        volatility = None
-        current_price_pct_of_high = None
-        if current_ticker in highs_and_vol:
-            recent_high = highs_and_vol[current_ticker]['recent_high']
-            volatility = highs_and_vol[current_ticker]['annualized_volatility']
-
-            # Calculate current price as percentage of recent high
-            if recent_high and recent_high > 0 and data['units_held'] > 0:
-                current_price = current_value / data['units_held']
-                current_price_pct_of_high = current_price / recent_high
+        stock_highs = highs_and_vol.get(current_ticker)
+        price_for_highs = current_value / data['units_held'] if data['units_held'] > 0 else None
+        vs_highs = financial_metrics.price_vs_highs(price_for_highs, stock_highs)
+        volatility = stock_highs['annualized_volatility'] if stock_highs else None
 
         # Calculate current price per share (for display)
         current_price_per_share = None
@@ -310,9 +303,13 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
             'first_transaction_date': data['first_transaction_date'],
             'final_transaction_date': data['final_transaction_date'],
             'num_transactions': data['num_transactions'],
-            'recent_high': recent_high,
+            'recent_high': vs_highs['recent_high'],
+            'smoothed_high': vs_highs['smoothed_high'],
+            'percentile_high': vs_highs['percentile_high'],
             'volatility': volatility,
-            'current_price_pct_of_high': current_price_pct_of_high,
+            'current_price_pct_of_high': vs_highs['current_price_pct_of_high'],
+            'current_price_pct_of_smoothed_high': vs_highs['current_price_pct_of_smoothed_high'],
+            'current_price_pct_of_percentile_high': vs_highs['current_price_pct_of_percentile_high'],
             'daily_change': daily_change,
             'progress_to_doubling': progress_to_doubling,
             'doubling_count': doubling_count

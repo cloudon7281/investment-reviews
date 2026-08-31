@@ -290,7 +290,8 @@ def compare_table_with_classification(current_table, reference_table, table_name
     # Dynamic: Should be present/absent consistently and within tolerance if present
     # These vary with market prices but should be validated
     dynamic_columns = ['Current Value', 'P&L', 'Unrealized Profit', 'Simple ROI', 'MWRR',
-                       'Current price', '90d High', '% of High', 'Volatility']
+                       'Current price', '90d High', '% of High', '10d Smoothed High',
+                       '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility']
 
     # Validate column schema
     if len(current_table) > 0 and len(reference_table) > 0:
