@@ -87,6 +87,16 @@ SPECIAL_EXCHANGE_SUFFIX_MAP = {
     'CLS': '.TO',   # CLS is CLS.TO in Toronto
     'SSLV': '.L',   # SSLV is SSLV.L in London
     'ARMR': '.L',   # ARMR is ARMR.L in London
+    # Irish- and Guernsey-domiciled funds listed in London.  EXCHANGE_SUFFIX_MAP is keyed
+    # on the ISIN's country of domicile, which for these says nothing about where they
+    # trade, so without an entry here they reach Yahoo as bare tickers and cannot be
+    # priced at all (investment-reviews#39).  Retiring this map in favour of the venue the
+    # note already states is investment-reviews#40.
+    'BTEK': '.L',   # BTEK is BTEK.L in London (IE00BYXG2H39)
+    'DFND': '.L',   # DFND is DFND.L in London
+    'FEML': '.L',   # FEML is FEML.L in London (GG00B4L0PD47)
+    'IWFV': '.L',   # IWFV is IWFV.L in London
+    'LTAM': '.L',   # LTAM is LTAM.L in London
 }
 
 STOCK_RENAME_MAP = {
