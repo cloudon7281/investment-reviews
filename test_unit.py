@@ -2310,6 +2310,118 @@ class TestPeriodicReviewPriceFetchWindow(unittest.TestCase):
             self.assertLessEqual(fetched_start, eval_date - timedelta(days=90))
 
 
+class TestExchangeRateSeriesShape(unittest.TestCase):
+    """Historical exchange rates must be stored as Series (investment-reviews#28)."""
+
+    DATES = pd.date_range('2025-06-01', periods=5, freq='D')
+
+    def _multi_level(self, ticker, closes):
+        """Build a frame shaped the way yfinance returns one — columns keyed by ticker."""
+        return pd.DataFrame(
+            {('Close', ticker): closes, ('Volume', ticker): [1000] * len(closes)},
+            index=self.DATES
+        )
+
+    def _batch_frame(self, closes_by_ticker):
+        """Build the multi-ticker frame yf.download returns for a batch."""
+        columns = {}
+        for ticker, closes in closes_by_ticker.items():
+            columns[('Close', ticker)] = closes
+            columns[('Volume', ticker)] = [1000] * len(closes)
+        return pd.DataFrame(columns, index=self.DATES)
+
+    def _ticker_info(self, tickers, price=100.0):
+        return {t: {'currency': 'USD', 'exchange': 'NYSE', 'regularMarketPrice': price}
+                for t in tickers}
+
+    def test_close_series_squeezes_a_ticker_keyed_frame(self):
+        """data['Close'] is a one-column DataFrame; it must come back as a Series."""
+        frame = self._multi_level('USDGBP=X', [0.75] * 5)
+        self.assertIsInstance(frame['Close'], pd.DataFrame)  # the shape that caused #28
+
+        closes = MarketDataFetcher._close_series(frame)
+        self.assertIsInstance(closes, pd.Series)
+        self.assertIsInstance(float(closes.iloc[-1]), float)
+
+    def test_close_series_passes_a_plain_series_through(self):
+        """A single-level frame already gives a Series and must be left alone."""
+        frame = pd.DataFrame({'Close': [0.75] * 5}, index=self.DATES)
+        self.assertIsInstance(MarketDataFetcher._close_series(frame), pd.Series)
+
+    def test_delisted_holding_does_not_empty_the_batch(self):
+        """#28: a delisted ticker taking the ticker.info fallback cost the whole batch.
+
+        Needs historical rates (use_live_rates=False, the periodic-review path), a ticker
+        whose prices are all NaN, and a currency with a working direct pair — then the
+        rate lookup raised and the batch-level handler blanked every ticker.
+        """
+        mdf = MarketDataFetcher()
+        batch = self._batch_frame({'DEAD': [float('nan')] * 5, 'LIVE': [100.0] * 5})
+        rates = self._multi_level('USDGBP=X', [0.75] * 5)
+
+        def download(symbols, **kwargs):
+            return rates if symbols == 'USDGBP=X' else batch
+
+        with patch('yfinance.download', side_effect=download):
+            result = mdf.batch_get_stock_prices(
+                ['DEAD', 'LIVE'], datetime(2025, 6, 1), datetime(2025, 6, 5),
+                use_live_rates=False,
+                ticker_info_func=lambda tickers: self._ticker_info(tickers)
+            )
+
+        # The healthy holding keeps its prices, converted at 0.75
+        self.assertFalse(result['LIVE'].empty, "a delisted holding emptied the whole batch")
+        self.assertAlmostEqual(result['LIVE']['Close'].iloc[-1], 75.0, places=4)
+
+        # The delisted one falls back to its ticker.info price, converted at the same rate
+        self.assertFalse(result['DEAD'].empty)
+        self.assertAlmostEqual(result['DEAD']['Close'].iloc[-1], 75.0, places=4)
+
+    def test_one_ticker_failing_does_not_cost_the_others(self):
+        """A per-ticker failure blanks that ticker only, not the whole batch."""
+        mdf = MarketDataFetcher()
+        # BAD is given a sentinel price so the injected failure can pick it out; the
+        # conversion call itself carries no ticker.
+        batch = self._batch_frame({'BAD': [999.0] * 5, 'GOOD': [100.0] * 5})
+        rates = self._multi_level('USDGBP=X', [0.75] * 5)
+
+        def download(symbols, **kwargs):
+            return rates if symbols == 'USDGBP=X' else batch
+
+        real_convert = MarketDataFetcher._convert_prices_to_gbp
+
+        def convert(self, prices, exchange_rates, price_dates):
+            if len(prices) and prices.iloc[0] == 999.0:
+                raise ValueError("simulated per-ticker failure")
+            return real_convert(self, prices, exchange_rates, price_dates)
+
+        with patch('yfinance.download', side_effect=download), \
+             patch.object(MarketDataFetcher, '_convert_prices_to_gbp', convert):
+            result = mdf.batch_get_stock_prices(
+                ['BAD', 'GOOD'], datetime(2025, 6, 1), datetime(2025, 6, 5),
+                use_live_rates=False,
+                ticker_info_func=lambda tickers: self._ticker_info(tickers)
+            )
+
+        self.assertTrue(result['BAD'].empty)
+        self.assertFalse(result['GOOD'].empty, "one ticker's failure blanked the others")
+        self.assertAlmostEqual(result['GOOD']['Close'].iloc[-1], 75.0, places=4)
+
+    def test_ticker_info_failure_is_still_fatal(self):
+        """Containing per-ticker errors must not swallow the fatal ticker-info RuntimeError."""
+        mdf = MarketDataFetcher()
+
+        def fatal(tickers):
+            raise RuntimeError("Failed to get ticker information: Invalid ISIN")
+
+        with patch('yfinance.download', return_value=pd.DataFrame()):
+            with self.assertRaises(RuntimeError):
+                mdf.batch_get_stock_prices(
+                    ['TEST'], datetime(2025, 6, 1), datetime(2025, 6, 5),
+                    ticker_info_func=fatal
+                )
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()
