@@ -2196,6 +2196,120 @@ class TestAlertFailureIsNonFatal(unittest.TestCase):
         self.assertTrue(updater.alert_delivery_ok)
 
 
+import financial_metrics
+import periodic_review_processor
+from datetime import timedelta
+
+
+class TestRecentHighs(unittest.TestCase):
+    """Recent-high window and the smoothed / percentile highs (investment-reviews#26)."""
+
+    ANCHOR = datetime(2026, 8, 31)
+
+    def _series(self, closes, end=None, offset_days=0):
+        """Build one ticker's price frame, one row per calendar day ending at the anchor.
+
+        Args:
+            closes: Closing prices, oldest first
+            end: Date of the last row (defaults to the anchor)
+            offset_days: Days to shift the whole series back from that end date
+        """
+        end = (end or self.ANCHOR) - timedelta(days=offset_days)
+        index = pd.date_range(end=end, periods=len(closes), freq='D')
+        return {'TEST': pd.DataFrame({'Close': closes}, index=index)}
+
+    def test_window_is_ninety_calendar_days_not_ninety_rows(self):
+        """A spike 100 days back is outside the window even though the data reaches it.
+
+        The fetched series carries a buffer before the requested start, so counting rows
+        made full-history mode read further back than 90 days and report a higher high.
+        """
+        closes = [100.0] * 120
+        closes[19] = 500.0  # 100 days before the anchor
+        result = financial_metrics.calculate_highs_and_volatility(self._series(closes))
+        self.assertAlmostEqual(result['TEST']['recent_high'], 100.0)
+
+    def test_window_ends_at_eval_date_when_given(self):
+        """With an eval date, prices after it are excluded from the window."""
+        closes = [100.0] * 100 + [900.0] * 20
+        result = financial_metrics.calculate_highs_and_volatility(
+            self._series(closes), eval_date=self.ANCHOR - timedelta(days=20)
+        )
+        self.assertAlmostEqual(result['TEST']['recent_high'], 100.0)
+
+    def test_single_day_spike_moves_high_but_not_smoothed_or_percentile(self):
+        """The whole point: one spike day sets the raw high and barely moves the others."""
+        closes = [100.0] * 90
+        closes[45] = 200.0
+        result = financial_metrics.calculate_highs_and_volatility(self._series(closes))['TEST']
+        self.assertAlmostEqual(result['recent_high'], 200.0)
+        self.assertAlmostEqual(result['smoothed_high'], 110.0)  # one 200 in a 10-day mean
+        self.assertAlmostEqual(result['percentile_high'], 100.0)
+
+    def test_smoothed_high_is_the_best_ten_day_average(self):
+        """A sustained ten-day rise is captured in full by the smoothed high."""
+        closes = [100.0] * 80 + [200.0] * 10
+        result = financial_metrics.calculate_highs_and_volatility(self._series(closes))['TEST']
+        self.assertAlmostEqual(result['smoothed_high'], 200.0)
+
+    def test_percentile_high_is_the_ninetieth_percentile_of_closes(self):
+        """The percentile high ignores the top tenth of days."""
+        closes = [float(price) for price in range(1, 91)]
+        result = financial_metrics.calculate_highs_and_volatility(self._series(closes))['TEST']
+        self.assertAlmostEqual(result['recent_high'], 90.0)
+        self.assertAlmostEqual(result['percentile_high'], 81.1, places=6)
+
+    def test_too_few_rows_for_a_ten_day_average_yields_none(self):
+        """Fewer than ten observations must give None, not NaN rendered as a price."""
+        result = financial_metrics.calculate_highs_and_volatility(self._series([100.0] * 5))['TEST']
+        self.assertAlmostEqual(result['recent_high'], 100.0)
+        self.assertIsNone(result['smoothed_high'])
+
+    def test_empty_frame_yields_all_none(self):
+        """A ticker with no price data returns every metric as None."""
+        price_data = {'TEST': pd.DataFrame({'Close': []}, index=pd.DatetimeIndex([]))}
+        result = financial_metrics.calculate_highs_and_volatility(price_data)['TEST']
+        self.assertEqual(set(result.values()), {None})
+
+    def test_price_vs_highs_divides_by_each_level(self):
+        """Each percentage is the current price over the corresponding high."""
+        result = financial_metrics.price_vs_highs(
+            90.0, {'recent_high': 120.0, 'smoothed_high': 100.0, 'percentile_high': 110.0}
+        )
+        self.assertAlmostEqual(result['current_price_pct_of_high'], 0.75)
+        self.assertAlmostEqual(result['current_price_pct_of_smoothed_high'], 0.90)
+        self.assertAlmostEqual(result['current_price_pct_of_percentile_high'], 90.0 / 110.0)
+
+    def test_price_vs_highs_tolerates_missing_inputs(self):
+        """A missing price or high gives None rather than raising or dividing by zero."""
+        self.assertIsNone(financial_metrics.price_vs_highs(None, {'recent_high': 120.0})['current_price_pct_of_high'])
+        self.assertIsNone(financial_metrics.price_vs_highs(90.0, None)['current_price_pct_of_high'])
+        self.assertIsNone(financial_metrics.price_vs_highs(90.0, {'recent_high': 0.0})['current_price_pct_of_high'])
+
+
+class TestPeriodicReviewPriceFetchWindow(unittest.TestCase):
+    """The periodic review must fetch enough history to fill the recent-high window."""
+
+    def test_short_review_period_still_fetches_ninety_days(self):
+        """A one-month review would otherwise compute the 90-day high over 30 days."""
+        start_date = datetime(2026, 8, 1)
+        eval_date = datetime(2026, 8, 31)
+        fetcher = Mock()
+        fetcher.batch_get_stock_prices.return_value = {}
+
+        review = Mock()
+        with patch.object(periodic_review_processor, 'classify_stocks_by_review_period',
+                          return_value={'new': [], 'retained': [], 'sold': [], 'increased': []}):
+            periodic_review_processor.process_periodic_review(
+                review, start_date, datetime(2026, 8, 31), eval_date, fetcher
+            )
+
+        fetched_starts = {call.args[1] for call in fetcher.batch_get_stock_prices.call_args_list}
+        self.assertTrue(fetched_starts, "no price fetch was made")
+        for fetched_start in fetched_starts:
+            self.assertLessEqual(fetched_start, eval_date - timedelta(days=90))
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()

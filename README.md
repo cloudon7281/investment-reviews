@@ -28,6 +28,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - ROI and Money-Weighted Rate of Return (MWRR) calculations
 - Progress towards the next doubling and count of completed profit-takings
 - Daily price change for held stocks
+- Recent highs and the current price against each of them (see below)
 - Optional value-over-time CSV for charts
 
 **Periodic Review Mode**
@@ -35,6 +36,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Stocks categorized as: new purchases (stocks bought within date range), retained holdings (stocks already owned before date range), sold positions (stocks completely sold during date range)
 - Performance metrics for each category
 - Tag-based grouping for thematic investing
+- Recent highs and the current price against each of them (see below)
 - Optional thesis candidate analysis: how the wider candidate universe for each investment thesis performed, and how the candidates actually held compare with it
 
 **Tax Report Mode**
@@ -53,6 +55,27 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Automated regression testing
 - Validates against reference outputs
 - Includes 33 unit tests + 4 integration tests
+
+### Recent Highs
+
+Full history and periodic review report three recent highs per stock, each measured over
+the same window: the 90 calendar days ending at the evaluation date.
+
+| Column | Meaning |
+|--------|---------|
+| `90d High` | Highest close in the window |
+| `10d Smoothed High` | Highest 10-trading-day rolling average close in the window |
+| `P90 High` | 90th percentile of the closes in the window |
+
+Each is followed by the current price as a percentage of it (`% of High`,
+`% of Smoothed High`, `% of P90 High`), colour-coded against the stop-loss thresholds.
+
+`90d High` is set by a single day's close, so one brief spike can drag the stop-loss
+percentage down and trigger a divestment review that the underlying trend does not
+justify. The smoothed and percentile highs discount short spikes — a spike has to persist
+for ten trading days to move the smoothed high in full, and has to occupy more than a tenth
+of the window's days to move the percentile high at all — so they show what the stock has
+actually sustained.
 
 ### Broker Support
 

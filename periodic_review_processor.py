@@ -5,7 +5,7 @@ performance between two time periods by classifying stocks as new, retained,
 or sold based on their transaction history.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from logger import logger
@@ -138,14 +138,10 @@ def calculate_thesis_candidate_performance(theses: List[Dict], price_data: Dict,
 
             is_held = ticker.upper() in held_tickers
 
-            recent_high = None
-            volatility = None
-            current_price_pct_of_high = None
-            if ticker in highs_and_vol:
-                recent_high = highs_and_vol[ticker]['recent_high']
-                volatility = highs_and_vol[ticker]['annualized_volatility']
-                if recent_high and recent_high > 0:
-                    current_price_pct_of_high = eval_price / recent_high
+            candidate_highs = highs_and_vol.get(ticker)
+            vs_highs = financial_metrics.price_vs_highs(eval_price, candidate_highs)
+            volatility = candidate_highs['annualized_volatility'] if candidate_highs else None
+            recent_high = vs_highs['recent_high']
 
             results.append({
                 'thesis': thesis['name'],
@@ -160,7 +156,7 @@ def calculate_thesis_candidate_performance(theses: List[Dict], price_data: Dict,
                 'current_price': (eval_price, 'GBP'),
                 'recent_high': (recent_high, 'GBP') if recent_high is not None else None,
                 'volatility': volatility,
-                'current_price_pct_of_high': current_price_pct_of_high,
+                'current_price_pct_of_high': vs_highs['current_price_pct_of_high'],
             })
             logger.debug(f"Thesis candidate {ticker} ({thesis['name']}): roi={roi:.2%}, held={is_held}")
 
@@ -253,6 +249,17 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     # Load the thesis configuration up front so a bad file fails before any price fetching
     theses = thesis_config.load_thesis_config(thesis_candidates_path) if thesis_candidates_path else None
 
+    # Prices are fetched from whichever is earlier: the start of the review period, or the
+    # start of the recent-high window.  A monthly review would otherwise fetch barely two
+    # months of prices, and the 90-day high would silently be a 50-day high
+    # (investment-reviews#26).  Every fetch below uses this start, because the price cache
+    # is keyed by ticker alone: a ticker first fetched over a short range would be served
+    # from cache to the next caller.
+    price_fetch_start = min(
+        start_date,
+        eval_date - timedelta(days=financial_metrics.RECENT_HIGH_WINDOW_DAYS)
+    )
+
     # Step 1: Classify stocks
     classification = classify_stocks_by_review_period(portfolio_review, start_date, end_date)
 
@@ -288,10 +295,10 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
             if current_ticker != ticker:
                 logger.info(f"Using current ticker {current_ticker} for {ticker} (post-conversion)")
 
-        logger.info(f"Fetching prices for all stocks from {start_date.strftime('%Y-%m-%d')} to {eval_date.strftime('%Y-%m-%d')}")
+        logger.info(f"Fetching prices for all stocks from {price_fetch_start.strftime('%Y-%m-%d')} to {eval_date.strftime('%Y-%m-%d')}")
 
         # Fetch all prices in a single batch call (using date range A to C)
-        current_ticker_price_data = market_data_fetcher.batch_get_stock_prices(all_tickers, start_date, eval_date)
+        current_ticker_price_data = market_data_fetcher.batch_get_stock_prices(all_tickers, price_fetch_start, eval_date)
         logger.info(f"Retrieved price data for {len(current_ticker_price_data)} stocks")
 
         # Map price data back to original tickers for lookup
@@ -360,7 +367,7 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
     benchmark_tickers = [ticker for _, ticker, _ in BENCHMARKS]
     logger.info(f"Fetching benchmark prices for {len(benchmark_tickers)} tickers")
     benchmark_price_data = market_data_fetcher.batch_get_stock_prices(
-        benchmark_tickers, start_date, eval_date
+        benchmark_tickers, price_fetch_start, eval_date
     )
     results['benchmarks'] = calculate_benchmark_performance(benchmark_price_data, start_date, eval_date)
 
@@ -373,7 +380,7 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         candidate_tickers = sorted({c['ticker'] for t in theses for c in t['candidates']})
         logger.info(f"Fetching thesis candidate prices for {len(candidate_tickers)} tickers")
         candidate_price_data = market_data_fetcher.batch_get_stock_prices(
-            candidate_tickers, start_date, eval_date
+            candidate_tickers, price_fetch_start, eval_date
         )
         candidate_highs_and_vol = financial_metrics.calculate_highs_and_volatility(
             candidate_price_data, eval_date
@@ -632,17 +639,10 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
             # Use the holdings returned from the value calculation (consistent with current_value)
             units_held = current_holdings
 
-            # Get highs and volatility data
-            recent_high = None
-            volatility = None
-            current_price_pct_of_high = None
-            if highs_and_vol and ticker in highs_and_vol:
-                recent_high = highs_and_vol[ticker]['recent_high']
-                volatility = highs_and_vol[ticker]['annualized_volatility']
-
-                # Calculate current price as percentage of recent high (both in GBP)
-                if recent_high and recent_high > 0 and current_price is not None:
-                    current_price_pct_of_high = current_price / recent_high
+            # Get highs and volatility data (all prices in GBP)
+            stock_highs = highs_and_vol.get(ticker) if highs_and_vol else None
+            vs_highs = financial_metrics.price_vs_highs(current_price, stock_highs)
+            volatility = stock_highs['annualized_volatility'] if stock_highs else None
 
             # Compute lifetime doubling metrics for holding categories
             if category in ('new', 'retained', 'increased'):
@@ -673,9 +673,13 @@ def calculate_periodic_performance(ticker_category_pairs: List, portfolio_review
                 'simple_roi': simple_roi,
                 'period_days': period_days,
                 'current_price': (current_price, 'GBP'),
-                'recent_high': (recent_high, 'GBP'),
+                'recent_high': (vs_highs['recent_high'], 'GBP'),
+                'smoothed_high': (vs_highs['smoothed_high'], 'GBP'),
+                'percentile_high': (vs_highs['percentile_high'], 'GBP'),
                 'volatility': volatility,
-                'current_price_pct_of_high': current_price_pct_of_high,
+                'current_price_pct_of_high': vs_highs['current_price_pct_of_high'],
+                'current_price_pct_of_smoothed_high': vs_highs['current_price_pct_of_smoothed_high'],
+                'current_price_pct_of_percentile_high': vs_highs['current_price_pct_of_percentile_high'],
                 'progress_to_doubling': progress_to_doubling,
                 'doubling_count': doubling_count,
             }
