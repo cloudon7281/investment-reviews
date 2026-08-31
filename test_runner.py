@@ -30,6 +30,59 @@ def parse_tax_year(tax_year_str):
     
     return tax_year_start, tax_year_end
 
+def strip_log_lines(output):
+    """Remove log records from captured output, leaving only the report itself.
+
+    The run_* helpers capture stdout and stderr together, so log records land in the
+    middle of the report.  Comparing them as report content made two tests fail every
+    time the code gained a warning (investment-reviews#29).
+    """
+    return '\n'.join(
+        line for line in output.split('\n')
+        if not any(level in line for level in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+    ).strip()
+
+
+def check_review_run(output, mode_name, required_tables):
+    """Check a price-dependent review by its invariants, not against a stored snapshot.
+
+    Reference outputs cannot work for these modes: their values come from live market
+    prices on the day the reference was captured, so the comparison goes stale and
+    fails spuriously, or is loosened until it cannot fail (investment-reviews#29).
+
+    Two things are asserted instead.  The run must report no invariant violation — the
+    review itself checks those, see review_invariants.py — and every table it should
+    have produced must be present with at least one row.  The second half matters as
+    much as the first: without it a run that collapsed and printed nothing would report
+    no violations and pass, which is how the periodic test came to pass vacuously.
+
+    Args:
+        output: Combined stdout and stderr from the CLI run
+        mode_name: Mode name, for logging
+        required_tables: Table titles that must be present and non-empty
+
+    Returns:
+        True if the run is sound
+    """
+    passed = True
+
+    violations = [line for line in output.split('\n') if 'INVARIANT VIOLATION' in line]
+    for violation in violations:
+        logger.error(f"{mode_name}: {violation.strip()}")
+    if violations:
+        passed = False
+
+    for table in required_tables:
+        rows = extract_table_data(output, table_name=table)
+        if not rows:
+            logger.error(f"{mode_name}: table '{table}' is missing or empty")
+            passed = False
+        else:
+            logger.info(f"{mode_name}: '{table}' produced {len(rows)} row(s)")
+
+    return passed
+
+
 def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='anonymised_test_data'):
     """Run automated tests against test data.
 
@@ -69,9 +122,9 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
     # Test 1: Periodic Review Mode
     logger.info("Running periodic review test...")
     periodic_output = run_periodic_review_test(portfolio_review, portfolio_analysis, reporter, start_date, end_date, eval_date, test_data_dir)
-    periodic_reference = load_reference_output(os.path.join(reference_dir, "periodic_review_reference.txt"))
-
-    periodic_passed = compare_periodic_outputs(periodic_output, periodic_reference)
+    periodic_passed = check_review_run(periodic_output, "Periodic review",
+                                       ['Periodic Review Summary', 'New Stocks',
+                                        'Retained Stocks', 'Sold Stocks'])
     result = "PASSED" if periodic_passed else "FAILED"
     print(f"Periodic review test: {result}")
     logger.info(f"Periodic review test: {result}")
@@ -79,9 +132,8 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
     # Test 2: Full History Mode
     logger.info("Running full history test...")
     full_history_output = run_full_history_test(portfolio_review, portfolio_analysis, reporter, test_data_dir)
-    full_history_reference = load_reference_output(os.path.join(reference_dir, "full_history_reference.txt"))
-
-    full_history_passed = compare_full_history_outputs(full_history_output, full_history_reference)
+    full_history_passed = check_review_run(full_history_output, "Full history",
+                                           ['Portfolio Summary', 'Full Investment History'])
     result = "PASSED" if full_history_passed else "FAILED"
     print(f"Full history test: {result}")
     logger.info(f"Full history test: {result}")
@@ -101,19 +153,11 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
     logger.info("Running annual review test...")
     annual_start_date = datetime(2024, 1, 1)
     annual_review_output = run_annual_review_test(portfolio_review, portfolio_analysis, reporter, annual_start_date, test_data_dir)
-    annual_review_reference_path = os.path.join(reference_dir, "annual_review_reference.txt")
-    annual_review_reference = load_reference_output(annual_review_reference_path)
-
-    # If reference file doesn't exist, skip comparison but report
-    if not annual_review_reference:
-        logger.warning(f"Annual review reference file not found: {annual_review_reference_path}")
-        print(f"Annual review test: SKIPPED (no reference file)")
-        annual_review_passed = True  # Don't fail if reference doesn't exist yet
-    else:
-        annual_review_passed = compare_annual_review_outputs(annual_review_output, annual_review_reference)
-        result = "PASSED" if annual_review_passed else "FAILED"
-        print(f"Annual review test: {result}")
-        logger.info(f"Annual review test: {result}")
+    annual_review_passed = check_review_run(annual_review_output, "Annual review",
+                                            ['Annual Review Summary', 'Annual Review Detail'])
+    result = "PASSED" if annual_review_passed else "FAILED"
+    print(f"Annual review test: {result}")
+    logger.info(f"Annual review test: {result}")
 
     # Test 5: List Trades Mode
     logger.info("Running list trades test...")
@@ -131,7 +175,7 @@ def run_tests(portfolio_review, portfolio_analysis, reporter, test_data_dir='ano
 
     print("\n" + "="*80)
     if unit_tests_passed and all_integration_passed:
-        print("✅ ALL TESTS PASSED! (33 unit tests + 5 integration tests)")
+        print("✅ ALL TESTS PASSED! (all unit tests + 5 integration tests)")
         logger.info("✅ All tests PASSED!")
         return True
     else:
@@ -230,161 +274,16 @@ def load_reference_output(filepath):
         logger.error(f"Reference file not found: {filepath}")
         return ""
 
-def compare_periodic_outputs(current_output, reference_output):
-    """Compare periodic review outputs exactly."""
-    # Extract just the table content for comparison
-    current_tables = extract_periodic_tables(current_output)
-    reference_tables = extract_periodic_tables(reference_output)
-    
-    if len(current_tables) != len(reference_tables):
-        logger.error(f"Different number of tables: current={len(current_tables)}, reference={len(reference_tables)}")
-        return False
-    
-    for i, (current_table, reference_table) in enumerate(zip(current_tables, reference_tables)):
-        if current_table != reference_table:
-            logger.error(f"Table {i} does not match")
-            logger.debug(f"Current table {i}: {current_table[:200]}...")
-            logger.debug(f"Reference table {i}: {reference_table[:200]}...")
-            return False
-    
-    return True
-
-def compare_full_history_outputs(current_output, reference_output):
-    """Compare full history outputs with static/dynamic column validation."""
-    # Extract both detail table and summary table
-    current_detail = extract_table_data(current_output, table_name='Full Investment History')
-    reference_detail = extract_table_data(reference_output, table_name='Full Investment History')
-
-    current_summary = extract_table_data(current_output, table_name='Portfolio Summary')
-    reference_summary = extract_table_data(reference_output, table_name='Portfolio Summary')
-
-    if not current_detail or not reference_detail:
-        logger.error("Could not extract detail table data from outputs")
-        return False
-
-    if not current_summary or not reference_summary:
-        logger.error("Could not extract summary table data from outputs")
-        return False
-
-    # Validate detail table
-    detail_passed = compare_table_with_classification(
-        current_detail, reference_detail, "Full Investment History"
-    )
-
-    # Validate summary table
-    summary_passed = compare_table_with_classification(
-        current_summary, reference_summary, "Portfolio Summary"
-    )
-
-    return detail_passed and summary_passed
-
-
-def compare_table_with_classification(current_table, reference_table, table_name):
-    """Compare tables with static/dynamic column classification."""
-
-    # Classify columns
-    # Static: Should match exactly (invariant across runs)
-    static_columns = ['Company', 'Ticker', 'Category', 'Tag', 'Total Invested', 'Total Received',
-                      'Units Held', 'First Transaction', 'Last Transaction']
-
-    # Dynamic: Should be present/absent consistently and within tolerance if present
-    # These vary with market prices but should be validated
-    dynamic_columns = ['Current Value', 'P&L', 'Unrealized Profit', 'Simple ROI', 'MWRR',
-                       'Current price', '90d High', '% of High', '10d Smoothed High',
-                       '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility']
-
-    # Validate column schema
-    if len(current_table) > 0 and len(reference_table) > 0:
-        current_columns = set(current_table[0].keys())
-        reference_columns = set(reference_table[0].keys())
-
-        if current_columns != reference_columns:
-            logger.error(f"{table_name}: Column mismatch between current and reference")
-            logger.error(f"Current columns: {sorted(current_columns)}")
-            logger.error(f"Reference columns: {sorted(reference_columns)}")
-            logger.error(f"Columns in current but not reference: {sorted(current_columns - reference_columns)}")
-            logger.error(f"Columns in reference but not current: {sorted(reference_columns - current_columns)}")
-            return False
-
-        logger.info(f"{table_name}: Column validation passed: {len(current_columns)} columns match")
-
-    # Sort by ticker (or tag for summary table) for consistent ordering
-    sort_key = 'Tag' if table_name == 'Portfolio Summary' else 'Ticker'
-    current_sorted = sorted(current_table, key=lambda x: x.get(sort_key, ''))
-    reference_sorted = sorted(reference_table, key=lambda x: x.get(sort_key, ''))
-
-    # Compare static columns (exact match)
-    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
-        for col in static_columns:
-            if col in current_row and col in reference_row:
-                if current_row[col] != reference_row[col]:
-                    logger.error(f"{table_name} Row {i}, Static Column {col}: Current='{current_row[col]}', Reference='{reference_row[col]}'")
-                    return False
-
-    # Compare dynamic columns (presence and tolerance)
-    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
-        for col in dynamic_columns:
-            if col not in current_row or col not in reference_row:
-                continue  # Column may not be in all tables
-
-            current_val = current_row[col]
-            reference_val = reference_row[col]
-
-            # Check presence consistency
-            current_is_empty = not current_val or current_val.strip() in ['', '-', 'N/A']
-            reference_is_empty = not reference_val or reference_val.strip() in ['', '-', 'N/A']
-
-            if current_is_empty != reference_is_empty:
-                logger.error(f"{table_name} Row {i}, Dynamic Column {col}: Presence mismatch - Current='{current_val}', Reference='{reference_val}'")
-                return False
-
-            # If both present, check within 50% tolerance
-            if not current_is_empty and not reference_is_empty:
-                try:
-                    # Parse numeric values (strip currency symbols, %, etc.)
-                    current_numeric = parse_numeric_value(current_val)
-                    reference_numeric = parse_numeric_value(reference_val)
-
-                    if current_numeric is not None and reference_numeric is not None:
-                        # Calculate tolerance (50% of reference value)
-                        if reference_numeric != 0:
-                            diff_pct = abs(current_numeric - reference_numeric) / abs(reference_numeric)
-                            if diff_pct > 0.5:
-                                logger.error(f"{table_name} Row {i}, Dynamic Column {col}: Value differs by {diff_pct*100:.1f}% (>50%) - Current={current_numeric:.2f}, Reference={reference_numeric:.2f}")
-                                return False
-                except Exception as e:
-                    logger.debug(f"Could not parse numeric values for {col}: {e}")
-                    # If we can't parse, do string comparison but be lenient
-                    pass
-
-    return True
-
-
-def parse_numeric_value(value_str):
-    """Parse a numeric value from formatted string (e.g., '£1,234', '45.6%', '£-1,234')."""
-    if not value_str:
-        return None
-
-    try:
-        # Remove common formatting: £, $, %, commas, color codes
-        import re
-        # Remove ANSI color codes
-        clean = re.sub(r'\x1b\[[0-9;]+m', '', str(value_str))
-        # Remove currency symbols, %, commas, spaces
-        clean = clean.replace('£', '').replace('$', '').replace('%', '').replace(',', '').replace(' ', '')
-        # Handle empty after cleaning
-        if not clean or clean in ['-', 'N/A']:
-            return None
-        return float(clean)
-    except (ValueError, AttributeError):
-        return None
 
 def compare_tax_report_outputs(current_output, reference_output):
-    """Compare tax report outputs exactly."""
-    # For tax reports, we can compare the entire output exactly
-    # since they don't have time-sensitive data like current prices
-    current_clean = current_output.strip()
-    reference_clean = reference_output.strip()
+    """Compare tax report outputs exactly.
+
+    Tax reports are computed from parsed broker notes with no live market data, so the
+    output is deterministic and an exact comparison is the right gate.  Log records are
+    stripped first: they are captured alongside the report but are not part of it.
+    """
+    current_clean = strip_log_lines(current_output)
+    reference_clean = strip_log_lines(reference_output)
 
     if current_clean != reference_clean:
         logger.error("Tax report output does not match reference")
@@ -409,120 +308,6 @@ def compare_tax_report_outputs(current_output, reference_output):
     return True
 
 
-def compare_annual_review_outputs(current_output, reference_output):
-    """Compare annual review outputs with static/dynamic column validation.
-
-    Similar to full history comparison - static columns must match exactly,
-    dynamic columns (prices, valuations) can vary within tolerance.
-    """
-    # Extract summary table and detail table
-    current_summary = extract_table_data(current_output, table_name='Annual Review Summary')
-    reference_summary = extract_table_data(reference_output, table_name='Annual Review Summary')
-
-    current_detail = extract_table_data(current_output, table_name='Annual Review Detail')
-    reference_detail = extract_table_data(reference_output, table_name='Annual Review Detail')
-
-    # Check that we got some data
-    if not current_summary and not current_detail:
-        logger.error("Could not extract any annual review table data from current output")
-        return False
-
-    # Validate summary table if both exist
-    summary_passed = True
-    if current_summary and reference_summary:
-        summary_passed = compare_annual_review_table(
-            current_summary, reference_summary, "Annual Review Summary"
-        )
-    elif current_summary != reference_summary:
-        logger.error("Summary table existence mismatch")
-        return False
-
-    # Validate detail table if both exist
-    detail_passed = True
-    if current_detail and reference_detail:
-        detail_passed = compare_annual_review_table(
-            current_detail, reference_detail, "Annual Review Detail"
-        )
-    elif current_detail != reference_detail:
-        logger.error("Detail table existence mismatch")
-        return False
-
-    return summary_passed and detail_passed
-
-
-def compare_annual_review_table(current_table, reference_table, table_name):
-    """Compare annual review tables with static/dynamic classification."""
-
-    # Static columns: Should match exactly
-    static_columns = ['Group', 'Tag', 'Company', 'Ticker', 'Category']
-
-    # Dynamic columns: Should be present/absent consistently and within tolerance
-    dynamic_columns = ['Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR',
-                       'Current Price', '90d High', '% of High', 'Volatility']
-
-    # Validate column schema
-    if len(current_table) > 0 and len(reference_table) > 0:
-        current_columns = set(current_table[0].keys())
-        reference_columns = set(reference_table[0].keys())
-
-        if current_columns != reference_columns:
-            logger.error(f"{table_name}: Column mismatch between current and reference")
-            logger.error(f"Current columns: {sorted(current_columns)}")
-            logger.error(f"Reference columns: {sorted(reference_columns)}")
-            return False
-
-    # Sort by Group (for summary) or Ticker+Category (for detail with duplicate tickers)
-    if 'Group' in (current_table[0].keys() if current_table else []):
-        current_sorted = sorted(current_table, key=lambda x: x.get('Group', ''))
-        reference_sorted = sorted(reference_table, key=lambda x: x.get('Group', ''))
-    else:
-        # Sort by Ticker, then Category to handle same ticker in multiple accounts
-        current_sorted = sorted(current_table, key=lambda x: (x.get('Ticker', ''), x.get('Category', '')))
-        reference_sorted = sorted(reference_table, key=lambda x: (x.get('Ticker', ''), x.get('Category', '')))
-
-    # Compare static columns (exact match)
-    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
-        for col in static_columns:
-            if col in current_row and col in reference_row:
-                if current_row[col] != reference_row[col]:
-                    logger.error(f"{table_name} Row {i}, Static Column {col}: Current='{current_row[col]}', Reference='{reference_row[col]}'")
-                    return False
-
-    # Compare dynamic columns (presence and tolerance)
-    for i, (current_row, reference_row) in enumerate(zip(current_sorted, reference_sorted)):
-        for col in dynamic_columns:
-            if col not in current_row or col not in reference_row:
-                continue
-
-            current_val = current_row[col]
-            reference_val = reference_row[col]
-
-            # Check presence consistency
-            current_is_empty = not current_val or current_val.strip() in ['', '-', 'N/A']
-            reference_is_empty = not reference_val or reference_val.strip() in ['', '-', 'N/A']
-
-            if current_is_empty != reference_is_empty:
-                # Dynamic columns can have presence mismatches due to market data timing
-                logger.warning(f"{table_name} Row {i}, Dynamic Column {col}: Presence mismatch (current empty={current_is_empty})")
-                continue  # Don't fail on presence mismatch for dynamic columns
-
-            # If both present, check within 50% tolerance
-            if not current_is_empty and not reference_is_empty:
-                try:
-                    current_numeric = parse_numeric_value(current_val)
-                    reference_numeric = parse_numeric_value(reference_val)
-
-                    if current_numeric is not None and reference_numeric is not None:
-                        if reference_numeric != 0:
-                            diff_pct = abs(current_numeric - reference_numeric) / abs(reference_numeric)
-                            if diff_pct > 0.5:
-                                logger.error(f"{table_name} Row {i}, Dynamic Column {col}: Value differs by {diff_pct*100:.1f}%")
-                                return False
-                except Exception:
-                    pass
-
-    return True
-
 def run_list_trades_test(portfolio_review, portfolio_analysis, reporter, start_date, test_data_dir):
     """Run list trades test by shelling out to CLI directly."""
     cmd = [
@@ -544,10 +329,11 @@ def compare_list_trades_outputs(current_output, reference_output):
     """Compare list trades outputs exactly.
 
     All data is from parsed broker notes — no live market data — so the output
-    is fully deterministic and can be compared as a plain string.
+    is fully deterministic and can be compared as a plain string.  Log records are
+    stripped first: they are captured alongside the report but are not part of it.
     """
-    current_clean = current_output.strip()
-    reference_clean = reference_output.strip()
+    current_clean = strip_log_lines(current_output)
+    reference_clean = strip_log_lines(reference_output)
 
     if current_clean != reference_clean:
         logger.error("List trades output does not match reference")
@@ -568,46 +354,6 @@ def compare_list_trades_outputs(current_output, reference_output):
 
     return True
 
-
-def extract_periodic_tables(output):
-    """Extract periodic review tables from output."""
-    lines = output.split('\n')
-    tables = []
-    current_table = []
-    in_table = False
-    
-    for line in lines:
-        # Skip log messages and error messages
-        if any(level in line for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']):
-            continue
-        if 'YF.download() has changed' in line:
-            continue
-        if 'possibly delisted' in line:
-            continue
-        if 'Error calculating performance' in line:
-            continue
-        
-        # Look for table headers
-        if 'PERIODIC REVIEW SUMMARY' in line or 'NEW STOCKS' in line or 'RETAINED STOCKS' in line or 'SOLD STOCKS' in line:
-            if current_table:
-                tables.append('\n'.join(current_table))
-                current_table = []
-            in_table = True
-            current_table.append(line)
-        elif in_table and line.strip():
-            current_table.append(line)
-        elif in_table and not line.strip():
-            # Empty line might be end of table
-            if current_table and len(current_table) > 1:
-                tables.append('\n'.join(current_table))
-                current_table = []
-            in_table = False
-    
-    # Add the last table if any
-    if current_table:
-        tables.append('\n'.join(current_table))
-    
-    return tables
 
 def extract_table_data(output, table_name=None):
     """Extract table data from output by parsing headers and mapping by column name.
@@ -695,15 +441,12 @@ def extract_table_data(output, table_name=None):
                 else:
                     row_data[col_name] = ''
 
-            # Filter for rows with data
-            # Portfolio Summary: check if Tag is non-empty
-            # Full Investment History: check if Ticker is non-empty
-            if table_name and 'PORTFOLIO SUMMARY' in table_name.upper():
-                if row_data.get('Tag', '').strip() and row_data.get('Tag', '').strip() not in ['---', '======']:
-                    table_data.append(row_data)
-            else:
-                if row_data.get('Ticker', '').strip():
-                    table_data.append(row_data)
+            # Keep any row that carries data.  This used to require a non-empty 'Ticker'
+            # for every table but Portfolio Summary, so the summary tables — keyed on
+            # Category or Group, with no Ticker column — silently yielded no rows at all
+            # (investment-reviews#29).  Separator rows are already dropped above.
+            if any(value.strip() for value in row_data.values()):
+                table_data.append(row_data)
 
     return table_data
 

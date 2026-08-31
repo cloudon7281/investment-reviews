@@ -7,6 +7,8 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
 from portfolio_review import PortfolioReview
 from test_runner import run_tests
+import review_invariants
+from periodic_review_processor import BENCHMARKS
 import pandas as pd
 
 def parse_args():
@@ -194,6 +196,9 @@ def main():
                 portfolio_review,
                 value_over_time_days=args.value_over_time
             )
+            review_invariants.report(
+                review_invariants.check_full_history(full_history_results), 'Full history'
+            )
             reporter.display_full_history(full_history_results)
 
             # Write value-over-time CSV if it was calculated
@@ -247,6 +252,9 @@ def main():
             annual_results = portfolio_analysis.process_annual_review(
                 portfolio_review, start_date, price_over_time=args.price_over_time
             )
+            review_invariants.report(
+                review_invariants.check_annual_review(annual_results), 'Annual review'
+            )
             reporter.display_annual_review(annual_results, start_date)
 
             # Write price-over-time CSV if requested
@@ -281,6 +289,10 @@ def main():
             periodic_results = portfolio_analysis.process_periodic_review(
                 portfolio_review, start_date, end_date, eval_date,
                 thesis_candidates_path=args.thesis_candidates
+            )
+            review_invariants.report(
+                review_invariants.check_periodic_review(periodic_results, expected_benchmarks=len(BENCHMARKS)),
+                'Periodic review'
             )
             reporter.display_periodic_review(periodic_results, start_date, end_date, eval_date)
         

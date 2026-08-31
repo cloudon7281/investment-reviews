@@ -8,7 +8,9 @@ Tests cover:
 3. YF API error handling
 """
 
+import sys
 import unittest
+from logger import logger
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 import numpy as np
@@ -1336,36 +1338,21 @@ class TestDoublingMetrics(unittest.TestCase):
 
 
 def run_unit_tests():
-    """Run all unit tests."""
-    # Create test suite
+    """Run every unit test in this module.
+
+    Classes used to be listed by hand here, and the list fell behind: seven classes and
+    44 tests were defined but never run by `portfolio.py --mode test`, including the
+    alert-delivery tests and every regression test written for #26 and #28
+    (investment-reviews#29).  Discovery cannot fall behind.
+    """
     loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
+    suite = loader.loadTestsFromModule(sys.modules[__name__])
 
-    # Add test classes
-    suite.addTests(loader.loadTestsFromTestCase(TestCurrencyConversion))
-    suite.addTests(loader.loadTestsFromTestCase(TestTickerConversion))
-    suite.addTests(loader.loadTestsFromTestCase(TestYahooFinanceAPIErrorHandling))
-    suite.addTests(loader.loadTestsFromTestCase(TestMHTMLTransactionTypeParsing))
-    suite.addTests(loader.loadTestsFromTestCase(TestFiltering))
-    suite.addTests(loader.loadTestsFromTestCase(TestForeignCurrencyFallback))
-    suite.addTests(loader.loadTestsFromTestCase(TestMWRRCalculation))
-    suite.addTests(loader.loadTestsFromTestCase(TestMissingPriceData))
-    suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewMWRR))
-    suite.addTests(loader.loadTestsFromTestCase(TestAnnualReviewPnL))
-    suite.addTests(loader.loadTestsFromTestCase(TestBenchmarkPerformance))
-    suite.addTests(loader.loadTestsFromTestCase(TestProgressToDoubling))
-    suite.addTests(loader.loadTestsFromTestCase(TestDoublingMetrics))
-    suite.addTests(loader.loadTestsFromTestCase(TestTaxPnlPoolCostBasis))
-    suite.addTests(loader.loadTestsFromTestCase(TestThesisConfig))
-    suite.addTests(loader.loadTestsFromTestCase(TestThesisCandidatePerformance))
-    suite.addTests(loader.loadTestsFromTestCase(TestDailyChange))
-    suite.addTests(loader.loadTestsFromTestCase(TestFullHistoryStockParsing))
-    suite.addTests(loader.loadTestsFromTestCase(TestAlertSelection))
-
-    # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
 
+    logger.info(f"Unit tests: {result.testsRun} run, "
+                f"{len(result.failures)} failed, {len(result.errors)} errored")
     return result.wasSuccessful()
 
 
@@ -2420,6 +2407,162 @@ class TestExchangeRateSeriesShape(unittest.TestCase):
                     ['TEST'], datetime(2025, 6, 1), datetime(2025, 6, 5),
                     ticker_info_func=fatal
                 )
+
+
+import review_invariants
+import test_runner
+
+
+class TestReviewInvariants(unittest.TestCase):
+    """Each invariant must be able to fire, or it is coverage in name only (#29)."""
+
+    @staticmethod
+    def _holdings(**overrides):
+        row = {
+            'ticker': 'PLTR', 'units_held': 100, 'current_price': 120.0,
+            'current_value': 12000.0, 'recent_high': 130.0,
+            'smoothed_high': 125.0, 'percentile_high': 124.0,
+        }
+        row.update(overrides)
+        return pd.DataFrame([row])
+
+    def test_priced_holdings_passes_when_priced(self):
+        self.assertEqual(review_invariants._priced_holdings(self._holdings(), 'T'), [])
+
+    def test_priced_holdings_fires_on_a_held_position_with_no_price(self):
+        """The #28 signature: units still held, price gone."""
+        violations = review_invariants._priced_holdings(
+            self._holdings(current_price=None), 'Full Investment History')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('PLTR', violations[0])
+
+    def test_priced_holdings_ignores_fully_sold_positions(self):
+        """A sold-out row has no price and should not be reported."""
+        self.assertEqual(
+            review_invariants._priced_holdings(
+                self._holdings(units_held=0, current_price=None, current_value=None), 'T'),
+            []
+        )
+
+    def test_priced_holdings_reports_a_missing_units_column(self):
+        """A check that cannot run must say so rather than pass silently."""
+        df = self._holdings().drop(columns=['units_held'])
+        violations = review_invariants._priced_holdings(df, 'T')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('cannot verify prices', violations[0])
+
+    def test_priced_holdings_unwraps_currency_tuples(self):
+        """Periodic review carries values as (amount, 'GBP') tuples."""
+        df = self._holdings(current_price=(120.0, 'GBP'), current_value=(12000.0, 'GBP'))
+        self.assertEqual(review_invariants._priced_holdings(df, 'T'), [])
+        df = self._holdings(current_price=(None, 'GBP'), current_value=(None, 'GBP'))
+        self.assertEqual(len(review_invariants._priced_holdings(df, 'T')), 1)
+
+    def test_high_ordering_fires_when_a_smoothed_high_exceeds_the_raw_high(self):
+        violations = review_invariants._high_ordering(
+            self._holdings(smoothed_high=140.0), 'T')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('smoothed_high', violations[0])
+
+    def test_high_ordering_fires_when_a_percentile_high_exceeds_the_raw_high(self):
+        violations = review_invariants._high_ordering(
+            self._holdings(percentile_high=140.0), 'T')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('percentile_high', violations[0])
+
+    def test_high_ordering_reports_a_missing_column(self):
+        df = self._holdings().drop(columns=['percentile_high'])
+        violations = review_invariants._high_ordering(df, 'T')
+        self.assertIn('cannot verify high ordering', violations[0])
+
+    def test_group_totals_must_reconcile(self):
+        groups = pd.DataFrame([{'current_value': 6000.0}, {'current_value': 6000.0}])
+        self.assertEqual(review_invariants._group_totals_reconcile(12000.0, groups, 'Category'), [])
+
+        short = pd.DataFrame([{'current_value': 6000.0}])
+        violations = review_invariants._group_totals_reconcile(12000.0, short, 'Category')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('do not reconcile', violations[0])
+
+    def test_full_history_reconciliation_catches_a_dropped_group(self):
+        """A grouping that loses rows shows up here and nowhere else."""
+        results = {
+            'individual_stocks': pd.concat([self._holdings(ticker='A'), self._holdings(ticker='B')]),
+            'per_category': pd.DataFrame([{'current_value': 12000.0}]),   # one row's worth missing
+            'per_tag': pd.DataFrame([{'current_value': 24000.0}]),
+        }
+        violations = review_invariants.check_full_history(results)
+        self.assertEqual(len(violations), 1)
+        self.assertIn('Category', violations[0])
+
+    def test_periodic_review_fires_when_benchmarks_are_lost(self):
+        """During #28 every benchmark was skipped and the review still printed."""
+        results = {'retained': self._holdings(), 'benchmarks': pd.DataFrame()}
+        violations = review_invariants.check_periodic_review(results, expected_benchmarks=8)
+        self.assertEqual(len(violations), 1)
+        self.assertIn('0 of 8', violations[0])
+
+    def test_annual_review_uses_its_own_units_column(self):
+        """Annual review names the column holdings_at_end, not units_held."""
+        df = self._holdings(current_price=None).rename(columns={'units_held': 'holdings_at_end'})
+        violations = review_invariants.check_annual_review({'individual_stocks': df})
+        self.assertEqual(len(violations), 1)
+        self.assertIn('PLTR', violations[0])
+
+    def test_report_returns_false_and_uses_the_agreed_prefix(self):
+        """The prefix is the contract between a review run and the harness."""
+        with self.assertLogs(level='ERROR') as captured:
+            self.assertFalse(review_invariants.report(['something broke'], 'Full history'))
+        self.assertTrue(any('INVARIANT VIOLATION: something broke' in m for m in captured.output))
+        self.assertTrue(review_invariants.report([], 'Full history'))
+
+
+class TestIntegrationHarness(unittest.TestCase):
+    """The harness must be able to fail, which is what #29 was about."""
+
+    GRID = """Portfolio Summary
+=================
+
++-----------------+-----------------+
+| Tag             | Current Value   |
++=================+=================+
+| Whole Portfolio | £125,000        |
++-----------------+-----------------+
+"""
+
+    def test_strip_log_lines_removes_records_but_keeps_the_report(self):
+        output = ("2026-08-31 WARNING [root] Stock NVDA tag changed\n"
+                  "Tax Report Summary\n==================\n")
+        cleaned = test_runner.strip_log_lines(output)
+        self.assertNotIn('WARNING', cleaned)
+        self.assertIn('Tax Report Summary', cleaned)
+
+    def test_check_review_run_passes_on_a_sound_run(self):
+        self.assertTrue(test_runner.check_review_run(self.GRID, 'Full history', ['Portfolio Summary']))
+
+    def test_check_review_run_fails_on_an_invariant_violation(self):
+        output = self.GRID + "\n2026-08-31 ERROR [root] INVARIANT VIOLATION: 3 held positions have no price\n"
+        self.assertFalse(test_runner.check_review_run(output, 'Full history', ['Portfolio Summary']))
+
+    def test_check_review_run_fails_when_a_table_is_absent(self):
+        """A collapsed run reports no violations; the table check is what catches it."""
+        self.assertFalse(test_runner.check_review_run(
+            "nothing was produced", 'Full history', ['Portfolio Summary']))
+
+    def test_summary_tables_extract_rows(self):
+        """extract_table_data used to drop every row of any table without a Ticker."""
+        summary = """Periodic Review Summary
+=======================
+
++------------+---------------+
+| Category   | Current Value |
++============+===============+
+| New        | £179,159,466  |
++------------+---------------+
+"""
+        rows = test_runner.extract_table_data(summary, table_name='Periodic Review Summary')
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['Category'], 'New')
 
 
 if __name__ == '__main__':
