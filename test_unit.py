@@ -20,6 +20,8 @@ from datetime import datetime
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
+import pdf_parser
+from portfolio_review import PortfolioReview
 import market_data_fetcher
 from market_data_fetcher import MarketDataFetcher
 
@@ -2500,6 +2502,119 @@ class TestExchangeRateSeriesShape(unittest.TestCase):
 
 import review_invariants
 import test_runner
+
+
+class TestContractNoteLayout(unittest.TestCase):
+    """The layout of a contract note is read from the note (investment-reviews#36)."""
+
+    # The HL pence layout, verbatim in shape: header, ISIN/code, name, then the row.
+    PENCE_LINES = [
+        'Quantity Security Price Consideration',
+        '{isin} STOCK CODE: {code}',
+        '{name}',
+        '1,442.00 1385.9867 19,985.93',
+        'Ptg NPV',
+    ]
+
+    def _pence_note(self, isin, code='FEML', name='Fidelity Emerging Markets Limited'):
+        return [l.format(isin=isin, code=code, name=name) for l in self.PENCE_LINES]
+
+    def test_pence_row_is_read_whatever_the_domicile(self):
+        """Guernsey, Jersey and Great Britain are the same document.
+
+        A London-listed, sterling, pence-priced investment trust is read the same way
+        wherever it happens to be domiciled.  Dispatching on the ISIN country code sent
+        GG to the foreign-currency reader and lost the price entirely.
+        """
+        for isin in ('GG00B4L0PD47', 'JE00B1VS3770', 'GB00B10RZP78', 'IM00B1Z40972'):
+            with self.subTest(isin=isin):
+                result = {}
+                pdf_parser.parse_pence_row_details(self._pence_note(isin), 2, result)
+                self.assertAlmostEqual(result['price'], 13.859867)
+                self.assertAlmostEqual(result['total_amount'], 19985.93)
+                self.assertAlmostEqual(result['num_shares'], 1442.0)
+                self.assertEqual(result['currency'], 'GBP')
+
+    def test_a_row_that_does_not_multiply_out_is_not_a_pence_row(self):
+        """The arithmetic is what identifies the layout, so three numbers are not enough.
+
+        Without the check, any three numbers near a stock name would be read as quantity,
+        pence and consideration, inventing a price for a note in some other layout.
+        """
+        lines = list(self._pence_note('GG00B4L0PD47'))
+        lines[3] = '1,442.00 1385.9867 4,004.00'  # consideration does not match
+        result = {}
+        pdf_parser.parse_pence_row_details(lines, 2, result)
+        self.assertIsNone(result.get('price'))
+
+    def test_a_two_number_row_is_not_a_pence_row(self):
+        """A row with no consideration cannot prove itself, so it is not claimed."""
+        lines = list(self._pence_note('GG00B4L0PD47'))
+        lines[3] = '1,442.00 1385.9867'
+        result = {}
+        pdf_parser.parse_pence_row_details(lines, 2, result)
+        self.assertIsNone(result.get('price'))
+
+    def test_foreign_currency_layout_still_reads_its_own_price(self):
+        """The other layout is unchanged: price in the stock's currency, plus an FX rate."""
+        lines = [
+            'Quantity Security Price Consideration',
+            'US0378331005 STOCK CODE: AAPL',
+            'Apple Inc',
+            '100.00',
+            'Price (USD) 210.50',
+            'Exchange rate 1.2750',
+            'GBP 16,509.80',
+        ]
+        result = {}
+        pdf_parser.parse_foreign_currency_details(lines, 2, result)
+        self.assertAlmostEqual(result['price'], 210.50)
+        self.assertEqual(result['currency'], 'USD')
+        self.assertAlmostEqual(result['exchange_rate'], 1.2750)
+
+
+class TestUnreadableContractNote(unittest.TestCase):
+    """An unvaluable note is named, not turned into a transaction (investment-reviews#36)."""
+
+    def _scan(self, filenames, raiser):
+        """Scan a throwaway history tree whose notes all fail to parse."""
+        with tempfile.TemporaryDirectory() as base:
+            year_dir = os.path.join(base, 'Taxable', '2026', 'Some tag')
+            os.makedirs(year_dir)
+            for name in filenames:
+                open(os.path.join(year_dir, name), 'w').close()
+            with patch('portfolio_review.parse_stock_transaction_pdf', side_effect=raiser):
+                return PortfolioReview(base, 'full-history')
+
+    def test_scan_fails_naming_every_unreadable_note(self):
+        """One pass names them all, rather than sending the operator round again per note."""
+        names = ['B1_BOUGHT_One.pdf', 'B2_BOUGHT_Two.pdf']
+
+        def raiser(path):
+            raise pdf_parser.ContractNoteParseError(f"Could not read price from {path}")
+
+        with self.assertRaises(pdf_parser.ContractNoteParseError) as caught:
+            self._scan(names, raiser)
+        message = str(caught.exception)
+        self.assertIn('2 contract note(s)', message)
+        for name in names:
+            self.assertIn(name, message)
+
+    def test_an_unreadable_note_is_not_swallowed_as_a_generic_error(self):
+        """The pre-existing catch-all logged and carried on, yielding a short portfolio."""
+        def raiser(path):
+            raise pdf_parser.ContractNoteParseError(f"Could not read price from {path}")
+
+        with self.assertRaises(pdf_parser.ContractNoteParseError):
+            self._scan(['B1_BOUGHT_One.pdf'], raiser)
+
+    def test_other_parse_errors_still_only_skip_that_file(self):
+        """Only an unvaluable note is fatal; an unreadable file keeps its old behaviour."""
+        def raiser(path):
+            raise ValueError('not a PDF at all')
+
+        review = self._scan(['B1_BOUGHT_One.pdf'], raiser)
+        self.assertIsNotNone(review)
 
 
 class TestReviewInvariants(unittest.TestCase):

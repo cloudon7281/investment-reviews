@@ -7,6 +7,22 @@ import os
 from typing import Optional, Dict, List, Tuple
 
 
+# The pence row states quantity, price in pence and consideration together, so it can be
+# checked against its own arithmetic.  Accepting it only when those three agree is what
+# lets the layout be confirmed from the document rather than guessed from the ISIN's
+# country of domicile (investment-reviews#36).
+PENCE_ROW_TOLERANCE = 0.005
+
+
+class ContractNoteParseError(Exception):
+    """A contract note was recognised but a field needed to value it could not be read.
+
+    Raised rather than returned so a note cannot become a transaction carrying None.
+    Left unparsed, a missing price surfaced hundreds of lines away as a TypeError inside
+    a debug log line, naming neither the file nor the field (investment-reviews#36).
+    """
+
+
 def get_exchange_suffix(isin: str, ticker: str) -> str:
     """Get the exchange suffix for a stock based on its ISIN and ticker."""
     # First check if this ticker has a special case mapping
@@ -28,47 +44,56 @@ def get_exchange_suffix(isin: str, ticker: str) -> str:
     
     return suffix
 
-def parse_uk_stock_details(lines: List[str], stock_name_index: int, result: Dict) -> None:
-    """Parse UK stock details from the PDF lines."""
+def parse_pence_row_details(lines: List[str], stock_name_index: int, result: Dict) -> None:
+    """Read the HL pence layout: quantity, price in pence and consideration on one row.
+
+    The row is accepted only when quantity x price equals the stated consideration to
+    within PENCE_ROW_TOLERANCE.  That check is what identifies the layout: it confirms
+    the three numbers mean what this reader assumes, so the caller can offer any note to
+    this reader without having to know where the stock is domiciled.
+    """
     if stock_name_index + 1 >= len(lines):
         return
-        
+
     shares_line = lines[stock_name_index + 1]
-    parts = shares_line.split()
-    
+
     # Filter out non-numeric parts (like 'XD' for ex-dividend)
     numeric_parts = []
-    for part in parts:
-        # Remove commas and try to convert to float
+    for part in shares_line.split():
         clean_part = part.replace(',', '')
         try:
             float(clean_part)
             numeric_parts.append(clean_part)
         except ValueError:
-            # Skip non-numeric parts like 'XD'
             logger.debug(f"Skipping non-numeric part: {part}")
             continue
-    
-    if len(numeric_parts) >= 2:
-        try:
-            # First number is quantity
-            result['num_shares'] = float(numeric_parts[0])
-            logger.debug(f"Found number of shares: {result['num_shares']}")
-            
-            # Second number is price in pence
-            result['price'] = float(numeric_parts[1]) / 100  # Convert pence to pounds
-            result['currency'] = 'GBP'
-            logger.debug(f"Found price in pence: {numeric_parts[1]}, converted to pounds: {result['price']}")
-            
-            # Third number is total amount if present
-            if len(numeric_parts) >= 3:
-                result['total_amount'] = float(numeric_parts[2])
-                logger.debug(f"Found total amount: {result['total_amount']}")
-        except ValueError as e:
-            logger.warning(f"Failed to parse UK format numbers from line: {e}")
 
-def parse_non_uk_stock_details(lines: List[str], stock_name_index: int, result: Dict) -> None:
-    """Parse non-UK stock details from the PDF lines."""
+    # Quantity, price and consideration: all three are needed for the row to prove itself.
+    if len(numeric_parts) < 3:
+        logger.debug(f"Not a pence row, {len(numeric_parts)} number(s) on: {shares_line.strip()}")
+        return
+
+    try:
+        num_shares = float(numeric_parts[0])
+        price = float(numeric_parts[1]) / 100  # pence to pounds
+        total_amount = float(numeric_parts[2])
+    except ValueError as e:
+        logger.debug(f"Failed to read pence row numbers from '{shares_line.strip()}': {e}")
+        return
+
+    if total_amount <= 0 or abs(num_shares * price - total_amount) / total_amount > PENCE_ROW_TOLERANCE:
+        logger.debug(f"Not a pence row, {num_shares} x {price} does not make {total_amount}: {shares_line.strip()}")
+        return
+
+    result['num_shares'] = num_shares
+    result['price'] = price
+    result['total_amount'] = total_amount
+    result['currency'] = 'GBP'
+    logger.debug(f"Read pence row: {num_shares} units @ {numeric_parts[1]}p = £{total_amount}")
+
+
+def parse_foreign_currency_details(lines: List[str], stock_name_index: int, result: Dict) -> None:
+    """Read the layout that states a price in the stock's own currency and an FX rate."""
     if stock_name_index + 1 >= len(lines):
         return
         
@@ -227,33 +252,47 @@ def parse_stock_transaction_pdf(pdf_path):
                             logger.debug(f"Found ticker from mapping: {result['ticker']}")
                         break
             
-            # Extract number of shares and price information based on country
+            # Read the price row.  Which layout a note uses is a property of the
+            # document, not of where the stock is domiciled, so offer it to each reader
+            # and keep whichever one the document actually satisfies.  Dispatching on the
+            # ISIN's country code instead meant a London-listed, sterling, pence-priced
+            # investment trust domiciled in Guernsey (GG) was handed to the foreign-
+            # currency reader and lost its price; the same was true of Jersey, the Isle of
+            # Man and every other code absent from the list, and the 'IE' special case was
+            # this same defect patched one country at a time (investment-reviews#36).
             if result['stock_name'] and result['isin']:
                 stock_name_index = lines.index(result['stock_name'])
-                country_code = result['isin'][:2].upper()
-                
-                if country_code in ['GB', 'LU']:
-                    parse_uk_stock_details(lines, stock_name_index, result)
-                elif country_code == 'IE':
-                    # Hack for IE: try both UK and non-UK parsing, pick the one that works
-                    uk_result = {}
-                    non_uk_result = {}
-                    
-                    parse_uk_stock_details(lines, stock_name_index, uk_result)
-                    parse_non_uk_stock_details(lines, stock_name_index, non_uk_result)
-                    
-                    # Pick the result that has price information
-                    if uk_result.get('price') is not None:
-                        logger.debug(f"Using UK parsing result for IE stock: {uk_result}")
-                        result.update(uk_result)
-                    elif non_uk_result.get('price') is not None:
-                        logger.debug(f"Using non-UK parsing result for IE stock: {non_uk_result}")
-                        result.update(non_uk_result)
-                    else:
-                        logger.warning(f"Neither UK nor non-UK parsing worked for IE stock. UK result: {uk_result}, Non-UK result: {non_uk_result}")
+
+                pence_result = {}
+                foreign_result = {}
+                parse_pence_row_details(lines, stock_name_index, pence_result)
+                parse_foreign_currency_details(lines, stock_name_index, foreign_result)
+
+                if pence_result.get('price') is not None:
+                    logger.debug(f"Read {pdf_path} as the pence layout: {pence_result}")
+                    result.update(pence_result)
+                elif foreign_result.get('price') is not None:
+                    logger.debug(f"Read {pdf_path} as the foreign-currency layout: {foreign_result}")
+                    result.update(foreign_result)
                 else:
-                    parse_non_uk_stock_details(lines, stock_name_index, result)
-            
+                    # Keep whatever either reader established (a quantity, typically) so
+                    # the report below can say what was and was not readable.
+                    result.update({k: v for k, v in foreign_result.items() if v is not None})
+                    result.update({k: v for k, v in pence_result.items() if v is not None})
+
+            # A note that names a stock and a quantity but yields no price cannot be
+            # valued, and must not become a transaction carrying None.  Say so here,
+            # naming the file and the fields, rather than leaving it to fail later
+            # somewhere that knows neither (investment-reviews#36).
+            if result['price'] is None and (result['ticker'] or result['num_shares'] is not None):
+                missing = [name for name in ('price', 'total_amount', 'currency') if result[name] is None]
+                raise ContractNoteParseError(
+                    f"Could not read {', '.join(missing)} from {pdf_path} "
+                    f"(ticker {result['ticker']}, ISIN {result['isin']}, "
+                    f"quantity {result['num_shares']}); the price row was not recognised "
+                    f"in either the pence or the foreign-currency layout"
+                )
+
             # Extract dealing charge
             for line in lines:
                 dealing_match = re.search(r'Dealing charge\s*([\d.]+)', line)
@@ -291,7 +330,12 @@ def parse_stock_transaction_pdf(pdf_path):
             
             logger.info(f"Successfully parsed PDF: {pdf_path}")
             return result
-            
+
+    except ContractNoteParseError:
+        # An unreadable field is a reportable defect in a note we did recognise, not an
+        # unreadable file.  Swallowing it here is what let a priceless transaction through
+        # (investment-reviews#36).
+        raise
     except Exception as e:
         logger.error(f"Error reading PDF {pdf_path}: {str(e)}")
         return None

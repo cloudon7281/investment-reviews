@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from logger import logger
 import re
-from pdf_parser import parse_stock_transaction_pdf, parse_subdivision_pdf, parse_conversion_pdf, parse_merger_pdf, extract_stock_name
+from pdf_parser import (parse_stock_transaction_pdf, parse_subdivision_pdf, parse_conversion_pdf,
+                        parse_merger_pdf, extract_stock_name, ContractNoteParseError)
 from mhtml_parser import parse_stock_transaction_mhtml
 from csv_parser import parse_stock_transaction_csv
 from yaml_parser import parse_stock_transaction_yaml
@@ -361,6 +362,12 @@ class PortfolioReview:
         all_files.sort(key=lambda x: x[2])  # Sort by year (index 2)
         yaml_files.sort(key=lambda x: x[2])  # Sort YAML files by year too
         
+        # Notes that were recognised but could not be valued.  A transaction that cannot
+        # be priced would quietly distort every figure derived from it, so the scan
+        # finishes to name them all and then refuses to hand back a partial book
+        # (investment-reviews#36).
+        unreadable_notes = []
+
         # Process files in chronological order
         for file_path, account_type, year, tag, file in all_files:
             try:
@@ -401,6 +408,11 @@ class PortfolioReview:
                             self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
                     except Exception as e:
                         logger.error(f"Error processing {file}: {str(e)}")
+            except ContractNoteParseError as e:
+                # Collect rather than stop at the first: one pass should name every note
+                # that needs attention, not send the operator round again for each one.
+                logger.error(str(e))
+                unreadable_notes.append(str(e))
             except Exception as e:
                 logger.error(f"Error processing {file}: {str(e)}")
         
@@ -420,6 +432,12 @@ class PortfolioReview:
                         self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
             except Exception as e:
                 logger.error(f"Error processing {file}: {str(e)}")
+
+        if unreadable_notes:
+            raise ContractNoteParseError(
+                f"{len(unreadable_notes)} contract note(s) could not be valued, so the "
+                f"portfolio would be understated:\n  " + "\n  ".join(unreadable_notes)
+            )
 
         # Detect bed-and-ISA transactions across categories
         self._detect_cross_category_bed_and_isa(stocks_by_ticker)
