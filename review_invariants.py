@@ -26,12 +26,27 @@ from logger import logger
 # Rounding slack when comparing an aggregate against the rows it came from.
 RECONCILIATION_TOLERANCE_GBP = 0.01
 
+# How far progress-to-doubling may diverge from the multiple the holding's own P&L
+# implies.  Across a real portfolio the ratio runs 0.96 to 2.85; the unit errors that
+# motivated this check sat at 76x and 100x, so a factor of 5 separates them cleanly.
+DOUBLING_VS_ROI_TOLERANCE = 5.0
+
 
 def _value(cell):
     """Return a numeric cell, unwrapping the (value, currency) tuples reviews use."""
     if isinstance(cell, tuple):
         cell = cell[0]
     return None if cell is None or pd.isna(cell) else float(cell)
+
+
+def _parse_multiple(cell) -> Optional[float]:
+    """Read the pre-formatted progress-to-doubling cell ("1.7x", or "—" when unknown)."""
+    if not isinstance(cell, str) or not cell.endswith('x'):
+        return None
+    try:
+        return float(cell[:-1])
+    except ValueError:
+        return None
 
 
 def _priced_holdings(df: pd.DataFrame, table: str, units_column: str = 'units_held') -> List[str]:
@@ -103,11 +118,54 @@ def _group_totals_reconcile(detail_total: float, group_df: pd.DataFrame, groupin
             f"holdings total £{detail_total:,.2f}"]
 
 
+def _doubling_matches_return(df: pd.DataFrame, table: str) -> List[str]:
+    """Progress towards a doubling must be roughly the multiple the P&L implies.
+
+    Both are measured against what was paid, so a holding down 3% cannot be at 97x.  It
+    was: broker CSV prices for London ETFs were recorded a hundredfold too low, and the
+    nightly alert announced a 97x return on a loss-making bond fund
+    (investment-reviews#31).
+
+    Only checked where no profit-taking has been recorded.  After one, progress is
+    measured from the sale price rather than the purchase price, so the two figures
+    legitimately diverge.
+    """
+    required = {'progress_to_doubling', 'simple_roi', 'doubling_count'}
+    if df.empty:
+        return []
+    missing = required - set(df.columns)
+    if missing:
+        return [f"{table}: cannot verify doubling progress, no {sorted(missing)} column(s)"]
+
+    violations = []
+    for _, row in df.iterrows():
+        if (_value(row.get('doubling_count')) or 0) > 0:
+            continue
+        progress = _parse_multiple(row.get('progress_to_doubling'))
+        roi = _value(row.get('simple_roi'))
+        if progress is None or progress <= 0 or roi is None:
+            continue
+        implied = 1 + roi
+        if implied <= 0:
+            continue
+        ratio = progress / implied
+        if ratio > DOUBLING_VS_ROI_TOLERANCE or ratio < 1 / DOUBLING_VS_ROI_TOLERANCE:
+            violations.append(
+                f"{table}: {row.get('ticker', '?')} shows {progress:.1f}x progress to a "
+                f"doubling but a return of {roi:+.1%}, which implies {implied:.2f}x"
+            )
+    return violations
+
+
 def check_full_history(results: Dict[str, pd.DataFrame]) -> List[str]:
     """Check a full-history result set."""
     holdings = results.get('individual_stocks', pd.DataFrame())
     violations = _priced_holdings(holdings, 'Full Investment History')
     violations += _high_ordering(holdings, 'Full Investment History')
+
+    # Only full history: periodic review's ROI covers the review period, not the
+    # holding's lifetime, so it says nothing about progress towards a doubling.
+    violations += _doubling_matches_return(holdings, 'Full Investment History')
 
     if not holdings.empty:
         detail_total = sum(_value(v) or 0 for v in holdings['current_value'])

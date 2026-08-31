@@ -156,6 +156,7 @@ are deliberately few, and each is chosen because it can genuinely fail:
 | Grouped totals reconcile with the holdings total | A grouping that drops rows — an unexpected category, a null tag |
 | The smoothed and percentile highs never exceed the raw high | A broken recent-high window |
 | Every configured benchmark produces a row | Benchmarks being dropped silently, which they are when prices are missing |
+| Progress to a doubling matches the multiple the holding's return implies | Transaction prices recorded in the wrong units |
 
 A check that cannot run — a column it needs is absent — reports that, rather than
 passing quietly.
