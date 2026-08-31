@@ -386,6 +386,47 @@ class TestMissingPriceData(unittest.TestCase):
             self.assertEqual(len(result['TICKER2']), 1)  # Single row from ticker.info
             self.assertAlmostEqual(result['TICKER2']['Close'].iloc[0], 25.50, places=2)
 
+    def test_batched_download_padding_rows_are_dropped(self):
+        """A ticker's frame must carry only the days that ticker traded.
+
+        yf.download() indexes the batch by the union of every ticker's trading calendar,
+        so a US holding gains a NaN row for each day the LSE was open and the NYSE was
+        not.  Those rows are not observations, and leaving them in the cached frame makes
+        every row-counting consumer read a market holiday as a trading day
+        (investment-reviews#34).
+        """
+        mdf = MarketDataFetcher()
+
+        with patch('yfinance.download') as mock_download, \
+             patch('yfinance.Tickers') as mock_tickers:
+
+            # US.L trades every day; US does not trade on the 2nd - the UK holiday shape.
+            dates = pd.date_range('2025-10-01', periods=5)
+            mock_data = pd.DataFrame({
+                ('Close', 'UK.L'): [10.0, 10.5, 11.0, 10.8, 11.2],
+                ('Close', 'US'): [20.0, np.nan, 21.0, 20.8, 21.2],
+                ('Volume', 'UK.L'): [1000, 1100, 1200, 1150, 1250],
+                ('Volume', 'US'): [1000, 0, 1200, 1150, 1250],
+            }, index=dates)
+            mock_data.columns = pd.MultiIndex.from_tuples(mock_data.columns)
+            mock_download.return_value = mock_data
+
+            uk_ticker, us_ticker = Mock(), Mock()
+            uk_ticker.info = {'currency': 'GBP', 'exchange': 'LSE'}
+            us_ticker.info = {'currency': 'GBP', 'exchange': 'NYQ'}
+            mock_tickers_obj = Mock()
+            mock_tickers_obj.tickers = {'UK.L': uk_ticker, 'US': us_ticker}
+            mock_tickers.return_value = mock_tickers_obj
+
+            result = mdf.batch_get_stock_prices(
+                ['UK.L', 'US'], datetime(2025, 10, 1), datetime(2025, 10, 16)
+            )
+
+        self.assertEqual(len(result['UK.L']), 5)
+        self.assertEqual(len(result['US']), 4, "the non-trading day is still in the frame")
+        self.assertFalse(result['US']['Close'].isna().any())
+        self.assertNotIn(pd.Timestamp('2025-10-02'), result['US'].index)
+
 
 class TestForeignCurrencyFallback(unittest.TestCase):
     """Test currency conversion in ticker.info fallback paths."""
@@ -2259,6 +2300,52 @@ class TestRecentHighs(unittest.TestCase):
         price_data = {'TEST': pd.DataFrame({'Close': []}, index=pd.DatetimeIndex([]))}
         result = financial_metrics.calculate_highs_and_volatility(price_data)['TEST']
         self.assertEqual(set(result.values()), {None})
+
+    def _series_with_gap(self, closes, missing_offsets):
+        """Build a frame where the given offsets from the end carry no close.
+
+        This is the shape a batched download produces for a US holding: the index is the
+        union of every ticker's calendar, so days the LSE traded and the NYSE did not
+        appear as rows with a NaN close (investment-reviews#34).
+        """
+        price_data = self._series(closes)
+        frame = price_data['TEST']
+        for offset in missing_offsets:
+            frame.iloc[len(frame) - 1 - offset, frame.columns.get_loc('Close')] = float('nan')
+        return price_data
+
+    def test_a_non_trading_day_does_not_void_the_windows_around_it(self):
+        """A NaN row must drop out, not blank every window that spans it.
+
+        Left in place it makes `rolling` return NaN for the ten windows following it, so a
+        peak fortnight straddling a market holiday is discarded and the smoothed high
+        falls back to some lower window elsewhere in the period.
+        """
+        # Eleven days at the peak, one of them a market holiday: ten real observations.
+        closes = [100.0] * 79 + [200.0] * 11
+        with_gap = self._series_with_gap(list(closes), missing_offsets=[5])
+        result = financial_metrics.calculate_highs_and_volatility(with_gap)['TEST']
+        self.assertAlmostEqual(result['smoothed_high'], 200.0)
+
+    def test_a_gap_shortens_the_series_rather_than_the_window(self):
+        """Ten observations are averaged, never nine treated as ten.
+
+        With the gap removed the ten most recent observations reach one day further back,
+        so the mean is over ten real closes and the 100.0 before the run is included.
+        """
+        closes = [100.0] * 80 + [200.0] * 10
+        with_gap = self._series_with_gap(list(closes), missing_offsets=[3])
+        result = financial_metrics.calculate_highs_and_volatility(with_gap)['TEST']
+        # Nine 200s and one 100 is the best available ten-observation mean.
+        self.assertAlmostEqual(result['smoothed_high'], 190.0)
+
+    def test_all_closes_missing_yields_all_none(self):
+        """A frame of nothing but padding rows has no observations to report."""
+        closes = [100.0] * 30
+        with_gap = self._series_with_gap(list(closes), missing_offsets=range(30))
+        result = financial_metrics.calculate_highs_and_volatility(with_gap)['TEST']
+        self.assertIsNone(result['recent_high'])
+        self.assertIsNone(result['smoothed_high'])
 
     def test_price_vs_highs_divides_by_each_level(self):
         """Each percentage is the current price over the corresponding high."""
