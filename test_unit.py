@@ -2573,6 +2573,36 @@ class TestContractNoteLayout(unittest.TestCase):
         self.assertAlmostEqual(result['exchange_rate'], 1.2750)
 
 
+class TestLondonListedExchangeSuffix(unittest.TestCase):
+    """London listings are reached as .L whatever the ISIN's domicile (#39)."""
+
+    # (ticker, ISIN) for the holdings that reached Yahoo as bare tickers and could not be
+    # priced: Irish and Guernsey domiciles absent from EXCHANGE_SUFFIX_MAP.
+    LONDON_LISTED = [
+        ('BTEK', 'IE00BYXG2H39'),
+        ('DFND', 'IE00BYXG2H39'),
+        ('FEML', 'GG00B4L0PD47'),
+        ('IWFV', 'IE00BYXG2H39'),
+        ('LTAM', 'IE00BYXG2H39'),
+        ('ARMR', 'IE00BYXG2H39'),
+    ]
+
+    def test_london_listings_resolve_to_the_london_suffix(self):
+        for ticker, isin in self.LONDON_LISTED:
+            with self.subTest(ticker=ticker):
+                self.assertEqual(pdf_parser.get_exchange_suffix(isin, ticker), '.L')
+
+    def test_the_country_map_still_applies_to_everything_else(self):
+        """The per-ticker entries are an override, not a replacement."""
+        self.assertEqual(pdf_parser.get_exchange_suffix('US0378331005', 'AAPL'), '')
+        self.assertEqual(pdf_parser.get_exchange_suffix('GB00B10RZP78', 'HSBA'), '.L')
+        self.assertEqual(pdf_parser.get_exchange_suffix('DE0007164600', 'SAP'), '.DE')
+
+    def test_an_unmapped_domicile_still_yields_no_suffix(self):
+        """Nothing here fixes the general case; that is investment-reviews#40."""
+        self.assertEqual(pdf_parser.get_exchange_suffix('GG00B4L0PD47', 'NEWTRUST'), '')
+
+
 class TestUnreadableContractNote(unittest.TestCase):
     """An unvaluable note is named, not turned into a transaction (investment-reviews#36)."""
 
