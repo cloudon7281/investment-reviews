@@ -8,7 +8,9 @@ Tests cover:
 3. YF API error handling
 """
 
+import os
 import sys
+import tempfile
 import unittest
 from logger import logger
 from unittest.mock import Mock, patch, MagicMock
@@ -2422,6 +2424,7 @@ class TestReviewInvariants(unittest.TestCase):
             'ticker': 'PLTR', 'units_held': 100, 'current_price': 120.0,
             'current_value': 12000.0, 'recent_high': 130.0,
             'smoothed_high': 125.0, 'percentile_high': 124.0,
+            'progress_to_doubling': '1.5x', 'simple_roi': 0.5, 'doubling_count': 0,
         }
         row.update(overrides)
         return pd.DataFrame([row])
@@ -2492,8 +2495,31 @@ class TestReviewInvariants(unittest.TestCase):
             'per_tag': pd.DataFrame([{'current_value': 24000.0}]),
         }
         violations = review_invariants.check_full_history(results)
-        self.assertEqual(len(violations), 1)
-        self.assertIn('Category', violations[0])
+        self.assertEqual([v for v in violations if 'do not reconcile' in v and 'Category' in v],
+                         violations, f"expected only the Category reconciliation violation: {violations}")
+
+    def test_doubling_progress_must_match_the_return(self):
+        """#31: a holding down 3% was reported at 97x progress towards a doubling."""
+        results = {'individual_stocks': self._holdings(
+            ticker='XGSG.L', progress_to_doubling='97.2x', simple_roi=-0.03)}
+        violations = review_invariants.check_full_history(results)
+        matching = [v for v in violations if 'progress to a' in v]
+        self.assertEqual(len(matching), 1, violations)
+        self.assertIn('XGSG.L', matching[0])
+
+    def test_a_genuine_multi_bagger_does_not_fire(self):
+        """Real multiples must survive: 12x progress on a 320% return is consistent."""
+        results = {'individual_stocks': self._holdings(
+            ticker='CLS.TO', progress_to_doubling='12.0x', simple_roi=3.207)}
+        self.assertEqual(
+            [v for v in review_invariants.check_full_history(results) if 'progress to a' in v], [])
+
+    def test_doubling_check_is_skipped_after_a_profit_taking(self):
+        """Progress resets to the sale price after a doubling, so the two diverge."""
+        results = {'individual_stocks': self._holdings(
+            progress_to_doubling='1.1x', simple_roi=8.0, doubling_count=2)}
+        self.assertEqual(
+            [v for v in review_invariants.check_full_history(results) if 'progress to a' in v], [])
 
     def test_periodic_review_fires_when_benchmarks_are_lost(self):
         """During #28 every benchmark was skipped and the review still printed."""
@@ -2563,6 +2589,103 @@ class TestIntegrationHarness(unittest.TestCase):
         rows = test_runner.extract_table_data(summary, table_name='Periodic Review Summary')
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['Category'], 'New')
+
+
+import csv_parser
+
+
+class TestCsvPricePerShare(unittest.TestCase):
+    """The broker CSV states its own units; the price comes from the consideration (#31)."""
+
+    HEADER = ("Date,Settlement Date,Symbol,Name,Sedol,Quantity,Price,Description,"
+              "Reference,Debit,Credit,Running Balance\n")
+
+    def _parse(self, *rows):
+        with tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, encoding='utf-8') as handle:
+            handle.write(self.HEADER)
+            for row in rows:
+                handle.write(row + '\n')
+            path = handle.name
+        try:
+            return csv_parser.parse_stock_transaction_csv(path)
+        finally:
+            os.unlink(path)
+
+    def test_london_etf_price_is_not_divided_by_a_hundred(self):
+        """#31: every '.L' symbol missing from a Yahoo-quirk list had its price cut 100x.
+
+        This is the row from the issue.  £24.12 x 2487 units is the £59,995.28 paid, so
+        the stated price is already in pounds and dividing it was simply wrong.
+        """
+        row = ('04/08/2025,06/08/2025,XGSG.L,Xtrackers II Global Government Bond,B5KR5B1,'
+               '2487,£24.12,2487 XTRS II Del 24.12,27725US4BFN,"£59,995.28",n/a,"£306,867.61"')
+        transaction = self._parse(row)[0]
+        self.assertAlmostEqual(transaction['price'], 59995.28 / 2487, places=4)
+        self.assertGreater(transaction['price'], 24.0)
+
+    def test_price_stated_in_dollars_still_yields_the_gbp_price(self):
+        """Some London ETFs are USD-denominated and II writes the dollar price under a £.
+
+        Deriving from the consideration sidesteps the units question entirely.
+        """
+        row = ('04/08/2025,06/08/2025,ICOM.L,iShares Diversified Commodity,BDFL4P1,'
+               '4560,£7.19,4560 ISHS VI Del 7.19,27725US29ZN,"£25,063.57",n/a,"£656,691.82"')
+        transaction = self._parse(row)[0]
+        self.assertAlmostEqual(transaction['price'], 25063.57 / 4560, places=4)
+
+    def test_price_includes_dealing_costs(self):
+        """The consideration includes costs, so the derived price is a true cost per unit.
+
+        £145,000 bought 42849.54 units at a stated £3.38, which is £144,831 of stock plus
+        £169 of costs.  Deriving from the consideration gives £3.3839, consistent with the
+        cost basis the rest of the tool already uses for unrealized profit.
+        """
+        row = ('05/08/2025,07/08/2025,0P00013P6I.L,HSBC FTSE All-World Index C Acc,BMJJJF9,'
+               '42849.54,£3.38,42849.54 HSBC GLOB Del 3.38,27725US4CB6,"£145,000.00",n/a,"£1,881.09"')
+        transaction = self._parse(row)[0]
+        self.assertAlmostEqual(transaction['price'], 145000.00 / 42849.54, places=4)
+
+    def test_us_symbol_price_comes_from_the_consideration_too(self):
+        """Non-London symbols were never divided, and must be unaffected."""
+        row = ('05/08/2025,07/08/2025,PLTR,Palantir Technologies Inc,BN0000,'
+               '100,£21.09,100 PLTR Del 21.09,27725US4CB7,"£2,109.00",n/a,"£1,881.09"')
+        transaction = self._parse(row)[0]
+        self.assertAlmostEqual(transaction['price'], 21.09, places=4)
+
+    def test_sale_price_comes_from_the_credit_column(self):
+        """Disposals take their consideration from Credit rather than Debit."""
+        row = ('05/08/2025,07/08/2025,SSAC.L,iShares MSCI ACWI,B6R51T5,'
+               '100,£74.31,100 ISHS V Del 74.31,27725US4B8W,n/a,"£7,431.00","£1,881.09"')
+        transaction = self._parse(row)[0]
+        self.assertEqual(transaction['transaction_type'], 'disposal')
+        self.assertAlmostEqual(transaction['price'], 74.31, places=4)
+
+
+class TestDoublingMetricsAgainstCsvPrices(unittest.TestCase):
+    """The user-visible symptom of #31: a nightly alert claiming a 97x return."""
+
+    def _buy(self, price, quantity=2487):
+        return StockTransaction(
+            date=datetime(2025, 8, 4), transaction_type='BUY', quantity=quantity,
+            price_per_share=price, total_amount=price * quantity
+        )
+
+    def test_a_flat_holding_is_not_reported_as_a_hundred_baggers(self):
+        """XGSG.L: bought at £24.12, now £23.45. It reported 97.2x."""
+        progress, _ = transaction_processor.calculate_doubling_metrics(
+            [self._buy(24.1236)], current_price=23.45)
+        self.assertEqual(progress, '1.0x')
+
+        # The value the broken parser produced, for contrast
+        progress_when_priced_in_error, _ = transaction_processor.calculate_doubling_metrics(
+            [self._buy(0.241236)], current_price=23.45)
+        self.assertEqual(progress_when_priced_in_error, '97.2x')
+
+    def test_a_genuine_multiple_still_reports(self):
+        """The fix must not mute real doubling candidates."""
+        progress, _ = transaction_processor.calculate_doubling_metrics(
+            [self._buy(21.09, quantity=100)], current_price=137.57)
+        self.assertEqual(progress, '6.5x')
 
 
 if __name__ == '__main__':

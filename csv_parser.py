@@ -6,7 +6,6 @@ import logging
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ticker_mapping import UK_TICKERS_IN_POUNDS
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +64,12 @@ def parse_stock_transaction_csv(filename: str) -> List[Dict[str, Any]]:
                         logger.warning(f"Could not parse quantity in row {row_idx}: '{quantity_str}'")
                         continue
                     
-                    # Parse price (remove £ symbol and commas)
+                    # The Price column is not reliable and is only kept for the log below.
+                    # It carries a £ sign whatever the units: some rows quote pounds, and
+                    # USD-denominated London ETFs quote dollars under the same £ sign.
+                    # The price is derived from the consideration instead — see below.
                     try:
-                        price = float(price_str.replace('£', '').replace(',', ''))
-                        
-                        # Convert UK stock prices from pence to pounds if needed
-                        if symbol.endswith('.L') and symbol not in UK_TICKERS_IN_POUNDS:
-                            price = price / 100
-                            logger.debug(f"Converted UK stock price from pence to pounds for {symbol}: {price_str} -> £{price:.4f}")
-                            
+                        stated_price = float(price_str.replace('£', '').replace(',', ''))
                     except ValueError:
                         logger.warning(f"Could not parse price in row {row_idx}: '{price_str}'")
                         continue
@@ -103,6 +99,20 @@ def parse_stock_transaction_csv(filename: str) -> List[Dict[str, Any]]:
                         logger.warning(f"Could not determine transaction type in row {row_idx}: Debit='{debit_str}', Credit='{credit_str}'")
                         continue
                     
+                    # Derive the price per share from the consideration, which is stated in
+                    # GBP in the Debit/Credit column and is the only unambiguous figure in
+                    # the row.  The Price column used to be taken at face value and divided
+                    # by 100 for any '.L' symbol absent from UK_TICKERS_IN_POUNDS — a list
+                    # describing what Yahoo Finance returns, applied to a broker's export
+                    # that states its own units.  Every London ETF missing from that list
+                    # had its price recorded 100x too low, which showed up as a hundredfold
+                    # 'Progress to 2x' and a nightly alert claiming a 97x return
+                    # (investment-reviews#31).
+                    price = total_amount / quantity if quantity else 0.0
+                    if stated_price > 0 and abs(price / stated_price - 1) > 0.05:
+                        logger.debug(f"{symbol}: stated price {price_str} is not the GBP price per "
+                                     f"share; using £{price:.4f} from the £{total_amount:,.2f} consideration")
+
                     # Create transaction data in the same format as PDF/MHTML parsers
                     transaction_data = {
                         'transaction_type': transaction_type,

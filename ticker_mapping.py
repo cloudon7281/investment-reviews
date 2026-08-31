@@ -50,36 +50,6 @@ TICKER_MAPPING = {
     'Rathbone Ethical Bond': '0P0001D2M9.L',
     } 
 
-# UK tickers that YF returns with currency='GBP' but are actually priced in POUNDS (not pence)
-# Most UK funds return currency='GBP' but prices are in PENCE (requiring /100 conversion)
-# This list contains the EXCEPTIONS where YF returns 'GBP' and prices are truly in pounds
-# 
-# Maintenance: If a UK ticker shows 100x valuation errors, it's likely incorrectly in this list
-# Audit was last run: 2025-10-12
-UK_TICKERS_IN_POUNDS = [
-                        # UK Funds - GBP in pounds (verified 2025-10-12)
-                        '0P00013YAP.L',  # Artemis US Smaller Companies
-                        '0P0001FE43.L',  # Rathbone Global Opportunities
-                        '0P0000VKOU.L',  # AXA Framlington American Growth
-                        '0P0000810W.L',  # Man GLG Japan CoreAlpha
-                        '0P0000XOMV.L',  # abrdn Latin American Equity
-                        '0P0000X3IE.L',  # Threadneedle European Select
-                        '0P0001FG8T.L',  # Waverton European Capital Growth
-                        '0P0001PGKI.L',  # Smith & Williamson Artificial Intelligence
-                        '0P0000XNBQ.L',  # AXA Framlington Global Technology
-                        '0P000102MM.L',  # Legal & General US Index
-                        '0P000090AH.L',  # Baillie Gifford High Yield Bond
-                        # REMOVED 2025-10-13: YF actually returns these in PENCE, not pounds
-                        # '0P000013TQ.L',  # JPMorgan Emerging Markets
-                        # '0P0001CWV4.L',  # Jupiter Global Value Equity
-                        '0P0001EEMN.L',  # FSSA Global Emerging Markets Focus
-                        '0P0001D2M9.L',  # Rathbone Ethical Bond
-                        '0P0000UR3O.L',  # M&G Global Macro Bond
-                        '0P00018MM4.L',  # Fidelity Cash W Acc (Pension)
-                        '0P0000Z8P7.L',  # Royal London Short Term Money Mkt Y Acc (Pension)
-                        '0P00013P6I.L',  # HSBC FTSE All-World Index C Acc
-                        ]
-
 # Mapping from country code (first 2 chars of ISIN) to exchange suffix
 EXCHANGE_SUFFIX_MAP = {
     'US': '',  # US stocks have no suffix
