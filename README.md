@@ -53,8 +53,9 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 
 **Test Mode**
 - Automated regression testing
-- Validates against reference outputs
-- Includes 33 unit tests + 4 integration tests
+- Deterministic modes (tax report, list trades) are compared against reference outputs
+- Price-dependent modes are checked against invariants rather than a stored snapshot
+- Runs every unit test in `test_unit.py` plus 5 integration tests
 
 ### Recent Highs
 
@@ -124,9 +125,40 @@ Run tests with anonymized data to verify installation:
 python3 portfolio.py --mode test
 ```
 
-Expected output: All 37 tests passing (33 unit + 4 integration tests).
+Expected output: all unit tests and all 5 integration tests passing.
 
-**Note:** Some tests may fail due to market price volatility exceeding the 50% tolerance threshold. This is expected behavior with live market data.
+### How the integration tests work
+
+Three of the five modes value the portfolio at live market prices, so their output is a
+function of the market on the day it ran, not of the code alone. Comparing them against a
+stored snapshot cannot work: the reference goes stale and fails spuriously, or the
+tolerance is widened until the test cannot fail. Both happened (investment-reviews#29).
+
+The suite therefore uses two mechanisms:
+
+- **Tax report and list trades** are computed from parsed broker notes with no market
+  data, so they are deterministic and compared against a reference output exactly. Log
+  records are stripped first — they are captured alongside the report but are not part
+  of it.
+- **Full history, periodic review and annual review** are checked against invariants:
+  properties that hold on any trading day whatever prices did. Each run must report no
+  invariant violation, and must produce every table it should with at least one row. The
+  second half matters as much as the first — without it a run that collapsed and printed
+  nothing would report no violations and pass.
+
+The invariants live in `review_invariants.py` and are asserted by the review itself, not
+only by the test harness, so a nightly or ad-hoc run reports the same violations. They
+are deliberately few, and each is chosen because it can genuinely fail:
+
+| Invariant | What it catches |
+|-----------|-----------------|
+| Every position still held has a price and a value | Price fetching silently failing for some or all holdings |
+| Grouped totals reconcile with the holdings total | A grouping that drops rows — an unexpected category, a null tag |
+| The smoothed and percentile highs never exceed the raw high | A broken recent-high window |
+| Every configured benchmark produces a row | Benchmarks being dropped silently, which they are when prices are missing |
+
+A check that cannot run — a column it needs is absent — reports that, rather than
+passing quietly.
 
 ## Usage
 
@@ -345,6 +377,7 @@ Organized as a **facade pattern** with specialized modules:
 
 **Calculation modules:**
 - `financial_metrics.py` - Pure financial calculations (MWRR, ROI, volatility)
+- `review_invariants.py` - Properties every valid review must satisfy, checked on each run
 - `transaction_processor.py` - Transaction aggregation and cashflow building
 - `market_data_fetcher.py` - Yahoo Finance API integration, including data cleaning to deal with missing data, spikes, pence<->pound changes mid-stream etc.
 - `holdings_calculator.py` - Holdings and valuations at specific dates
