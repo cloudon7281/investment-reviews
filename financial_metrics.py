@@ -83,6 +83,8 @@ def calculate_highs_and_volatility(price_data: Dict[str, pd.DataFrame],
         - 'smoothed_high' is the highest SMOOTHING_WINDOW_OBSERVATIONS-day rolling mean
           close, and 'percentile_high' the HIGH_PERCENTILE quantile of the closes.  Both
           discount short spikes, so a stop-loss read against them is less twitchy.
+        - The rolling mean counts observations, not calendar days, so days the stock did
+          not trade are dropped rather than left as gaps (investment-reviews#34).
         - Volatility is calculated using log returns and annualized (252 trading days)
     """
     empty_result = {
@@ -113,8 +115,17 @@ def calculate_highs_and_volatility(price_data: Dict[str, pd.DataFrame],
                 results[ticker] = dict(empty_result)
                 continue
 
-            closes = window['Close']
-            observed_days = (window.index[-1].date() - window.index[0].date()).days + 1
+            # Only days the stock actually traded are observations.  A missing close must
+            # drop out of the series rather than shorten a window: with a NaN left in place
+            # `rolling` yields NaN for every window spanning it, silently discarding a
+            # fortnight of candidates for the smoothed high (investment-reviews#34).
+            closes = window['Close'].dropna()
+            if closes.empty:
+                logger.warning(f"No usable closes for {ticker} in the {RECENT_HIGH_WINDOW_DAYS}-day period up to {window_end.strftime('%Y-%m-%d')}")
+                results[ticker] = dict(empty_result)
+                continue
+
+            observed_days = (closes.index[-1].date() - closes.index[0].date()).days + 1
             if observed_days < RECENT_HIGH_WINDOW_DAYS:
                 logger.warning(f"{ticker}: only {observed_days} days of the {RECENT_HIGH_WINDOW_DAYS}-day window are covered by the fetched data; highs are understated")
 

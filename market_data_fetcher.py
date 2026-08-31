@@ -314,6 +314,20 @@ class MarketDataFetcher:
                                     self.price_cache[ticker] = pd.DataFrame()
                                     continue
 
+                        # Drop the days this ticker did not trade.  yf.download() indexes the
+                        # batch by the union of every ticker's trading calendar, so each
+                        # ticker's slice carries a NaN row for every day another exchange was
+                        # open and this one was not — a US holding gains rows on Juneteenth and
+                        # Independence Day because the LSE traded.  Those rows are not
+                        # observations, and downstream row-counting reads them as if they were:
+                        # a rolling mean voids every window spanning one, understating the
+                        # smoothed high (investment-reviews#34).
+                        padding_rows = int(df['Close'].isna().sum())
+                        if padding_rows:
+                            df = df[df['Close'].notna()].copy()
+                            logger.info(f"Dropped {padding_rows} non-trading day(s) from {ticker}, "
+                                        f"padded in by the batch's union calendar (kept {len(df)} rows)")
+
                         # Filter out outliers: single-day spikes that are implausible
                         # Yahoo Finance sometimes returns bad data with huge spikes (e.g., VWRL.L Oct 6)
                         # Strategy: Remove any row where price differs >20% from both previous AND next day
