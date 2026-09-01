@@ -2586,7 +2586,17 @@ class TestLondonListedExchangeSuffix(unittest.TestCase):
         ('IWFV', 'IE00BYXG2H39'),
         ('LTAM', 'IE00BYXG2H39'),
         ('ARMR', 'IE00BYXG2H39'),
+        ('WDEF', 'IE0007N9SZH3'),
     ]
+
+    def test_a_multi_currency_listing_resolves_to_the_line_actually_held(self):
+        '''WDEF is a EUR line on the LSE; bare WDEF is a USD line on NYSE Arca.
+
+        Both are real instruments and both return a plausible price, so picking the wrong
+        one is not an error anywhere — it is an 18% understatement reported as a loss
+        (investment-reviews#46).
+        '''
+        self.assertEqual(pdf_parser.get_exchange_suffix('IE0007N9SZH3', 'WDEF'), '.L')
 
     def test_london_listings_resolve_to_the_london_suffix(self):
         for ticker, isin in self.LONDON_LISTED:

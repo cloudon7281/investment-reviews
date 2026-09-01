@@ -103,6 +103,10 @@ SPECIAL_EXCHANGE_SUFFIX_MAP = {
     'FEML': '.L',   # FEML is FEML.L in London (GG00B4L0PD47)
     'IWFV': '.L',   # IWFV is IWFV.L in London
     'LTAM': '.L',   # LTAM is LTAM.L in London
+    # WDEF trades on the LSE as a EUR line; bare WDEF is a USD line on NYSE Arca, and
+    # pricing the wrong one understated the holding by 18% while looking like a loss
+    # (investment-reviews#46).
+    'WDEF': '.L',   # WDEF is WDEF.L in London
 }
 
 STOCK_RENAME_MAP = {
