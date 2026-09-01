@@ -1,4 +1,9 @@
-pandas>=2.0.0
+# Capped below 4.0.0 deliberately.  yfinance calls pd.Timestamp.utcnow(), which pandas
+# has deprecated and will remove in 4.0 — so a pandas 4 release would not warn, it would
+# break the nightly run with an AttributeError, on the next image rebuild rather than on
+# any change of ours.  The cap turns that into an upgrade we schedule.  Raising it is
+# investment-reviews#48, which also has to move yfinance off 0.2.x.
+pandas>=2.0.0,<4.0.0
 numpy>=1.24.0
 yfinance>=0.2.66,<1.0.0
 beautifulsoup4>=4.12.0
