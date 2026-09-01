@@ -348,6 +348,53 @@ and SMTP relay under `notifications.alerts` in `config.yaml`; leaving `to` empty
 alerts. On jarvis the relay is the `infra_mail` Proton Bridge on the host
 (`host.docker.internal:1025`).
 
+### Reconciling a Stock's Tag (`reconcile_tags.py`)
+
+A stock's tag is the directory its notes sit in — `<category>/<year>/<tag>/`. The scanner
+takes the tag from the first note it processes for a given `(ticker, category)` and only
+*warns* when later notes disagree, so a stock whose notes are split across two tags
+aggregates under whichever was seen first, silently.
+
+The notes exist in three places, and the two sync hops do not behave alike:
+
+```
+iCloud    ~/Library/Mobile Documents/com~apple~Pages/Documents/Investment/history
+   |  ditto, hourly            — additive: never deletes from staging
+staging   ~/Documents/iCloud-Staging/history
+   |  rsync -a --delete, hourly — a mirror: jarvis is forced to match staging
+jarvis    /Users/cl/srv/investment-reviews/state/history
+```
+
+That asymmetry dictates the order a retag must be made in. Because the first hop never
+deletes, a note left behind in iCloud is copied back into staging; because the second hop
+mirrors, anything left in staging is pushed to jarvis — and equally, anything removed
+from staging is removed from jarvis on its own. So moves go **upstream first**, and each
+step leaves nothing behind it that a later sync could use to recreate the old path.
+Moving in the other order guarantees the move is undone within the hour.
+
+```bash
+# Where are this stock's notes filed?
+python3 reconcile_tags.py Microsoft
+
+# Exit 1 if they are not under one tag per category in all three locations
+python3 reconcile_tags.py Microsoft --check
+
+# Show what would move (no changes)
+python3 reconcile_tags.py Microsoft --move-to "AI application layer"
+
+# Move them, then verify nothing was left behind or recreated
+python3 reconcile_tags.py Microsoft --move-to "AI application layer" --apply
+```
+
+The fragment is matched case-insensitively against note *filenames* (`.pdf`, `.csv`,
+`.mhtml`); nothing else in the tree is touched. Category and year are always preserved —
+only the tag directory changes. `--apply` refuses to start while either sync job is
+running, and re-checks all three locations afterwards.
+
+Run it on the Macbook: it needs the iCloud and staging trees locally and reaches jarvis
+over ssh. The same stock holding different tags in ISA and Taxable is not a fault — the
+scanner keys the tag on `(ticker, category)` — and is reported without complaint.
+
 ## Architecture
 
 The tool follows a three-layer architecture with strict separation of concerns:

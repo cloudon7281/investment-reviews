@@ -21,6 +21,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
 import pdf_parser
+import reconcile_tags
 from portfolio_review import PortfolioReview
 import market_data_fetcher
 from market_data_fetcher import MarketDataFetcher
@@ -2645,6 +2646,158 @@ class TestUnreadableContractNote(unittest.TestCase):
 
         review = self._scan(['B1_BOUGHT_One.pdf'], raiser)
         self.assertIsNotNone(review)
+
+
+class TestReconcileTagPaths(unittest.TestCase):
+    """Where the directory structure files a note (investment-reviews#42)."""
+
+    ROOT = '/notes'
+
+    def test_parses_category_year_and_tag(self):
+        self.assertEqual(
+            reconcile_tags.parse_note_path(self.ROOT, '/notes/Taxable/2026/Defence/B1_BOUGHT_X.pdf'),
+            ('taxable', '2026', 'Defence'))
+
+    def test_a_note_directly_under_the_year_has_no_tag(self):
+        self.assertEqual(
+            reconcile_tags.parse_note_path(self.ROOT, '/notes/ISA/2026/B1_BOUGHT_X.pdf'),
+            ('isa', '2026', None))
+
+    def test_a_four_digit_directory_is_a_year_not_a_tag(self):
+        """'2026' below the year would otherwise be read as a tag called 2026."""
+        self.assertEqual(
+            reconcile_tags.parse_note_path(self.ROOT, '/notes/ISA/2026/2026/B1_BOUGHT_X.pdf'),
+            ('isa', '2026', None))
+
+    def test_agrees_with_the_scanner(self):
+        """The tool and PortfolioReview must not disagree about where a note is filed."""
+        review = PortfolioReview.__new__(PortfolioReview)
+        for path in ('/notes/Taxable/2026/H&L fund recommendations/B448671254_BOUGHT_F.pdf',
+                     '/notes/ISA/2010/2010 generic/B181267631_BOUGHT_I.pdf',
+                     '/notes/Pension/2024/B1_BOUGHT_X.pdf'):
+            with self.subTest(path=path):
+                self.assertEqual(reconcile_tags.parse_note_path(self.ROOT, path),
+                                 review._extract_account_type_and_year(path))
+
+    def test_only_note_files_are_matched(self):
+        self.assertTrue(reconcile_tags.is_note('B1_BOUGHT_X.pdf'))
+        self.assertTrue(reconcile_tags.is_note('trades.CSV'))
+        self.assertTrue(reconcile_tags.is_note('export.mhtml'))
+        self.assertFalse(reconcile_tags.is_note('.DS_Store'))
+        self.assertFalse(reconcile_tags.is_note('notes.txt'))
+
+
+class TestReconcileTagMoves(unittest.TestCase):
+    """Moving a stock's notes across three copies (investment-reviews#42)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.locations = []
+        for name in ('icloud', 'staging', 'jarvis'):
+            root = os.path.join(self._tmp.name, name)
+            os.makedirs(root)
+            self.locations.append(reconcile_tags.LocalLocation(name, root))
+
+    def _place(self, location, category, year, tag, filename):
+        directory = os.path.join(location.root, category, year, tag) if tag else \
+            os.path.join(location.root, category, year)
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, filename)
+        open(path, 'w').close()
+        return path
+
+    def _find(self, fragment):
+        notes = []
+        for location in self.locations:
+            notes.extend(location.find(fragment))
+        return notes
+
+    def test_retag_keeps_the_directory_casing_on_disk(self):
+        """'ISA' parses to 'isa'; a destination spelled from the parsed form forks the tree."""
+        location = self.locations[0]
+        self._place(location, 'ISA', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        note = location.find('BOUGHT_X')[0]
+        destination = location.retag(note, 'Defence')
+        self.assertEqual(destination,
+                         os.path.join(location.root, 'ISA', '2026', 'Defence', 'B1_BOUGHT_X.pdf'))
+
+    def test_a_note_with_no_tag_gains_one(self):
+        location = self.locations[0]
+        self._place(location, 'ISA', '2026', None, 'B1_BOUGHT_X.pdf')
+        note = location.find('BOUGHT_X')[0]
+        self.assertIsNone(note.tag)
+        self.assertEqual(location.retag(note, 'Defence'),
+                         os.path.join(location.root, 'ISA', '2026', 'Defence', 'B1_BOUGHT_X.pdf'))
+
+    def test_moves_are_ordered_upstream_first(self):
+        """iCloud, then staging, then jarvis.
+
+        The first hop never deletes and the second mirrors, so a note left upstream is
+        copied back over the move within the hour.  The order is the safety property.
+        """
+        for location in self.locations:
+            self._place(location, 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'Defence')
+        self.assertEqual([location.name for location, _, _ in moves],
+                         ['icloud', 'staging', 'jarvis'])
+
+    def test_notes_already_under_the_target_tag_are_not_moved(self):
+        self._place(self.locations[0], 'Taxable', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[1], 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'Defence')
+        self.assertEqual([location.name for location, _, _ in moves], ['staging'])
+
+    def test_a_split_within_one_location_is_reported(self):
+        self._place(self.locations[0], 'Taxable', '2025', 'Old', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[0], 'Taxable', '2026', 'New', 'B2_BOUGHT_X.pdf')
+        problems = reconcile_tags.disagreements(self._find('BOUGHT_X'), ['icloud', 'staging', 'jarvis'])
+        self.assertTrue(any('split across 2 tags' in p for p in problems), problems)
+
+    def test_a_move_applied_to_only_some_locations_is_reported(self):
+        """The state a half-finished move leaves, which the syncs then spread."""
+        self._place(self.locations[0], 'Taxable', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[1], 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[2], 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        problems = reconcile_tags.disagreements(self._find('BOUGHT_X'), ['icloud', 'staging', 'jarvis'])
+        self.assertTrue(any('filed differently in different locations' in p for p in problems), problems)
+
+    def test_consistent_filing_reports_nothing(self):
+        for location in self.locations:
+            self._place(location, 'Taxable', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+        self.assertEqual(reconcile_tags.disagreements(self._find('BOUGHT_X'),
+                                                      ['icloud', 'staging', 'jarvis']), [])
+
+    def test_the_same_stock_may_hold_different_tags_in_different_categories(self):
+        """The scanner keys the tag on (ticker, category), so this is not a fault."""
+        for location in self.locations:
+            self._place(location, 'ISA', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+            self._place(location, 'Taxable', '2026', 'Nuclear', 'B2_BOUGHT_X.pdf')
+        self.assertEqual(reconcile_tags.disagreements(self._find('BOUGHT_X'),
+                                                      ['icloud', 'staging', 'jarvis']), [])
+
+    def test_moving_leaves_nothing_behind_in_any_location(self):
+        for location in self.locations:
+            self._place(location, 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'Defence')
+        for location, note, destination in moves:
+            location.move(note.path, destination)
+
+        after = self._find('BOUGHT_X')
+        self.assertEqual(len(after), 3)
+        self.assertEqual({note.tag for note in after}, {'Defence'})
+        self.assertEqual(reconcile_tags.disagreements(after, ['icloud', 'staging', 'jarvis']), [])
+        for location in self.locations:
+            self.assertFalse(os.path.exists(
+                os.path.join(location.root, 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')))
+
+    def test_a_move_onto_an_existing_file_refuses_rather_than_overwrites(self):
+        location = self.locations[0]
+        self._place(location, 'Taxable', '2026', 'Old', 'B1_BOUGHT_X.pdf')
+        self._place(location, 'Taxable', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+        note = [n for n in location.find('BOUGHT_X') if n.tag == 'Old'][0]
+        with self.assertRaises(RuntimeError):
+            location.move(note.path, location.retag(note, 'Defence'))
 
 
 class TestReviewInvariants(unittest.TestCase):
