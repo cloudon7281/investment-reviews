@@ -10,6 +10,7 @@ Tests cover:
 
 import os
 import sys
+import shutil
 import tempfile
 import unittest
 from logger import logger
@@ -2929,6 +2930,85 @@ class TestReconcileTagPreflight(unittest.TestCase):
         moves = [(self.locations[0], note, self.locations[0].retag(note, 'Defence'))
                  for note in self.locations[0].find('BOUGHT_X') if note.tag == 'Tech']
         self.assertEqual(len(reconcile_tags.preflight(moves)), 1)
+
+
+class TestManualTransferNotes(unittest.TestCase):
+    """A TRANSFER declared in a manual YAML note (investment-reviews#52)."""
+
+    def _review(self, entries):
+        """Scan a throwaway history tree containing one YAML note."""
+        import yaml as _yaml
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        with open(os.path.join(directory, 'action.yaml'), 'w') as handle:
+            _yaml.safe_dump(entries, handle)
+        return PortfolioReview(base, 'full-history')
+
+    def _transactions(self, review, ticker):
+        for notes in review.stock_notes.values():
+            for note in (notes if isinstance(notes, list) else [notes]):
+                if getattr(note, 'ticker', None) == ticker:
+                    return note.transactions
+        return None
+
+    TRANSFER_IN = {
+        'transaction_type': 'TRANSFER', 'ticker': 'KMAR.OL',
+        'stock_name': 'Kongsberg Maritime ASA', 'date': '2026-04-23',
+        'quantity': 1192, 'total_amount': 5847.00,
+    }
+    TRANSFER_OUT = {
+        'transaction_type': 'TRANSFER', 'ticker': 'KOG.OL',
+        'stock_name': 'Kongsberg Gruppen ASA', 'date': '2026-04-23',
+        'quantity': 0, 'total_amount': -5847.00,
+    }
+
+    def test_a_yaml_transfer_is_recorded_as_a_transfer_not_a_sale(self):
+        """Everything that was not a purchase fell through to SELL.
+
+        The manual-transaction template documents TRANSFER, and transaction_processor
+        has always understood it, but nothing could reach that branch from a note: the
+        holding was recorded as a disposal and then dropped, because a stock whose first
+        transaction is a SELL is excluded entirely.
+        """
+        transactions = self._transactions(self._review([dict(self.TRANSFER_IN)]), 'KMAR.OL')
+        self.assertIsNotNone(transactions, "the transferred-in holding was dropped")
+        self.assertEqual(transactions[0].transaction_type, 'TRANSFER')
+
+    def test_a_transfer_out_is_not_recorded_as_a_disposal(self):
+        """The giving leg carries a negative cost base, not sale proceeds."""
+        transactions = self._transactions(self._review([dict(self.TRANSFER_OUT)]), 'KOG.OL')
+        self.assertEqual(transactions[0].transaction_type, 'TRANSFER')
+        self.assertAlmostEqual(transactions[0].total_amount, -5847.00)
+
+    def test_a_demerger_pair_conserves_the_total_cost_base(self):
+        """The point of modelling a demerger as paired transfers.
+
+        A demerger does not create value, it splits an existing cost base across two
+        holdings.  Booking the new shares as a zero-cost purchase would leave the old
+        holding's cost base overstated by exactly the amount the new one is understated.
+        """
+        review = self._review([dict(self.TRANSFER_IN), dict(self.TRANSFER_OUT)])
+        received = transaction_processor.calculate_transactions_through_date(
+            self._transactions(review, 'KMAR.OL'), datetime(2026, 9, 1))
+        given = transaction_processor.calculate_transactions_through_date(
+            self._transactions(review, 'KOG.OL'), datetime(2026, 9, 1))
+
+        self.assertAlmostEqual(received['total_invested'], 5847.00)
+        self.assertAlmostEqual(given['total_invested'], -5847.00)
+        self.assertAlmostEqual(received['total_invested'] + given['total_invested'], 0.0)
+        self.assertAlmostEqual(received['units_held'], 1192)
+        self.assertAlmostEqual(given['units_held'], 0)
+
+    def test_neither_leg_is_counted_as_money_received(self):
+        """A demerger is not a disposal, so nothing has been realised."""
+        review = self._review([dict(self.TRANSFER_IN), dict(self.TRANSFER_OUT)])
+        for ticker in ('KMAR.OL', 'KOG.OL'):
+            with self.subTest(ticker=ticker):
+                result = transaction_processor.calculate_transactions_through_date(
+                    self._transactions(review, ticker), datetime(2026, 9, 1))
+                self.assertAlmostEqual(result['total_received'], 0.0)
 
 
 class TestReviewInvariants(unittest.TestCase):
