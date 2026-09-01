@@ -2800,6 +2800,115 @@ class TestReconcileTagMoves(unittest.TestCase):
             location.move(note.path, location.retag(note, 'Defence'))
 
 
+class TestReconcileTagCaseInsensitivity(unittest.TestCase):
+    """Tag directories are case-insensitively unique on macOS (investment-reviews#44)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.locations = []
+        for name in ('icloud', 'staging', 'jarvis'):
+            root = os.path.join(self._tmp.name, name)
+            os.makedirs(root)
+            self.locations.append(reconcile_tags.LocalLocation(name, root))
+
+    def _place(self, location, category, year, tag, filename):
+        directory = os.path.join(location.root, category, year, tag)
+        os.makedirs(directory, exist_ok=True)
+        open(os.path.join(directory, filename), 'w').close()
+
+    def _find(self, fragment):
+        notes = []
+        for location in self.locations:
+            notes.extend(location.find(fragment))
+        return notes
+
+    def test_tags_differing_only_in_case_are_the_same_tag(self):
+        self.assertTrue(reconcile_tags.same_tag('AI application layer', 'AI Application Layer'))
+        self.assertTrue(reconcile_tags.same_tag('Tech', 'tech'))
+        self.assertFalse(reconcile_tags.same_tag('Tech', 'Biotech'))
+        self.assertFalse(reconcile_tags.same_tag(None, 'Tech'))
+        self.assertTrue(reconcile_tags.same_tag(None, None))
+
+    def test_a_note_already_under_a_case_variant_is_not_moved(self):
+        """The move that aborted: the destination resolved onto the file itself."""
+        self._place(self.locations[0], 'ISA', '2026', 'AI application layer', 'B1_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'AI Application Layer')
+        self.assertEqual(moves, [])
+
+    def test_the_spelling_difference_is_reported_not_applied(self):
+        """Respelling renames a directory other stocks sit in, so it is not done silently."""
+        self._place(self.locations[0], 'ISA', '2026', 'AI application layer', 'B1_BOUGHT_X.pdf')
+        notes = self._find('BOUGHT_X')
+        self.assertEqual(reconcile_tags.spelling_differences(notes, 'AI Application Layer'),
+                         ['AI application layer'])
+        self.assertEqual(reconcile_tags.spelling_differences(notes, 'AI application layer'), [])
+        # and the directory is untouched
+        self.assertTrue(os.path.isdir(
+            os.path.join(self.locations[0].root, 'ISA', '2026', 'AI application layer')))
+
+    def test_a_case_variant_does_not_count_as_a_split(self):
+        """One tag spelled two ways across years is a spelling question, not two tags."""
+        self._place(self.locations[0], 'ISA', '2024', 'AI Application Layer', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[0], 'ISA', '2026', 'AI application layer', 'B2_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'AI application layer')
+        self.assertEqual(moves, [])
+
+
+class TestReconcileTagPreflight(unittest.TestCase):
+    """Nothing moves unless everything can (investment-reviews#44)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.locations = []
+        for name in ('icloud', 'staging', 'jarvis'):
+            root = os.path.join(self._tmp.name, name)
+            os.makedirs(root)
+            self.locations.append(reconcile_tags.LocalLocation(name, root))
+
+    def _place(self, location, category, year, tag, filename):
+        directory = os.path.join(location.root, category, year, tag)
+        os.makedirs(directory, exist_ok=True)
+        open(os.path.join(directory, filename), 'w').close()
+
+    def _find(self, fragment):
+        notes = []
+        for location in self.locations:
+            notes.extend(location.find(fragment))
+        return notes
+
+    def test_preflight_passes_when_every_destination_is_free(self):
+        for location in self.locations:
+            self._place(location, 'ISA', '2026', 'Tech', 'B1_BOUGHT_X.pdf')
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'Defence')
+        self.assertEqual(reconcile_tags.preflight(moves), [])
+
+    def test_preflight_catches_a_taken_destination_before_anything_moves(self):
+        for location in self.locations:
+            self._place(location, 'ISA', '2026', 'Tech', 'B1_BOUGHT_X.pdf')
+        # a different stock's note already occupies the destination name in the last location
+        self._place(self.locations[2], 'ISA', '2026', 'Defence', 'B1_BOUGHT_X.pdf')
+
+        moves = reconcile_tags.plan(self._find('BOUGHT_X'), self.locations, 'Defence')
+        problems = reconcile_tags.preflight(moves)
+        self.assertEqual(len(problems), 1)
+        self.assertIn('jarvis', problems[0])
+
+        # the caller aborts on a non-empty result, so the upstream files are still in place
+        for location in self.locations[:2]:
+            self.assertTrue(os.path.exists(
+                os.path.join(location.root, 'ISA', '2026', 'Tech', 'B1_BOUGHT_X.pdf')))
+
+    def test_preflight_compares_case_insensitively(self):
+        """A destination only has to collide case-insensitively to fail on macOS."""
+        self._place(self.locations[0], 'ISA', '2026', 'Tech', 'B1_BOUGHT_X.pdf')
+        self._place(self.locations[0], 'ISA', '2026', 'defence', 'B1_BOUGHT_X.pdf')
+        moves = [(self.locations[0], note, self.locations[0].retag(note, 'Defence'))
+                 for note in self.locations[0].find('BOUGHT_X') if note.tag == 'Tech']
+        self.assertEqual(len(reconcile_tags.preflight(moves)), 1)
+
+
 class TestReviewInvariants(unittest.TestCase):
     """Each invariant must be able to fire, or it is coverage in name only (#29)."""
 
