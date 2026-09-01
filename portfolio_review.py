@@ -720,8 +720,15 @@ class PortfolioReview:
         
         # Create transaction
         # Use transaction_type from parsed data if available, otherwise infer from filename
+        # 'transfer' has to be named here.  Everything that is not a purchase used to fall
+        # through to SELL, so a TRANSFER declared in a manual YAML note — the type the
+        # template documents for moving units and cost base without a sale — was recorded
+        # as a disposal.  transaction_processor has always understood TRANSFER; nothing
+        # could ever reach it from a note (investment-reviews#52).
         parsed_transaction_type = data.get('transaction_type')
-        if parsed_transaction_type:
+        if parsed_transaction_type == 'transfer':
+            transaction_type = 'TRANSFER'
+        elif parsed_transaction_type:
             transaction_type = 'BUY' if parsed_transaction_type == 'purchase' else 'SELL'
         else:
             transaction_type = 'BUY' if 'BOUGHT' in file_path.upper() else 'SELL'
