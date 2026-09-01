@@ -388,8 +388,18 @@ python3 reconcile_tags.py Microsoft --move-to "AI application layer" --apply
 
 The fragment is matched case-insensitively against note *filenames* (`.pdf`, `.csv`,
 `.mhtml`); nothing else in the tree is touched. Category and year are always preserved —
-only the tag directory changes. `--apply` refuses to start while either sync job is
-running, and re-checks all three locations afterwards.
+only the tag directory changes.
+
+`--apply` refuses to start while either sync job is running, checks every destination
+before moving anything, and re-checks all three locations afterwards. The pre-flight
+matters: a collision discovered halfway through would leave the notes split across the
+three locations, which is worse than the state being fixed.
+
+Tag names are compared case-insensitively, because both hosts are macOS and a tag
+directory is case-insensitively unique within its year. Asking for a tag that already
+exists under a different spelling is therefore a no-op, and the difference is reported
+rather than applied — respelling a tag renames a directory that other stocks are filed
+under, so it is a tag-wide change and not one this tool makes on one holding's behalf.
 
 Run it on the Macbook: it needs the iCloud and staging trees locally and reaches jarvis
 over ssh. The same stock holding different tags in ISA and Taxable is not a fault — the

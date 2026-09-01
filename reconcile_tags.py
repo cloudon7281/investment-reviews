@@ -98,6 +98,20 @@ def parse_note_path(root: str, path: str) -> Tuple[Optional[str], Optional[str],
     return category, year, tag
 
 
+def same_tag(left: Optional[str], right: Optional[str]) -> bool:
+    """Do these two tag names refer to the same directory?
+
+    Both the Macbook and jarvis are macOS, so a tag directory is case-insensitively
+    unique within its year: 'AI application layer' and 'AI Application Layer' cannot both
+    exist.  Comparing them case-sensitively made an already-correctly-filed note look
+    like it needed moving, and its destination then resolved on disk to the file itself
+    (investment-reviews#44).
+    """
+    if left is None or right is None:
+        return left is right
+    return left.lower() == right.lower()
+
+
 def is_note(filename: str) -> bool:
     return filename.lower().endswith(NOTE_EXTENSIONS)
 
@@ -289,7 +303,7 @@ def plan(notes: Sequence[Note], locations: Sequence[Location], tag: str) -> List
     moves = []
     for location in locations:
         for note in notes:
-            if note.location != location.name or note.tag == tag:
+            if note.location != location.name or same_tag(note.tag, tag):
                 continue
             if note.category is None or note.year is None:
                 print(f"  SKIP  {note.path}\n"
@@ -297,6 +311,37 @@ def plan(notes: Sequence[Note], locations: Sequence[Location], tag: str) -> List
                 continue
             moves.append((location, note, location.retag(note, tag)))
     return moves
+
+
+def spelling_differences(notes: Sequence[Note], tag: str) -> List[str]:
+    """Tags that are this tag, spelled differently on disk.
+
+    Reported rather than corrected.  Respelling a tag renames a directory that other
+    stocks are filed under too, so it is a tag-wide operation, not something a
+    stock-scoped tool should do as a side effect of moving one holding.
+    """
+    spellings = {note.tag for note in notes if same_tag(note.tag, tag) and note.tag != tag}
+    return sorted(spellings)
+
+
+def preflight(moves: Sequence[Tuple[Location, Note, str]]) -> List[str]:
+    """Reasons any of these moves cannot be made, checked before making any of them.
+
+    One listing per location rather than a probe per file, and compared case-insensitively
+    because the destination only has to collide case-insensitively to fail.  Checking as
+    we went left the notes half-moved across three locations, which is the state this tool
+    exists to prevent (investment-reviews#44).
+    """
+    existing = {}
+    for location, _, _ in moves:
+        if location.name not in existing:
+            existing[location.name] = {path.lower() for path in location.list_files()}
+
+    problems = []
+    for location, note, destination in moves:
+        if destination.lower() in existing[location.name]:
+            problems.append(f"{location.name}: {destination} already exists")
+    return problems
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -331,9 +376,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     problems = disagreements(notes, names)
 
     if args.move_to:
+        respelt = spelling_differences(notes, args.move_to)
+        if respelt:
+            shown = ', '.join(f"'{spelling}'" for spelling in respelt)
+            print(f"\nNOTE: these notes are already under {shown}, which is '{args.move_to}' "
+                  f"spelled differently. Tag directories are case-insensitively unique on "
+                  f"macOS, so they are left where they are and keep their existing spelling.")
+            print("      Respelling a tag renames a directory other stocks are filed under, "
+                  "so it is a tag-wide change and not one this tool makes for you.")
+
         moves = plan(notes, locations, args.move_to)
         if not moves:
-            print(f"\nNothing to do: every matching note is already filed under '{args.move_to}'.")
+            print(f"\nNothing to do: every matching note is already filed under "
+                  f"'{args.move_to}'.")
             return 0
 
         print(f"\n{'Moving' if args.apply else 'Would move'} {len(moves)} file(s) to '{args.move_to}':")
@@ -350,9 +405,38 @@ def main(argv: Optional[List[str]] = None) -> int:
                   f"partly undone. Wait for it to finish and re-run.", file=sys.stderr)
             return 2
 
+        # Everything is checked before anything is moved: a collision found halfway
+        # through would leave the notes split across three locations, which is worse than
+        # the state being fixed (investment-reviews#44).
+        blocked = preflight(moves)
+        if blocked:
+            print("\nERROR: nothing was moved. These destinations are already taken:",
+                  file=sys.stderr)
+            for problem in blocked:
+                print(f"  {problem}", file=sys.stderr)
+            return 2
+
         print()
+        applied = []
         for location, note, destination in moves:
-            location.move(note.path, destination)
+            try:
+                location.move(note.path, destination)
+            except Exception as error:
+                # Pre-flight passed, so this is an I/O or ssh failure rather than a
+                # collision.  The operator needs the state they are actually in.
+                print(f"\nERROR: {error}", file=sys.stderr)
+                print(f"PARTIALLY APPLIED: {len(applied)} of {len(moves)} move(s) were made:",
+                      file=sys.stderr)
+                for done_location, done_note in applied:
+                    print(f"  moved      {done_location.name:9} {done_note.filename}", file=sys.stderr)
+                for pending_location, pending_note, _ in moves[len(applied):]:
+                    print(f"  not moved  {pending_location.name:9} {pending_note.filename}",
+                          file=sys.stderr)
+                print(f"\nThe notes are now filed inconsistently and the syncs will spread "
+                      f"that. Re-run the same command to finish, or "
+                      f"'--check' to see the current state.", file=sys.stderr)
+                return 1
+            applied.append((location, note))
             print(f"  moved   {location.name:9} {note.filename}")
 
         # Nothing upstream should still hold an old path; if it does, the next sync will
@@ -361,7 +445,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         after = []
         for location in locations:
             after.extend(location.find(args.fragment))
-        lingering = [note for note in after if note.tag != args.move_to and note.category is not None]
+        lingering = [note for note in after
+                     if not same_tag(note.tag, args.move_to) and note.category is not None]
         if lingering:
             print("FAILED: these are still filed elsewhere and will be resynced:", file=sys.stderr)
             for note in lingering:
