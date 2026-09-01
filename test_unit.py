@@ -2587,7 +2587,19 @@ class TestLondonListedExchangeSuffix(unittest.TestCase):
         ('LTAM', 'IE00BYXG2H39'),
         ('ARMR', 'IE00BYXG2H39'),
         ('WDEF', 'IE0007N9SZH3'),
+        ('ARMG', 'IE000JCW3DZ3'),
     ]
+
+    def test_a_bare_ticker_can_resolve_to_an_entirely_different_fund(self):
+        '''ARMG on the LSE is the Global X Defence Tech UCITS ETF (GBP line).
+
+        Bare ARMG is the Leverage Shares 2X Long ARM Daily ETF on Nasdaq — a different
+        fund tracking a different underlying, and geared. Unlike WDEF (#46), where the
+        wrong pick was another currency line of the same fund, here the price bears no
+        relation to the holding at all: it reported a 49% loss on a flat position, with
+        180% annualised volatility (investment-reviews#50).
+        '''
+        self.assertEqual(pdf_parser.get_exchange_suffix('IE000JCW3DZ3', 'ARMG'), '.L')
 
     def test_a_multi_currency_listing_resolves_to_the_line_actually_held(self):
         '''WDEF is a EUR line on the LSE; bare WDEF is a USD line on NYSE Arca.

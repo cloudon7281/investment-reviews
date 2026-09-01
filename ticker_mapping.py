@@ -107,6 +107,11 @@ SPECIAL_EXCHANGE_SUFFIX_MAP = {
     # pricing the wrong one understated the holding by 18% while looking like a loss
     # (investment-reviews#46).
     'WDEF': '.L',   # WDEF is WDEF.L in London
+    # ARMG is the GBP line of the Global X Defence Tech UCITS ETF on the LSE (ARMR.L is
+    # the same fund's USD line).  Bare ARMG is the Leverage Shares 2X Long ARM Daily ETF
+    # on Nasdaq — a different fund, a different underlying, and geared
+    # (investment-reviews#50).
+    'ARMG': '.L',   # ARMG is ARMG.L in London
 }
 
 STOCK_RENAME_MAP = {
