@@ -31,8 +31,12 @@ echo "[$(date -Is)] finished investment-reviews run (exit=${rc})"
 # Exit-code contract from update_google_sheet.main():
 #   0  spreadsheet updated, alert channel healthy
 #   2  spreadsheet updated, alert email undeliverable
+#   3  notes could not be read: spreadsheet left alone, the report was emailed instead
 #   *  the update itself failed
 # 0 and 2 both mean the nightly pipeline succeeded, so both refresh the health metric.
+# 3 does not: no report was produced, so the freshness metric is deliberately left to go
+# stale until the notes are fixed, even though an email did go out
+# (investment-reviews#38).
 if [ -d "$metrics_dir" ] && { [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; }; then
   ts=$(date +%s)
 

@@ -19,9 +19,35 @@ from typing import Dict, List, Any
 import logging
 
 import alerts
+from portfolio import (EXIT_UNPARSEABLE_NOTES, UNPARSEABLE_NOTES_BEGIN,
+                       UNPARSEABLE_NOTES_END)
 from console_parser import ConsoleOutputParser
 from google_sheets_client import GoogleSheetsClient
 from logger import configure_logging
+
+
+def _unparseable_notes_message(stderr: str) -> str:
+    """Pull the fenced report of unreadable notes out of the analysis's stderr.
+
+    Fenced because stderr also carries library warnings.  If the fence is missing the
+    whole of stderr is returned rather than nothing: an email holding too much is
+    recoverable, one holding nothing is not (investment-reviews#38).
+    """
+    text = stderr or ""
+    begin = text.find(UNPARSEABLE_NOTES_BEGIN)
+    end = text.find(UNPARSEABLE_NOTES_END)
+    if begin == -1 or end == -1 or end < begin:
+        return text.strip()
+    return text[begin + len(UNPARSEABLE_NOTES_BEGIN):end].strip()
+
+
+class UnparseableNotesError(Exception):
+    """The analysis could not read one or more notes, and named them.
+
+    Distinct from a general analysis failure because the response differs: the
+    spreadsheet is deliberately left alone and the message is emailed, rather than the
+    run simply being recorded as failed (investment-reviews#38).
+    """
 
 
 class PortfolioUpdater:
@@ -46,6 +72,12 @@ class PortfolioUpdater:
         # spreadsheet update worked. Surfaced as its own metric so a silently broken
         # notification path is visible on the dashboard (investment-reviews#20).
         self.alert_delivery_ok = True
+
+        # Set when the analysis could not read one or more notes.  The spreadsheet is
+        # left untouched in that case, so the run is not a success — but it is a
+        # different failure from the pipeline breaking, and the operator needs the
+        # message rather than a stack trace (investment-reviews#38).
+        self.unparseable_notes = None
 
         # Load configuration
         with open(os.path.expanduser(config_path), 'r') as f:
@@ -196,11 +228,52 @@ class PortfolioUpdater:
             self.logger.info("="*80)
             return True
 
+        except UnparseableNotesError as e:
+            # Deliberately before the catch-all: the spreadsheet must not gain a row
+            # built from a book that is missing whatever those notes recorded, and the
+            # nightly email carries the reason instead of the usual alerts.
+            self.unparseable_notes = str(e)
+            self.logger.error("Notes could not be read; the spreadsheet has been left "
+                              "unchanged and no row added")
+            for line in str(e).splitlines():
+                self.logger.error(f"  {line}")
+            self._send_unparseable_notes_alert(str(e))
+            return False
+
         except Exception as e:
             self.logger.error(f"Update failed: {e}")
             self.logger.exception("Full traceback:")
             return False
     
+    def _send_unparseable_notes_alert(self, message: str) -> None:
+        """Send the unreadable-note report as the whole of tonight's alert email.
+
+        Replacing the usual alerts rather than accompanying them: the figures those
+        alerts would be drawn from are the ones we have just refused to trust.
+        """
+        alert_config = self.config.get('notifications', {}).get('alerts', {})
+        if not alert_config.get('to'):
+            self.logger.error("No alert recipient configured, so nobody will be told "
+                              "that the notes could not be read")
+            return
+
+        subject = (f"Portfolio update FAILED {datetime.now().strftime('%Y-%m-%d')}: "
+                   f"notes could not be read")
+
+        if self.dry_run:
+            self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: "
+                             f"{subject}\n{message}")
+            return
+
+        try:
+            alerts.send_alert_email(alert_config, subject, message)
+            self.logger.info(f"Emailed the unreadable-note report to {alert_config['to']}")
+        except alerts.AlertDeliveryError as e:
+            # Both channels are now down: no spreadsheet row and no email. The run
+            # already fails, so this only has to be visible in the log.
+            self.logger.error(f"Could not email the unreadable-note report: {e}")
+            self.alert_delivery_ok = False
+
     def _send_alerts(self, console_output: str) -> None:
         """Identify stocks needing attention and email them if any are found.
 
@@ -316,6 +389,8 @@ class PortfolioUpdater:
             self.logger.error(f"Portfolio analysis failed with exit code {e.returncode}")
             self.logger.error(f"STDOUT: {e.stdout}")
             self.logger.error(f"STDERR: {e.stderr}")
+            if e.returncode == EXIT_UNPARSEABLE_NOTES:
+                raise UnparseableNotesError(_unparseable_notes_message(e.stderr))
             raise RuntimeError("Portfolio analysis execution failed")
     
     def _build_new_row(self, parsed_values: Dict[str, float], 
@@ -483,10 +558,16 @@ def main():
     # Exit-code contract, consumed by deploy/entrypoints/run-once.sh:
     #   0  spreadsheet updated and the alert channel is healthy
     #   2  spreadsheet updated but the alert email could not be delivered
+    #   3  notes could not be read: spreadsheet deliberately left alone, report emailed
     #   1  the update itself failed
     # 2 is deliberately not a job failure: the nightly pipeline did its job. It drives a
     # separate alert-delivery metric instead, so the two failure modes stay distinguishable
     # on the dashboard rather than collapsing into one red panel (investment-reviews#20).
+    # 3 IS a failure: no report was produced, and the freshness metric should go stale
+    # until the notes are fixed. It is distinguished from 1 so the logs say which
+    # (investment-reviews#38).
+    if updater.unparseable_notes:
+        sys.exit(EXIT_UNPARSEABLE_NOTES)
     if not success:
         sys.exit(1)
     sys.exit(0 if updater.alert_delivery_ok else 2)

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import sys
 from pathlib import Path
 from logger import setup_logger, logger
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
+from pdf_parser import NoteParseError
 from portfolio_review import PortfolioReview
 from test_runner import run_tests
 import review_invariants
@@ -119,6 +121,18 @@ def parse_tax_year(tax_year_str):
     tax_year_end = datetime(full_year, 4, 5)
     
     return tax_year_start, tax_year_end
+
+# Exit code for "some notes could not be read", distinct from any other failure so that
+# update_google_sheet can tell the difference.  A run that cannot read a note must not
+# produce a spreadsheet row: the row would be silently short of whatever the note
+# recorded, which is worse than no row at all (investment-reviews#38).
+EXIT_UNPARSEABLE_NOTES = 3
+
+# The message is fenced in the output because stderr also carries library warnings, and
+# the whole of it becomes the body of the nightly alert email.
+UNPARSEABLE_NOTES_BEGIN = "=== NOTES THAT COULD NOT BE READ ==="
+UNPARSEABLE_NOTES_END = "=== END NOTES THAT COULD NOT BE READ ==="
+
 
 def main():
     """Main entry point for the CLI."""
@@ -296,6 +310,19 @@ def main():
             )
             reporter.display_periodic_review(periodic_results, start_date, end_date, eval_date)
         
+    except NoteParseError as e:
+        # Reported on its own exit code and fenced in stderr rather than folded into the
+        # generic failure below, so the caller can act on it: skip the spreadsheet
+        # update and put this message in front of someone (investment-reviews#38).
+        logger.error(f"Notes could not be read: {e}")
+        # Logging and this fence share stderr but not a buffer, so the handlers are
+        # flushed first and the fence written in one call.  Interleaved, a log record
+        # lands inside the fence and goes out as part of the email body.
+        logging.shutdown()
+        sys.stderr.write(f"{UNPARSEABLE_NOTES_BEGIN}\n{e}\n{UNPARSEABLE_NOTES_END}\n")
+        sys.stderr.flush()
+        sys.exit(EXIT_UNPARSEABLE_NOTES)
+
     except Exception as e:
         logger.error(f"Error processing portfolio: {str(e)}")
         logger.exception("Full traceback:")
