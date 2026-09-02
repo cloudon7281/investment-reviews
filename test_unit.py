@@ -22,6 +22,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
 import pdf_parser
+import portfolio_review
 import reconcile_tags
 from portfolio_review import PortfolioReview
 import market_data_fetcher
@@ -3009,6 +3010,77 @@ class TestManualTransferNotes(unittest.TestCase):
                 result = transaction_processor.calculate_transactions_through_date(
                     self._transactions(review, ticker), datetime(2026, 9, 1))
                 self.assertAlmostEqual(result['total_received'], 0.0)
+
+
+class TestCorporateActionRecognition(unittest.TestCase):
+    """Which corporate action a note's filename names (investment-reviews#53)."""
+
+    def test_demerger_is_not_a_merger(self):
+        """'merger' is a substring of 'demerger', and they are opposite actions.
+
+        The HL letter was handed to the merger parser, which models shares being
+        exchanged away rather than received.
+        """
+        self.assertEqual(
+            portfolio_review.corporate_action_in('kongsberg+gruppen+asa+-+demerger.pdf'),
+            'demerger')
+
+    def test_the_notes_already_in_the_tree_are_unchanged(self):
+        """Every corporate-action note currently filed must resolve as it did before."""
+        for filename, expected in (
+            ('everbridge+inc+-+merger.pdf', 'merger'),
+            ('jpmorgan+-+unit+class+conversion+.pdf', 'conversion'),
+            ('rathbone+-+unit+class+conversion+.pdf', 'conversion'),
+            ('sezzle+inc+-+subdivision.pdf', 'subdivision'),
+        ):
+            with self.subTest(filename=filename):
+                self.assertEqual(portfolio_review.corporate_action_in(filename), expected)
+
+    def test_separators_are_word_boundaries(self):
+        """HL uses '+' and '-'; manual notes use '_'. All are boundaries."""
+        for filename in ('acme+inc+-+merger.pdf', 'acme_merger_2026.pdf',
+                         'acme merger.pdf', 'ACME-MERGER.PDF'):
+            with self.subTest(filename=filename):
+                self.assertEqual(portfolio_review.corporate_action_in(filename), 'merger')
+
+    def test_an_action_word_inside_a_longer_word_does_not_match(self):
+        """The defect in general form, not just the one instance of it."""
+        self.assertIsNone(portfolio_review.corporate_action_in('acme+reconversion.pdf'))
+        self.assertIsNone(portfolio_review.corporate_action_in('submerger_notes.pdf'))
+
+    def test_an_ordinary_contract_note_names_no_action(self):
+        self.assertIsNone(
+            portfolio_review.corporate_action_in('B117667224_BOUGHT_Kongsberg_Gruppen_ASA.pdf'))
+
+    def test_a_demerger_note_is_recognised_as_manually_entered(self):
+        """There is no demerger parser, and the letter has no cost apportionment.
+
+        The note is documentation; its effect is entered by hand as paired transfers
+        (#52). Being unable to parse it is expected, not a fault.
+        """
+        self.assertIn('demerger', portfolio_review.MANUALLY_ENTERED_ACTIONS)
+        for action in ('merger', 'conversion', 'subdivision'):
+            with self.subTest(action=action):
+                self.assertNotIn(action, portfolio_review.MANUALLY_ENTERED_ACTIONS)
+
+    def test_a_demerger_note_is_not_sent_to_any_parser(self):
+        """The whole point: it must reach none of the three corporate-action parsers."""
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        open(os.path.join(directory, 'acme+plc+-+demerger.pdf'), 'w').close()
+
+        with patch('portfolio_review.parse_merger_pdf') as merger, \
+             patch('portfolio_review.parse_conversion_pdf') as conversion, \
+             patch('portfolio_review.parse_subdivision_pdf') as subdivision, \
+             patch('portfolio_review.parse_stock_transaction_pdf') as contract_note:
+            PortfolioReview(base, 'full-history')
+
+        merger.assert_not_called()
+        conversion.assert_not_called()
+        subdivision.assert_not_called()
+        contract_note.assert_not_called()
 
 
 class TestReviewInvariants(unittest.TestCase):

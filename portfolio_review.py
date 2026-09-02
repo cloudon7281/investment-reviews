@@ -11,6 +11,35 @@ from mhtml_parser import parse_stock_transaction_mhtml
 from csv_parser import parse_stock_transaction_csv
 from yaml_parser import parse_stock_transaction_yaml
 
+# Corporate actions are recognised by a word in the note's filename.  Matched as whole
+# words, not substrings: 'merger' is a substring of 'demerger', which is the opposite
+# action, so an HL demerger letter was handed to the merger parser
+# (investment-reviews#53).  Ordered so the longer, more specific action is tested first.
+CORPORATE_ACTIONS = ('demerger', 'subdivision', 'conversion', 'merger')
+
+# Actions with no parser, because the note does not contain what the accounting needs.
+# A demerger letter states the new symbol, the ratio and both quantities, but no cost
+# apportionment — a demerger splits an existing cost base across two holdings, and the
+# split comes from market values the letter never mentions.  These notes are filed as
+# documentation and their effect is entered by hand, so being unable to parse one is
+# expected rather than a fault.
+MANUALLY_ENTERED_ACTIONS = frozenset({'demerger'})
+
+
+def corporate_action_in(filename: str) -> Optional[str]:
+    """Which corporate action this filename names, or None.
+
+    Splits on anything that is not alphanumeric, so the '+' and '-' separators HL uses
+    are word boundaries just as '_' is.
+    """
+    words = set(re.split(r'[^a-z0-9]+', filename.lower()))
+    matched = [action for action in CORPORATE_ACTIONS if action in words]
+    if len(matched) > 1:
+        logger.warning(f"{filename} names more than one corporate action "
+                       f"({', '.join(matched)}); treating it as {matched[0]}")
+    return matched[0] if matched else None
+
+
 @dataclass
 class StockTransaction:
     """Represents an individual buy/sell transaction for a stock."""
@@ -372,22 +401,27 @@ class PortfolioReview:
         for file_path, account_type, year, tag, file in all_files:
             try:
                 if file.endswith('.pdf'):
+                    action = corporate_action_in(file)
                     if 'BOUGHT' in file.upper() or 'SOLD' in file.upper():
                         # Parse stock transaction PDF
                         data = parse_stock_transaction_pdf(file_path)
                         if data:
                             self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
-                    elif 'subdivision' in file.lower():
+                    elif action in MANUALLY_ENTERED_ACTIONS:
+                        logger.info(f"{file} is a {action} note, which is recorded by hand: "
+                                    f"its effect comes from a manual YAML entry, not from "
+                                    f"this document")
+                    elif action == 'subdivision':
                         # Parse subdivision PDF
                         data = parse_subdivision_pdf(file_path)
                         if data:
                             self._process_stock_split(data, file_path, account_type, year, stocks_by_ticker)
-                    elif 'conversion' in file.lower():
+                    elif action == 'conversion':
                         # Parse conversion PDF
                         data = parse_conversion_pdf(file_path)
                         if data:
                             self._process_stock_split(data, file_path, account_type, year, stocks_by_ticker)
-                    elif 'merger' in file.lower():
+                    elif action == 'merger':
                         # Parse merger PDF
                         data = parse_merger_pdf(file_path)
                         if data:
