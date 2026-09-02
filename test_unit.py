@@ -2648,10 +2648,12 @@ class TestUnreadableContractNote(unittest.TestCase):
         def raiser(path):
             raise pdf_parser.ContractNoteParseError(f"Could not read price from {path}")
 
-        with self.assertRaises(pdf_parser.ContractNoteParseError) as caught:
+        # NoteParseError, not ContractNoteParseError: since #54 the aggregate covers
+        # corporate-action notes too, so the summary is raised as the shared base type.
+        with self.assertRaises(pdf_parser.NoteParseError) as caught:
             self._scan(names, raiser)
         message = str(caught.exception)
-        self.assertIn('2 contract note(s)', message)
+        self.assertIn('2 note(s)', message)
         for name in names:
             self.assertIn(name, message)
 
@@ -2660,7 +2662,7 @@ class TestUnreadableContractNote(unittest.TestCase):
         def raiser(path):
             raise pdf_parser.ContractNoteParseError(f"Could not read price from {path}")
 
-        with self.assertRaises(pdf_parser.ContractNoteParseError):
+        with self.assertRaises(pdf_parser.NoteParseError):
             self._scan(['B1_BOUGHT_One.pdf'], raiser)
 
     def test_other_parse_errors_still_only_skip_that_file(self):
@@ -3081,6 +3083,86 @@ class TestCorporateActionRecognition(unittest.TestCase):
         conversion.assert_not_called()
         subdivision.assert_not_called()
         contract_note.assert_not_called()
+
+
+class TestUnreadableCorporateAction(unittest.TestCase):
+    """A corporate action the scan recognised must not vanish (investment-reviews#54)."""
+
+    def _scan_with(self, filename, raiser):
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        open(os.path.join(directory, filename), 'w').close()
+        target = {'merger': 'portfolio_review.parse_merger_pdf',
+                  'subdivision': 'portfolio_review.parse_subdivision_pdf',
+                  'conversion': 'portfolio_review.parse_conversion_pdf'}[
+            portfolio_review.corporate_action_in(filename)]
+        with patch(target, side_effect=raiser):
+            return PortfolioReview(base, 'full-history')
+
+    def test_an_unreadable_corporate_action_fails_the_scan(self):
+        """It used to be one WARNING in a run that then reported success.
+
+        An unreadable contract note omits a transaction, which shows against a broker
+        statement as a wrong unit count.  An unreadable corporate action can omit an
+        entire holding, and nothing reconciles the set of holdings against anything.
+        """
+        def raiser(path):
+            raise pdf_parser.CorporateActionParseError(f"No stock name found in {path}")
+
+        with self.assertRaises(pdf_parser.NoteParseError) as caught:
+            self._scan_with('acme+inc+-+merger.pdf', raiser)
+        self.assertIn('acme+inc+-+merger.pdf', str(caught.exception))
+
+    def test_it_is_collected_alongside_unreadable_contract_notes(self):
+        """One pass names everything that needs attention, of either kind."""
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        for name in ('B1_BOUGHT_One.pdf', 'acme+inc+-+merger.pdf'):
+            open(os.path.join(directory, name), 'w').close()
+
+        with patch('portfolio_review.parse_stock_transaction_pdf',
+                   side_effect=lambda p: (_ for _ in ()).throw(
+                       pdf_parser.ContractNoteParseError(f"No price in {p}"))), \
+             patch('portfolio_review.parse_merger_pdf',
+                   side_effect=lambda p: (_ for _ in ()).throw(
+                       pdf_parser.CorporateActionParseError(f"No stock name in {p}"))):
+            with self.assertRaises(pdf_parser.NoteParseError) as caught:
+                PortfolioReview(base, 'full-history')
+
+        message = str(caught.exception)
+        self.assertIn('2 note(s)', message)
+        self.assertIn('B1_BOUGHT_One.pdf', message)
+        self.assertIn('acme+inc+-+merger.pdf', message)
+
+    def test_a_manually_entered_action_is_not_treated_as_a_failure(self):
+        """A demerger has no parser by design, so it cannot be a parse failure.
+
+        Failing on one would block every run permanently once the letter is filed
+        alongside the manual YAML that records its effect (#53).
+        """
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        open(os.path.join(directory, 'acme+plc+-+demerger.pdf'), 'w').close()
+        self.assertIsNotNone(PortfolioReview(base, 'full-history'))
+
+    def test_the_error_names_the_corporate_action_kind(self):
+        """The message has to be actionable: which note, and what was not readable."""
+        for filename, kind in (('acme+inc+-+merger.pdf', 'merger'),
+                               ('acme+inc+-+subdivision.pdf', 'subdivision'),
+                               ('acme+inc+-+conversion.pdf', 'conversion')):
+            with self.subTest(kind=kind):
+                def raiser(path):
+                    raise pdf_parser.CorporateActionParseError(
+                        f"Could not read the {kind} note {path}")
+                with self.assertRaises(pdf_parser.NoteParseError) as caught:
+                    self._scan_with(filename, raiser)
+                self.assertIn(kind, str(caught.exception))
 
 
 class TestReviewInvariants(unittest.TestCase):

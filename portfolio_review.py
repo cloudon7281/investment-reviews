@@ -6,7 +6,8 @@ from datetime import datetime
 from logger import logger
 import re
 from pdf_parser import (parse_stock_transaction_pdf, parse_subdivision_pdf, parse_conversion_pdf,
-                        parse_merger_pdf, extract_stock_name, ContractNoteParseError)
+                        parse_merger_pdf, extract_stock_name, NoteParseError,
+                        ContractNoteParseError, CorporateActionParseError)
 from mhtml_parser import parse_stock_transaction_mhtml
 from csv_parser import parse_stock_transaction_csv
 from yaml_parser import parse_stock_transaction_yaml
@@ -391,10 +392,11 @@ class PortfolioReview:
         all_files.sort(key=lambda x: x[2])  # Sort by year (index 2)
         yaml_files.sort(key=lambda x: x[2])  # Sort YAML files by year too
         
-        # Notes that were recognised but could not be valued.  A transaction that cannot
-        # be priced would quietly distort every figure derived from it, so the scan
-        # finishes to name them all and then refuses to hand back a partial book
-        # (investment-reviews#36).
+        # Notes the scan recognised but could not use.  A transaction that cannot be
+        # priced would quietly distort every figure derived from it, and a corporate
+        # action that cannot be read can omit an entire holding, so the scan finishes to
+        # name them all and then refuses to hand back a partial book
+        # (investment-reviews#36, #54).
         unreadable_notes = []
 
         # Process files in chronological order
@@ -442,9 +444,11 @@ class PortfolioReview:
                             self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
                     except Exception as e:
                         logger.error(f"Error processing {file}: {str(e)}")
-            except ContractNoteParseError as e:
+            except NoteParseError as e:
                 # Collect rather than stop at the first: one pass should name every note
                 # that needs attention, not send the operator round again for each one.
+                # Covers contract notes (#36) and corporate actions (#54) alike — both
+                # were recognised by the scan, so neither may be discarded quietly.
                 logger.error(str(e))
                 unreadable_notes.append(str(e))
             except Exception as e:
@@ -468,9 +472,9 @@ class PortfolioReview:
                 logger.error(f"Error processing {file}: {str(e)}")
 
         if unreadable_notes:
-            raise ContractNoteParseError(
-                f"{len(unreadable_notes)} contract note(s) could not be valued, so the "
-                f"portfolio would be understated:\n  " + "\n  ".join(unreadable_notes)
+            raise NoteParseError(
+                f"{len(unreadable_notes)} note(s) could not be used, so the portfolio "
+                f"would be understated:\n  " + "\n  ".join(unreadable_notes)
             )
 
         # Detect bed-and-ISA transactions across categories
