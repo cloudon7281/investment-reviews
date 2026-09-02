@@ -14,12 +14,31 @@ from typing import Optional, Dict, List, Tuple
 PENCE_ROW_TOLERANCE = 0.005
 
 
-class ContractNoteParseError(Exception):
+class NoteParseError(Exception):
+    """A note was recognised but something needed to use it could not be read.
+
+    Raised rather than returned so that a note the scan recognised cannot be quietly
+    discarded.  Both kinds are collected together and reported in one pass.
+    """
+
+
+class ContractNoteParseError(NoteParseError):
     """A contract note was recognised but a field needed to value it could not be read.
 
     Raised rather than returned so a note cannot become a transaction carrying None.
     Left unparsed, a missing price surfaced hundreds of lines away as a TypeError inside
     a debug log line, naming neither the file nor the field (investment-reviews#36).
+    """
+
+
+class CorporateActionParseError(NoteParseError):
+    """A corporate-action note was recognised by its filename but could not be read.
+
+    An unreadable contract note omits a transaction, which shows up against a broker
+    statement as a wrong unit count.  An unreadable corporate action can omit an entire
+    holding, and nothing reconciles the set of holdings against anything: the Kongsberg
+    demerger left 1,192 shares missing for four months behind a single WARNING line
+    (investment-reviews#54).
     """
 
 
@@ -368,8 +387,7 @@ def parse_subdivision_pdf(pdf_path: str) -> Optional[Dict]:
             logger.debug("\n--- END OF EXTRACTED TEXT ---\n")
             
         if not text:
-            logger.error(f"Could not extract text from {pdf_path}")
-            return None
+            raise CorporateActionParseError(f"No text could be extracted from {pdf_path}")
             
         # Look for the specific patterns in the text
         original_pattern = r"Original holding of (.*?) shares: (\d+) shares"
@@ -427,15 +445,20 @@ def parse_subdivision_pdf(pdf_path: str) -> Optional[Dict]:
             
             return result
         
-        logger.error(f"Could not find share split information in {pdf_path}")
         logger.debug("Text content that was searched:")
         logger.debug(text)
-        return None
+        raise CorporateActionParseError(
+            f"No share split information found in {pdf_path}; a subdivision note must "
+            f"state the old and new share counts")
         
+    except CorporateActionParseError:
+        raise
     except Exception as e:
-        logger.error(f"Error parsing subdivision PDF {pdf_path}: {str(e)}")
-        logger.exception("Full traceback:")
-        return None
+        # A corporate action that cannot be read leaves the portfolio in an unknown
+        # state — possibly missing a whole holding — so an unreadable file is
+        # reported rather than skipped (investment-reviews#54).
+        raise CorporateActionParseError(
+            f"Could not read the subdivision note {pdf_path}: {e}") from e
 
 def parse_conversion_pdf(pdf_path: str) -> Optional[Dict]:
     """
@@ -465,8 +488,7 @@ def parse_conversion_pdf(pdf_path: str) -> Optional[Dict]:
             logger.debug("\n--- END OF EXTRACTED TEXT ---\n")
             
         if not text:
-            logger.error(f"Could not extract text from {pdf_path}")
-            return None
+            raise CorporateActionParseError(f"No text could be extracted from {pdf_path}")
             
         # Look for the specific patterns in the text
         # Pattern for original units: Handle both formats
@@ -547,15 +569,20 @@ def parse_conversion_pdf(pdf_path: str) -> Optional[Dict]:
             
             return result
         
-        logger.error(f"Could not find conversion information in {pdf_path}")
         logger.debug("Text content that was searched:")
         logger.debug(text)
-        return None
+        raise CorporateActionParseError(
+            f"No conversion information found in {pdf_path}; a conversion note must "
+            f"state the old and new holdings")
         
+    except CorporateActionParseError:
+        raise
     except Exception as e:
-        logger.error(f"Error parsing conversion PDF {pdf_path}: {str(e)}")
-        logger.exception("Full traceback:")
-        return None
+        # A corporate action that cannot be read leaves the portfolio in an unknown
+        # state — possibly missing a whole holding — so an unreadable file is
+        # reported rather than skipped (investment-reviews#54).
+        raise CorporateActionParseError(
+            f"Could not read the conversion note {pdf_path}: {e}") from e
 
 def extract_stock_name(filename: str) -> Optional[str]:
     """Extract stock name from filename."""
@@ -641,16 +668,16 @@ def parse_merger_pdf(pdf_path: str) -> Optional[Dict]:
         
         # Validate that we found the required information
         if 'stock_name' not in result:
-            logger.warning(f"Could not extract stock name from merger PDF: {pdf_path}")
-            return None
+            raise CorporateActionParseError(
+                f"No stock name found in the merger note {pdf_path}")
         
         if 'num_shares' not in result:
-            logger.warning(f"Could not extract number of shares from merger PDF: {pdf_path}")
-            return None
+            raise CorporateActionParseError(
+                f"No share count found in the merger note {pdf_path}")
         
         if 'total_amount' not in result:
-            logger.warning(f"Could not extract cash proceeds from merger PDF: {pdf_path}")
-            return None
+            raise CorporateActionParseError(
+                f"No cash proceeds found in the merger note {pdf_path}")
         
         logger.info(f"Successfully parsed merger PDF: {pdf_path}")
         logger.info(f"  Stock: {result['stock_name']}")
@@ -659,7 +686,12 @@ def parse_merger_pdf(pdf_path: str) -> Optional[Dict]:
         
         return result
         
+    except CorporateActionParseError:
+        raise
     except Exception as e:
-        logger.error(f"Error parsing merger PDF {pdf_path}: {str(e)}")
-        return None
+        # A corporate action that cannot be read leaves the portfolio in an unknown
+        # state — possibly missing a whole holding — so an unreadable file is
+        # reported rather than skipped (investment-reviews#54).
+        raise CorporateActionParseError(
+            f"Could not read the merger note {pdf_path}: {e}") from e
 
