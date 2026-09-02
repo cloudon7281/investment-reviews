@@ -4,7 +4,7 @@ This is your standing brief for my regular monthly review of investments.
 
 # Scope
 
-The part of my portfolio that is in scope for monthly reviews is the part I actively manage i.e. individual stocks held in both ISA wrappers and general, taxable stocks and shares funds; it excludes pension investments, funds of stocks and bonds, and cash/money market funds.
+The part of my portfolio that is in scope for monthly reviews is the part I actively manage i.e. individual stocks held in ISA wrappers and general taxable investment accounts; it excludes pension investments, funds of stocks and bonds, and cash/money market funds.
 
 From time to time I may broaden the scope to include some of these other investment types: if so I will explicitly prompt you on what extra I am including.
 
@@ -18,21 +18,23 @@ The purpose of these reviews is to:
 
 - assess all current stock holdings against the criteria for individual stocks set out in my Investment Strategy (see below), namely:
   - scaled profit-taking (sell 20% on ~doubling, while letting exceptional performance ride where overall portfolio risk is acceptable)
-  - stop-loss (mandatory review at 20% fall from recent highs; mandatory sale at 30% fall unless documented exception)
+  - stop-loss (the absolute 90-calendar-day high determines the mandatory review/default-exit trigger: review at a 20% fall and default sale at a 30% fall unless there is a documented exception. Highest 10-trading-day average and P90 price are contextual references for judging whether the raw high was a transient spike or a sustained market valuation; they do not replace the raw-high trigger)
   - low volatility (I am looking for growth stocks which typically implies high volatility, so sell stocks with <25% annualised volatility over 2 quarters)
   - time held (review but do not necessarily sell any stocks held more than a year)
-  - change in fundamentals (sell if change in fundamentals e.g. 2 sucessive quarters of earnings misses)
+  - change in fundamentals (sell if change in fundamentals e.g. 2 successive quarters of earnings misses)
   - maintain a short rolling list of process watchpoints: tentative cross-review observations that may matter for future decision-making, but which do not yet justify any change to the Investment Strategy document
 
 - but to do so in the context of my core investment theses; there is a significant difference between a whole thesis area falling because of short-term market sentiment, a thesis weakening fundamentally, and an individual stock underperforming the wider set of candidate expressions of the same thesis because of poor execution, inferior exposure, valuation or other company-specific factors
 
 - assess whether each currently held stock remains one of the best available expressions of its thesis, rather than merely whether it remains defensible in isolation
 
+- distinguish the **fresh-buy test** from the **incremental-allocation test**: a stock may be good enough to buy from scratch yet not merit an increase because of existing position size, a very recent purchase, valuation, portfolio overlap or a deliberately withheld proof point
+
 - use the configured thesis candidate universes and their monthly performance to compare held stocks with plausible unheld alternatives, distinguish thesis-level performance from stock-selection performance, assess whether market performance is broad or concentrated, and inform the thesis review, individual stock review and reinvestment decision
 
 - based on that, make a hold/increase/profit take/exit decision on each stock
 
-- agree how to re-invest any funds arising from profit taking/stock exits.
+- agree how to re-invest any funds arising from profit taking/stock exits, while allowing attractive pre-existing cash/MMF reserves to be deployed where the opportunity set justifies it; do not force full deployment merely because cash is available.
 
 Again, from time to time I may want to vary these at a particular review; if so, my prompt will explicitly say how.
 
@@ -48,13 +50,24 @@ Unless varied in the prompt for a particular month, conduct the review in the fo
 6. Review process and thesis watchpoints.
 7. Produce the final written report only after discussion and agreement in the chat session.
 
+# Research and evidence standards
+
+When the investment case depends on a transformative technical or commercial claim, distinguish the strength of evidence rather than repeating the company narrative. Use the following hierarchy where relevant:
+
+1. **Company claim** — useful for identifying the proposition, but not independent validation.
+2. **Customer or partner corroboration** — establishes that a deployment, contract or programme is real, but not necessarily that the claimed technology caused the economic benefit.
+3. **Independent technical evidence** — establishes that the underlying technology or performance claim is credible.
+4. **Adversarial competitive benchmark** — the strongest evidence: the technology produces a commercially relevant advantage against the best credible contemporary alternative, including state-of-the-art classical/AI methods where applicable.
+
+Do not treat customer deployment alone as proof of technical or economic superiority. For unusually important claims, actively seek independent corroboration and contrary evidence.
+
 # Attached documents
 
 You should find attached the following documents.
 
 - My latest Investment Strategy document titled 'Investment Strategy (MMM YYYY).pdf': this sets out my overall strategy, and you should read it first.
 
-- A PDF titled 'Investment Decisions - <month> <year>.docx', which documents the decisions we took at our previous monthly review.
+- A Word document titled 'Investment Decisions - <month> <year>.docx', which documents the decisions we took at our previous monthly review.
 
 - A spreadsheet (in Excel form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review.  This has the following tabs.
   -  Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>).  This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review).  This shows performance bucketed as follows:
@@ -66,12 +79,12 @@ You should find attached the following documents.
     - Each of these categories is then further broken down by tags corresponding to the investment thesis that drove the decision to invest.
   - The New|Retained|Increase|Sold tabs have the per-stock breakdowns.
   - The Benchmark tab shows specific market benchmarks e.g. the Nasdaq.
-  - In each of these tables, Start Value refers to the vaue of the relevant investment *at the point of the last investment review* (i.e. since last month), *not* the original purchase value.  Similarly, P&L and ROI show the performance *since the last review*, not since purchase.
+  - In each of these tables, Start Value refers to the value of the relevant investment *at the point of the last investment review* (i.e. since last month), *not* the original purchase value.  Similarly, P&L and ROI show the performance *since the last review*, not since purchase.
   - The spreadsheet also includes columns providing data to assess the other criteria:
     - profit-taking: "progress to 2x" records the ratio of the stock *since purchase or the last profit taking*, and '# doublings' shows how many doublings there have been *since purchase*
-    - stop-loss: '% of high', together with current price and 90d high, records the relevant info
+    - stop-loss: current price, 90d high and '% of high' provide the absolute trigger; '10d Smoothed High' / '% of Smoothed High' and 'P90 High' / '% of P90 High' provide robust context. The absolute 90-calendar-day high remains authoritative for whether a review/default-exit threshold has been triggered; the smoothed/P90 fields help distinguish a transient spike from a sustained drawdown. Profit-taking continues to use actual traded prices rather than smoothed references.
     - low volatility: the 'volatility' column records annualised volatility over the last 90 days
-    - time" 'days held' shows how long I have held the stock.
+    - time: 'days held' shows how long I have held the stock.
     - I do not currently have any automated way to provide information on fundamentals.
 
   - The `Periodic Review Summary` tab also includes a thesis-level monthly performance table derived from `thesis.json`. For each thesis it shows, as available:
@@ -117,6 +130,7 @@ The final output will be a downloadable document in Word format, with the sectio
     - principal alternative expression or comparator
     - justification with reference to the criteria above, fundamentals, thesis validity, valuation and comparative quality as an expression of the thesis.
   - For each held stock, explicitly consider: would we buy this stock today rather than the best credible alternative expression of the same thesis?
+  - Separately answer whether the stock merits **additional capital now**. Do not infer “increase” automatically from a positive fresh-buy answer; take account of current position size, recent purchases, valuation, correlated factor exposure and any defined proof point.
 
 - Summary of required actions
   - A table showing for each existing stock we decide to buy (decision = increase) or sell (decision = profit-take or exit) with columns as follows:
@@ -132,12 +146,22 @@ The final output will be a downloadable document in Word format, with the sectio
   - A commentary summarising our discussions on how to re-invest any capital freed by selling existing stocks. Begin with the maintained thesis candidate universes, but permit wider research where no existing candidate is attractive or material evidence suggests an omitted company.
   - Consider the strongest existing holding worth increasing, strongest unheld candidate, best asymmetric candidate, best lower-risk or diversified expression, and the option of allocating to a money-market fund where no stock offers attractive risk/reward.
   - Guard against performance-chasing and double-counting overlapping thesis exposures.
+  - Where deployable capital spans different tax wrappers, recommend placement as well as stock selection. Preferentially shelter higher-upside/asymmetric positions where practical; established lower-risk additions are the natural candidates for taxable capacity.
   - A table with an entry for each stock we propose to buy, with columns of:
     - thesis
     - stock
     - amount in GBP to buy
     - candidate role or expression type
     - brief justification, including why it is preferable to the principal alternatives.
+
+- Conditional future increases / proof-point capital
+  - Maintain a short table of holdings or watchlist candidates that are attractive enough to own but **not** attractive enough to add yet.
+  - Columns:
+    - stock
+    - why capital is being withheld now
+    - specific evidence that would unlock an increase
+  - The purpose is to make future additions evidence-triggered rather than price-triggered and to preserve deployable capital for known proof points.
+  - Review this table each month: increase only when the stated evidence arrives, revise the trigger only for substantive new information, or remove the item if the opportunity is no longer attractive.
 
 - Process watchpoints
   - A short section capturing any tentative lessons or emerging patterns that are worth monitoring across reviews, but which do not yet justify a change to the Investment Strategy.

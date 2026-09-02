@@ -12,7 +12,7 @@ Candidate universes should be reviewed systematically each quarter and amended b
 
 Candidate tables use the following concise metadata:
 
-- **Held:** whether the company is currently held at the latest review.
+- **Held:** whether the company is currently held at the latest review. **Planned** denotes an agreed purchase that has not yet been executed.
 - **Expression type:** Direct, Diversified beneficiary, Enabler, or Speculative optionality.
 - **Primary exposure:** the specific part of the thesis expressed by the company.
 - **Risk profile:** Established, Growth, High-beta growth, or Speculative.
@@ -94,7 +94,7 @@ The likely winners may differ by layer. A broad defence prime can benefit from s
 | Cohort | CHRT.L | Yes | Enabler | Sensors, communications, electronic warfare and naval systems | Growth | Smaller listed UK expression of specialist defence electronics and integration. |
 | Firan Technology Group | FTG.TO | Yes | Enabler | Aerospace and defence electronics and cockpit products | Growth | Niche electronics supplier benefiting from defence and aerospace production growth. |
 | Kraken Robotics | PNG.V | Yes | Enabler | Underwater sensing, sonar, batteries and autonomous systems | High-beta growth | Distinct exposure to subsea autonomy and maritime defence, with acquisition-integration risk. |
-| Filtronic | FTC.L | Yes | Enabler | RF, microwave and high-frequency communications | High-beta growth | Scarce RF capability relevant to defence, secure communications and space; position reduced after valuation spike. |
+| Filtronic | FTC.L | Yes | Enabler | RF, microwave and high-frequency communications | High-beta growth | Scarce RF capability relevant to defence and secure communications, with a strategic SpaceX relationship and credible space-communications/orbital-infrastructure adjacency; position reduced through scaled profit-taking. |
 | OHB | OHB.DE | Yes | Diversified beneficiary | Sovereign satellites, tactical reconnaissance and secure communications | High-beta growth | Listed route to European sovereign-space and military-space investment. |
 | Magellan Aerospace | MAL.TO | Yes | Diversified beneficiary | Aerospace structures, engines, space and defence programmes | Established growth | Lower-profile industrial exposure across commercial aerospace, defence and space. |
 | Red Cat Holdings | RCAT | Yes | Speculative optionality | U.S.-manufactured small military drones | Speculative | Direct expression of U.S. drone procurement, with real programme access but material scale, margin and financing risk. |
@@ -124,7 +124,9 @@ Counter-UAS also broadens from a battlefield requirement into a permanent Europe
 
 This strengthens the relative appeal of firms such as Hensoldt, Kongsberg, Thales, Saab and DroneShield-type capabilities. It does not automatically strengthen the moat of any single drone-airframe manufacturer.
 
-Red Cat remains an execution-dependent U.S. drone expression and retains its formal end-September 2026 decision point. Swarmer remains a bounded pre-proof moonshot whose proposition is that battlefield-tested autonomy software can convert into diversified, repeatable Western revenue.
+Red Cat remains an execution-dependent U.S. drone expression and retains its formal end-September 2026 decision point. U.S. procurement commitment remains substantial, but organisational and doctrinal adaptation to cheap mass drones appears less coherent than in Europe; Red Cat should therefore be judged on actual H2 procurement, revenue, margins and capital discipline rather than on broad U.S. rhetoric. Swarmer remains a bounded pre-proof moonshot whose proposition is that battlefield-tested autonomy software can convert into diversified, repeatable Western revenue.
+
+For incremental capital, **Hensoldt and MilDef are preferred additions**. Hensoldt expresses the detect/classify/EW bottleneck; MilDef expresses tactical computing, networking and C2 integration. Kongsberg remains one of the highest-quality holdings and would pass a fresh-buy test, but no further increase is planned because the existing position is already substantial.
 
 ---
 
@@ -183,6 +185,8 @@ The preferred companies sell scarce equipment, components or enabling capability
 | Marvell Technology | MRVL | No | Enabler | Custom silicon, optical DSPs and data-infrastructure semiconductors | High-beta growth | Comparator for optical and custom-compute infrastructure exposure. |
 | Bloom Energy | BE | Yes | Direct | On-site power generation and resilient data-centre power | High-beta growth | Direct expression of power scarcity and time-to-power constraints, with financing and concentration risk. |
 | Navitas Semiconductor | NVTS | Yes | Speculative optionality | GaN and SiC power semiconductors for high-voltage rack architecture | Speculative | Early-stage asymmetric expression of changing AI rack-power architectures. |
+| Aeluma | ALMU | Planned | Speculative optionality | Scalable III-V photonics and materials for AI optical interconnect | Speculative | Pre-proof hard-bottleneck moonshot: large-substrate compound-semiconductor manufacturing may relieve InP capacity constraints if customer evaluation converts into qualification and production. |
+| Sivers Semiconductors | SIVE.ST | No | Enabler | InP photonics and mmWave/SATCOM semiconductors | High-beta growth | Useful post-inflection comparator for the prototype-to-production pattern: sophisticated external validation and production wins drove a major rerating, but the stock is already substantially discovered. |
 
 ### Main risks
 
@@ -205,6 +209,10 @@ Astera's August results strongly passed the short-term Q2 execution checkpoint s
 Navitas remains a small pre-proof moonshot with a first formal decision point at Q4/FY2026 results, expected around February 2027. External validation of 800V rack-power architecture strengthens the proposition being tested but does not constitute Navitas-specific commercial proof. There should be no increase before validation.
 
 Jenoptik is removed entirely from the candidate universe as it is no longer a sufficiently direct or preferred expression of the thesis.
+
+**Schneider Electric and Amphenol are agreed incremental additions** because they combine strong current evidence with relatively mature business models, while still participating directly in power and connectivity bottlenecks. Their sizing should continue to reflect the portfolio-level common AI-capex factor.
+
+**Aeluma is added as a planned £5k pre-proof moonshot.** The proposition is that scalable III-V photonics on larger, cheaper substrates can become an alternative source for an independently visible AI-photonics/InP bottleneck. The first formal decision point is around February 2027. Success requires at least one credible move from evaluation into customer qualification, design win or production commitment, alongside continued manufacturing/foundry progress and cash discipline. There should be no averaging down before that proof point.
 
 ---
 
@@ -280,6 +288,8 @@ BWXT's August fundamentals strengthened despite weak share-price performance. It
 Oklo has crossed meaningful technical execution milestones, including tangible reactor progress. Those developments reduce the risk that it is merely a promotional reactor-development story, but do not yet prove the licensing, financing or economics of commercial Aurora deployment.
 
 The hierarchy remains unchanged: fuel cycle first, proven engineering/manufacturing second, existing generation third, selective reactor optionality fourth.
+
+For incremental capital, **Centrus is the preferred current addition**. BWXT remains a high-quality fresh-buy candidate but was only increased in mid-August; further capital is deliberately withheld until additional evidence shows that commercial nuclear, Government Operations, Janus/TRISO or other programmes are lifting the medium-term earnings trajectory into sustained mid-teens growth. Oklo's August checkpoint passed, but its next test shifts from organisational progress toward the economic credibility of Aurora-INL and a repeatable fleet.
 
 ---
 
@@ -489,7 +499,7 @@ This hierarchy is conceptual rather than a mechanical ranking of candidate stock
 | Microsoft | MSFT | Yes | Diversified beneficiary | Identity, productivity, cloud, developer tools, security, business applications and AI distribution | Established growth | Broad lower-risk platform controlling enterprise identity, permissions, context and agent governance. |
 | Palantir | PLTR | Yes | Direct | Data integration, operational software and AI deployment | High-beta growth | Strong AI application and decision-platform exposure, but less clean as a capital-light diversifier because of valuation and high-beta characteristics. |
 | Alphabet | GOOGL | No | Diversified beneficiary | Search, cloud, productivity, AI models and distribution | Established growth | Capital-rich application/platform comparator, but with heavy infrastructure exposure that weakens diversification purity. |
-| Salesforce | CRM | No | Direct | Customer systems of record, workflow and agentic enterprise software | Established growth | Core comparator for AI monetisation through customer data, workflow and execution control. |
+| Salesforce | CRM | Planned | Direct | Customer systems of record, workflow and agentic enterprise software | Established growth | Agreed new position: attractive control-layer exposure at a valuation that still embeds meaningful AI-disruption scepticism; entry to be staged. |
 | Adobe | ADBE | No | Direct | Creative workflows, document systems and generative AI | Established growth | Useful higher-disintermediation-risk counterexample: strong installed workflow but direct exposure to AI-native feature substitution. |
 | Intuit | INTU | No | Direct | Financial and tax systems of record | Established growth | Deeply embedded high-value workflows with proprietary financial context and execution rights. |
 | Veeva Systems | VEEV | No | Direct | Life-sciences systems of record and regulated workflows | Established growth | Particularly strong regulated vertical/control-layer comparator with high switching costs and domain-specific data. |
@@ -512,6 +522,8 @@ This hierarchy is conceptual rather than a mechanical ranking of candidate stock
 ServiceNow provides a clean direct expression of the thesis. Microsoft provides a broader platform expression where identity, security and agent governance may become increasingly important as enterprises deploy autonomous software. Independent evidence from Salesforce, Veeva, Intuit and Adobe supports the category rather than merely the two held stocks.
 
 The strongest conceptual development is that increasingly capable agents may increase the value of incumbent control layers: enterprises need to decide what autonomous software can know, what it can do, under whose authority, and with what audit trail.
+
+The August portfolio decision is to **take a 20% profit from Palantir while retaining the majority position**, reflecting exceptional execution but an unusually demanding valuation. **Salesforce is an agreed new position**, targeted at £15k and staged rather than bought in one tranche after its post-results rerating. ServiceNow and Microsoft remain high-quality holds but are not current increases.
 
 Promotion does not resolve the economics. Continued validation requires:
 
@@ -542,7 +554,9 @@ Crowd-sourced ideas do not need a candidate universe in `thesis.json`, because t
 
 ### August 2026 assessment
 
-Unchanged. Continue to avoid turning this into a miscellaneous high-beta bucket. Where possible, reclassify holdings into real theses or judge them as standalone optionality.
+The category remains an idea source rather than a portfolio thesis. August further reduced the number of holdings that should live here conceptually: Celestica is treated under Data-centre infrastructure, Magellan under Defence, and Filtronic primarily under Defence with explicit space-communications adjacency. Gooch & Housego has been exited.
+
+Rocket Lab is better treated as **standalone space / defence-space infrastructure and applications optionality** rather than as a permanent crowd-sourced holding. It does not yet justify creating a broad Space thesis, but it should be reviewed on its own economics, Neutron progress, space-systems execution and Iridium financing/integration.
 
 ---
 
@@ -554,21 +568,23 @@ Watchpoints are tentative developments that may matter for future allocation but
 |---|---|---|---|---|---|---|
 | Ukrainian defence-tech value capture | Defence | Ukraine is now directly investable in limited ways, but Western localisation may determine who captures the economics of battlefield innovation. | 2026-04 | Western partnerships, technology transfer, joint production and localisation are accelerating; Swarmer provides a direct listed route, but revenue is extremely early. | Material repeat contracts outside historic Ukrainian customers; evidence that original developers retain economics after localisation; additional credible listed or fund routes. | Accessibility partly resolved; commercial value capture remains a live watchpoint. |
 | Resilient power / energy security as standalone thesis | Data-centre infrastructure; Nuclear; Defence; EVs | Power availability, grid connection and resilience are becoming first-order constraints across several theses. | 2026-03 | Data-centre power scarcity, grid strain, on-site generation, nuclear demand and military resilience increasingly drive selection. Candidate overlap remains substantial. | Distinct opportunity set and capital allocation that cannot be represented cleanly within data-centre and nuclear theses. | Strengthened as a cross-thesis lens; not promoted because of overlap and double-counting risk. |
-| Orbital compute and space-native data processing | Data-centre infrastructure; Space; moonshot optionality | Orbital compute may become economically significant, but a speculative public-market hype cycle could occur well before economic viability is demonstrated. | 2026-05 | SpaceX and Google programmes are becoming more concrete; private capital is increasing; listed companies now have genuine technical/commercial adjacency. Technical challenges remain severe in launch cadence, cooling, bandwidth and manufacturing. | Either (a) commercially credible orbital workloads and economics, or (b) continued large-scale SpaceX/Google/private commitments plus near-term demonstrations and small listed companies with direct enough exposure to become narrative proxies before broad repricing. | Strengthened materially. Fundamental case remains unproven; moonshot/narrative case now potentially investable. |
+| Orbital compute and space-native data processing | Data-centre infrastructure; Space; moonshot optionality | Orbital compute may become economically significant, but a speculative public-market hype cycle could occur well before economic viability is demonstrated. | 2026-05 | SpaceX and Google programmes are becoming more concrete; private capital is increasing; SIDU provides direct edge-compute/storage adjacency; Filtronic has a strategic SpaceX relationship; AAC Clyde has relevant space power/data/optical technology. Technical challenges remain severe in launch cadence, cooling, bandwidth and manufacturing. | Either (a) commercially credible orbital workloads and economics, or (b) continued large-scale SpaceX/Google/private commitments plus near-term demonstrations and small listed companies with direct enough exposure to become narrative proxies before broad repricing. | Strengthened materially. First bounded capital committed through SIDU, but remain a watchpoint rather than a full thesis because the fundamental economics are unproven. |
 | Quantum application advantage / AI substitution | Quantum | Hardware success may not create economic value if classical and AI methods solve commercially useful workloads sufficiently well. | 2026-08 | Historical quantum-advantage claims have repeatedly stimulated improved classical methods; AI increasingly exploits structure in scientific and optimisation problems without explicit quantum simulation. | Positive: commercially useful workloads survive adversarial classical/AI comparison. Negative: repeated displacement by classical/AI solutions or growing market recognition that application space is narrower than assumed. | Central unresolved thesis risk; monitor actively and treat material negative evidence as a possible early-exit signal. |
 | AI-driven battery discovery | EVs and battery technology | AI and automated labs may accelerate materials, electrolyte and degradation discovery and shorten development cycles. | 2026-07 | Relevant listed exposure is limited; SES AI is an early but strategically evolving comparator. Physical validation and manufacturing remain slow. | A listed company demonstrates repeatable AI-discovered materials entering qualified commercial cells or licenses a valuable discovery platform. | Keep as watchpoint; no separate allocation. |
-| Data-centre bottleneck discovery | Data-centre infrastructure | Specific constraints may create asymmetric winners before the broader market fully recognises them. | 2026-06 | Time-to-power, grid connection, rack power, cooling, water, interconnect and edge/peering remain areas for screening. Navitas is the first bounded pre-proof expression. | Evidence of genuine supply constraint, pricing power or customer urgency before major repricing. | Keep as monthly screening lens. |
+| Data-centre bottleneck discovery | Data-centre infrastructure | Specific constraints may create asymmetric winners before the broader market fully recognises them. | 2026-06 | Time-to-power, grid connection, rack power, cooling, water, interconnect and edge/peering remain areas for screening. Navitas is a rack-power expression; Aeluma is the first deliberate test of the small-cap hard-bottleneck / prototype-to-production discovery heuristic. | Evidence of genuine supply constraint, sophisticated external validation, customer urgency and a visible path from evaluation to material production before major repricing. | Keep as monthly screening lens; do not formalise the retrospective Sivers pattern as a rule until it proves predictive. |
 
 ## Orbital-compute watchlist
 
-These are **watchpoint candidates rather than a maintained thesis candidate universe** and should not yet be added to `thesis.json`.
+These are **watchpoint candidates rather than a maintained thesis candidate universe** and should not yet be added to `thesis.json`. A holding may appear here while remaining mapped to another primary thesis in `thesis.json` to avoid double-counting.
 
 | Company | Ticker | Current role | Why it is being watched |
 |---|---|---|---|
-| Sidus Space | SIDU | Speculative narrative candidate | Small listed company with direct orbital-storage/edge-compute adjacency and high potential thematic torque if orbital compute becomes a mainstream hype cycle. |
+| Sidus Space | SIDU | Planned £5k pre-proof moonshot | Direct orbital-storage/edge-compute adjacency, a large cash balance and a near-term LizzieSat/StarVault catalyst create high narrative and technology torque. First decision point: Q1 2027. |
+| AAC Clyde Space | AAC.ST | Watchlist / infrastructure candidate | Tiny listed supplier with real space power, data-handling and optical-communications capability plus strong backlog, but no direct SpaceX/orbital-compute design win yet. Escalate on a transformational commercial-constellation order. |
+| Filtronic | FTC.L | Existing dual-thesis strategic supplier | Primarily mapped to Defence, but its SpaceX relationship, mmWave/GaN roadmap and emerging spaceborne RF work create credible orbital-infrastructure adjacency. Rebuild only on a material new SpaceX technology/frequency or on-orbit production leg. |
 | Planet Labs | PL | Higher-quality direct proxy | Direct connection to Google's Project Suncatcher provides credible exposure to orbital AI-compute experimentation. |
 | Redwire | RDW | Enabling-infrastructure candidate | Relevant capabilities in spacecraft power, structures and other infrastructure; becomes materially more interesting on a named orbital-compute contract. |
-| Rocket Lab | RKLB | Existing higher-quality proxy | Launch, spacecraft components and space-systems capabilities provide indirect exposure, though its existing scale and recognition make it less asymmetric. |
+| Rocket Lab | RKLB | Existing higher-quality proxy | Launch, spacecraft, defence-space and potential satellite-service capabilities provide indirect exposure; current valuation and Iridium financing make it a hold rather than an increase. |
 
 ---
 
@@ -577,14 +593,16 @@ These are **watchpoint candidates rather than a maintained thesis candidate univ
 The qualitative and machine-readable candidate universes should be reconciled as follows:
 
 1. Mark **Swarmer, ServiceNow and Microsoft as held**.
-2. Mark **BWXT as held**, removing any “planned increase” status.
-3. Ensure **Schneider Electric is held** in both qualitative and machine-readable universes.
-4. Ensure **Eaton is not held**.
-5. Use **BYDDY** as the held BYD line while avoiding double-counting 1211.HK.
-6. Keep **IONQ** as held.
-7. **Remove Jenoptik entirely** from the data-centre candidate universe.
-8. **Add Pasqal (PSQL)** to the Quantum candidate universe.
-9. Rename/configure the promoted AI thesis consistently in `thesis.json` as **Enterprise AI control and application layer**, retaining the eight-candidate universe.
-10. Ensure **Swarmer is mapped to Defence**, not Data-centre infrastructure.
-11. Do **not** add SIDU, PL or RDW to `thesis.json` yet; retain them under the orbital-compute watchpoint until or unless that becomes a live thesis.
-12. Continue to treat candidate universes as diagnostic comparison sets, not automatic purchase lists.
+2. Mark **BWXT as held**, removing any prior “planned increase” status.
+3. Ensure **Schneider Electric is held** and **Eaton is not held**.
+4. Use **BYDDY** as the held BYD line while avoiding double-counting 1211.HK.
+5. Keep **IONQ** as held.
+6. **Remove Jenoptik entirely** from the Data-centre candidate universe.
+7. **Add Pasqal (PSQL)** to the Quantum candidate universe.
+8. Rename/configure the promoted AI thesis consistently in `thesis.json` as **Enterprise AI control and application layer**, retaining the existing candidate universe; mark **Salesforce as planned**, then held after execution.
+9. Ensure **Swarmer is mapped to Defence**, not Data-centre infrastructure.
+10. **Add Aeluma (ALMU)** to the Data-centre infrastructure candidate universe as Speculative optionality; mark it planned until the agreed initial purchase executes. Add **Sivers Semiconductors (SIVE.ST)** as an unheld comparator if the data source supports it reliably.
+11. Keep **Filtronic mapped primarily to Defence** to avoid double-counting, while preserving its space-communications/orbital-infrastructure adjacency qualitatively and in the orbital watchlist.
+12. Keep **SIDU, AAC Clyde Space, PL and RDW outside `thesis.json`** while orbital compute remains a watchpoint rather than a full thesis. Record SIDU as the first planned bounded position under the watchpoint; AAC remains watchlist only.
+13. Treat **Rocket Lab** as standalone space / defence-space infrastructure optionality rather than a permanent crowd-sourced thesis holding; do not create a broad Space thesis solely to accommodate it.
+14. Continue to treat candidate universes as diagnostic comparison sets, not automatic purchase lists.
