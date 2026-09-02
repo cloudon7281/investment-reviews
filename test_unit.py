@@ -10,7 +10,9 @@ Tests cover:
 
 import os
 import sys
+import logging
 import shutil
+import subprocess
 import tempfile
 import unittest
 from logger import logger
@@ -21,6 +23,7 @@ from datetime import datetime
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
+import update_google_sheet
 import pdf_parser
 import portfolio_review
 import reconcile_tags
@@ -3163,6 +3166,100 @@ class TestUnreadableCorporateAction(unittest.TestCase):
                 with self.assertRaises(pdf_parser.NoteParseError) as caught:
                     self._scan_with(filename, raiser)
                 self.assertIn(kind, str(caught.exception))
+
+
+class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
+    """Notes that could not be read must not produce a spreadsheet row (#38)."""
+
+    MESSAGE = ("2 note(s) could not be used, so the portfolio would be understated:\n"
+               "  Could not read price from /notes/ISA/2026/A.pdf\n"
+               "  Could not read the merger note /notes/ISA/2026/B.pdf")
+
+    def _updater(self, recipient='calum@example.com'):
+        updater = update_google_sheet.PortfolioUpdater.__new__(
+            update_google_sheet.PortfolioUpdater)
+        updater.logger = logging.getLogger('test-updater')
+        updater.dry_run = False
+        updater.alert_delivery_ok = True
+        updater.unparseable_notes = None
+        updater.config = {'notifications': {'alerts': {'to': recipient} if recipient else {}}}
+        return updater
+
+    def _fenced(self, message):
+        return (f"some library warning\n"
+                f"{update_google_sheet.UNPARSEABLE_NOTES_BEGIN}\n{message}\n"
+                f"{update_google_sheet.UNPARSEABLE_NOTES_END}\n")
+
+    def test_the_report_is_lifted_out_of_the_surrounding_noise(self):
+        """stderr also carries library warnings; only the fenced part is the report."""
+        extracted = update_google_sheet._unparseable_notes_message(self._fenced(self.MESSAGE))
+        self.assertEqual(extracted, self.MESSAGE)
+        self.assertNotIn('library warning', extracted)
+
+    def test_a_missing_fence_yields_everything_rather_than_nothing(self):
+        """An email holding too much is recoverable; one holding nothing is not."""
+        self.assertEqual(
+            update_google_sheet._unparseable_notes_message("something went wrong"),
+            "something went wrong")
+
+    def test_only_the_unparseable_exit_code_is_treated_as_unparseable_notes(self):
+        """Exit 3 is the specific condition; any other failure stays a general one."""
+        updater = self._updater()
+        updater.config['portfolio'] = {'base_dir': '/notes', 'temp_output': '/tmp/x.numbers'}
+
+        for code, expected in ((3, update_google_sheet.UnparseableNotesError),
+                               (1, RuntimeError),
+                               (2, RuntimeError)):
+            with self.subTest(exit_code=code):
+                error = subprocess.CalledProcessError(code, ['portfolio'])
+                error.stdout, error.stderr = '', self._fenced(self.MESSAGE)
+                with patch('subprocess.run', side_effect=error):
+                    with self.assertRaises(expected):
+                        updater._run_portfolio_analysis()
+
+    def test_the_spreadsheet_is_left_alone_and_the_report_is_emailed(self):
+        """The requirement: no row, and the email is the error and nothing else."""
+        updater = self._updater()
+        sheets = Mock()
+        updater.sheets_client = sheets
+
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            result = updater.run()
+
+        self.assertFalse(result)
+        self.assertEqual(updater.unparseable_notes, self.MESSAGE)
+        sheets.append_row.assert_not_called()
+        sheets.insert_column.assert_not_called()
+
+        send.assert_called_once()
+        _, subject, body = send.call_args[0]
+        self.assertEqual(body, self.MESSAGE, "the email body must be the report itself")
+        self.assertIn('FAILED', subject)
+
+    def test_a_missing_recipient_is_reported_rather_than_raising(self):
+        """Nobody to tell is itself worth logging; it must not mask the real fault."""
+        updater = self._updater(recipient=None)
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            result = updater.run()
+        self.assertFalse(result)
+        self.assertEqual(updater.unparseable_notes, self.MESSAGE)
+        send.assert_not_called()
+
+    def test_an_undeliverable_report_does_not_hide_the_note_failure(self):
+        """Both channels down: the run still fails for the notes, not for the email."""
+        updater = self._updater()
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
+             patch('update_google_sheet.alerts.send_alert_email',
+                   side_effect=update_google_sheet.alerts.AlertDeliveryError('relay down')):
+            result = updater.run()
+        self.assertFalse(result)
+        self.assertEqual(updater.unparseable_notes, self.MESSAGE)
+        self.assertFalse(updater.alert_delivery_ok)
 
 
 class TestReviewInvariants(unittest.TestCase):
