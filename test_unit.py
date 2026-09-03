@@ -3276,8 +3276,11 @@ class TestCheckNotes(unittest.TestCase):
         base.update(kw)
         return base
 
-    def _check(self, note, bar):
-        with patch.object(check_notes, 'market_bar', return_value=bar):
+    def _check(self, note, bar, rates=None):
+        rates = rates or {}
+        with patch.object(check_notes, 'market_bar', return_value=bar), \
+             patch.object(check_notes, 'fx_to_gbp',
+                          side_effect=lambda ccy, *a, **k: rates.get(ccy, 1.0)):
             return check_notes.check_transaction('note.pdf', note, {})
 
     def test_a_price_inside_the_day_range_passes(self):
@@ -3291,20 +3294,50 @@ class TestCheckNotes(unittest.TestCase):
         Measured over the live notes, comparing against a close rejected five holdings
         whose price sat inside the trade day's own high/low.
         """
-        result = self._check(self._note(price=105.0), self._bar(105.46, 109.47, 'USD'))
-        self.assertEqual(result.status, check_notes.FAIL)
-        result = self._check(self._note(price=107.0, currency='USD'), self._bar(105.46, 109.47, 'USD'))
+        outside = self._check(self._note(price=90.0, currency='USD'),
+                              self._bar(105.46, 109.47, 'USD'))
+        self.assertEqual(outside.status, check_notes.FAIL)
+        inside = self._check(self._note(price=107.0, currency='USD'),
+                             self._bar(105.46, 109.47, 'USD'))
+        self.assertEqual(inside.status, check_notes.OK)
+
+    def test_a_currency_label_disagreement_is_not_by_itself_wrong(self):
+        """AGGG.L is listed on the LSE and quoted in USD, and that is normal.
+
+        The Interactive Investor CSV states every price in GBP because it derives them
+        from a GBP consideration, so a note currency that differs from the quote currency
+        is routine.  Failing on the labels rejected correct notes whose prices agreed.
+        """
+        note = self._note(ticker='AGGG.L', currency='GBP', price=3.3501)
+        result = self._check(note, self._bar(4.3915, 4.4195, 'USD'), rates={'USD': 0.7524})
         self.assertEqual(result.status, check_notes.OK)
 
-    def test_a_currency_disagreement_fails_before_any_price_comparison(self):
-        """The cheapest decisive signal: both the note and Yahoo state a currency.
+    def test_the_wrong_currency_line_is_caught_on_price_after_conversion(self):
+        """What the label check used to catch, now caught by comparing like with like.
 
-        This alone catches #46 and #50 — bare WDEF is quoted in USD against a EUR note,
-        bare ARMG in USD against a GBP one.
+        Bare WDEF is the USD line on NYSE Arca against a EUR note for the LSE line (#46).
         """
-        result = self._check(self._note(ticker='ARMG'), self._bar(14.90, 15.10, 'USD'))
+        note = self._note(ticker='WDEF', currency='EUR', price=29.9756, exchange_rate=0.8527)
+        result = self._check(note, self._bar(27.59, 28.14, 'USD'), rates={'USD': 0.7395})
         self.assertEqual(result.status, check_notes.FAIL)
-        self.assertIn('quoted in USD', result.detail)
+
+    def test_a_note_in_the_quote_currency_needs_no_rate(self):
+        """Yahoo has no CZKGBP=X, and a CZK note against a CZK quote never needed one."""
+        note = self._note(ticker='PRIUA.PR', currency='CZK', price=855.0)
+        with patch.object(check_notes, 'market_bar',
+                          return_value=self._bar(850.0, 860.0, 'CZK')), \
+             patch.object(check_notes, 'fx_to_gbp', return_value=None) as fx:
+            result = check_notes.check_transaction('note.mhtml', note, {})
+        self.assertEqual(result.status, check_notes.OK)
+        fx.assert_not_called()
+
+    def test_a_rate_stated_on_the_note_is_preferred(self):
+        """It is the rate the broker applied; a mid-market rate is only close to it."""
+        cache = {}
+        self.assertEqual(
+            check_notes.fx_to_gbp('EUR', datetime(2026, 7, 13), cache, stated=0.8527), 0.8527)
+        self.assertEqual(check_notes.fx_to_gbp('GBP', datetime(2026, 7, 13), cache), 1.0)
+        self.assertEqual(cache, {}, 'no lookup should have been needed')
 
     def test_a_cost_base_entry_has_no_traded_price_to_check(self):
         """A demerger transfer apportions a GBP cost base; the market says nothing about it.
@@ -3325,8 +3358,10 @@ class TestCheckNotes(unittest.TestCase):
         self.assertEqual(result.status, check_notes.FAIL)
 
     def test_the_ratio_says_what_kind_of_wrong_it_is(self):
-        for ratio, expected in ((100.0, 'pence'), (0.01, 'pence'),
+        for ratio, expected in ((100.0, 'pence against pounds, or a 100:1 split'),
+                                (0.01, 'pence against pounds, or a 100:1 split'),
                                 (10.0, '10x'), (1.35, 'FX rate'),
+                                (39.6, '40x'),   # NVIDIA's 4:1 and 10:1, compounded
                                 (7.3, 'different instrument')):
             with self.subTest(ratio=ratio):
                 self.assertIn(expected, check_notes.explain_ratio(ratio))
