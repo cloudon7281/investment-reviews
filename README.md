@@ -348,6 +348,48 @@ and SMTP relay under `notifications.alerts` in `config.yaml`; leaving `to` empty
 alerts. On jarvis the relay is the `infra_mail` Proton Bridge on the host
 (`host.docker.internal:1025`).
 
+### Checking New Notes (`check_notes.py`)
+
+A note's Yahoo Finance identity cannot be derived from the note. ISINs are only sometimes
+accepted, unit trusts state their venue as "the manager of the unit trust", and one
+exchange carries lines of the same fund in different currencies — `ARMG.L` and `ARMR.L`
+are both Global X Defence Tech on the LSE, one priced in GBP and one in USD. Getting that
+wrong is silent: it reports a plausible number for a different instrument.
+
+It can be checked, though, and that is worth doing **before** new notes are copied into
+the live tree:
+
+```bash
+python3 check_notes.py ~/Downloads/new-notes/
+python3 check_notes.py one_note.pdf --json
+python3 check_notes.py <history-dir> --since 2026-06-01 --quiet
+```
+
+For each security in each note it reports whether the note parses, the currency the note
+states, the Yahoo identifier that would be used and where it came from, whether that
+identifier resolves, and whether the market agrees with the note. Exit status is 0 when
+everything checks out and 1 otherwise, so it can gate a script.
+
+Two details carry most of the weight:
+
+- **The currency comparison is the cheapest decisive check.** The note states a currency
+  and so does Yahoo; if they differ, the identifier is wrong. That alone catches the
+  `WDEF` and `ARMG` mispricings.
+- **The price is compared against the trade date's high/low range**, not its closing
+  price, because a trade executes intraday — and against *unadjusted* history, because
+  adjusted history is back-corrected for dividends and a note from several years ago
+  would otherwise sit 20-25% above its own range.
+
+Where a price does not match, the ratio says what kind of wrong it is: about 100 is pence
+against pounds, close to an FX rate is the right fund on the wrong currency line, a round
+integer is Yahoo's split-adjusted history against an unadjusted note (reported as
+something to look at rather than something wrong), and anything else is a different
+instrument.
+
+Run over the whole history the tool also reports holdings that have since been delisted
+or renamed, which is true but not actionable — `--since` keeps a routine check to the
+notes that are actually new.
+
 ### Reconciling a Stock's Tag (`reconcile_tags.py`)
 
 A stock's tag is the directory its notes sit in — `<category>/<year>/<tag>/`. The scanner
