@@ -432,6 +432,12 @@ The fragment is matched case-insensitively against note *filenames* (`.pdf`, `.c
 `.mhtml`); nothing else in the tree is touched. Category and year are always preserved —
 only the tag directory changes.
 
+It also reports notes that exist in some copies and not others, classified by direction,
+because only one direction is a fault. A note upstream of where it is missing is waiting
+for an hourly sync. A note in staging that is no longer in iCloud is a fault: `ditto`
+does not delete, so staging keeps pushing it to jarvis. A note on jarvis that has left
+staging removes itself on the next mirror. Only the middle case fails `--check`.
+
 `--apply` refuses to start while either sync job is running, checks every destination
 before moving anything, and re-checks all three locations afterwards. The pre-flight
 matters: a collision discovered halfway through would leave the notes split across the

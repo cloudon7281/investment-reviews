@@ -2830,6 +2830,67 @@ class TestReconcileTagMoves(unittest.TestCase):
             location.move(note.path, location.retag(note, 'Defence'))
 
 
+class TestReconcileTagPresence(unittest.TestCase):
+    """A note in some copies and not others (investment-reviews#61)."""
+
+    LOCATIONS = ['icloud', 'staging', 'jarvis']
+
+    def _notes(self, placements):
+        """placements: {location: [filenames]}"""
+        return [reconcile_tags.Note(location, f'/{location}/ISA/2026/Nuclear/{name}',
+                                    'isa', '2026', 'Nuclear', name)
+                for location, names in placements.items() for name in names]
+
+    def test_a_note_only_upstream_is_waiting_for_a_sync(self):
+        """The case that reported 'Consistent' while the counts read 3, 2, 2.
+
+        Tags agreed, so the tag check had nothing to say — but a note filed minutes ago
+        and not yet mirrored is exactly what someone runs this to find out.
+        """
+        notes = self._notes({'icloud': ['a.pdf', 'b.pdf'],
+                             'staging': ['a.pdf'], 'jarvis': ['a.pdf']})
+        stale, pending = reconcile_tags.presence_differences(notes, self.LOCATIONS)
+        self.assertEqual(stale, [], 'waiting for a sync is not a fault')
+        self.assertEqual(len(pending), 2)
+        self.assertTrue(all('b.pdf' in line for line in pending))
+
+    def test_a_note_in_staging_but_not_icloud_is_a_fault(self):
+        """ditto never deletes, so staging keeps pushing it to jarvis indefinitely."""
+        notes = self._notes({'icloud': [], 'staging': ['ghost.pdf'], 'jarvis': ['ghost.pdf']})
+        stale, _ = reconcile_tags.presence_differences(notes, self.LOCATIONS)
+        self.assertEqual(len(stale), 1)
+        self.assertIn('ghost.pdf', stale[0])
+        self.assertIn('keep pushing', stale[0])
+
+    def test_a_note_only_on_jarvis_removes_itself(self):
+        """The second hop mirrors, so anything not in staging is deleted on the next run."""
+        notes = self._notes({'icloud': [], 'staging': [], 'jarvis': ['leftover.pdf']})
+        stale, pending = reconcile_tags.presence_differences(notes, self.LOCATIONS)
+        self.assertEqual(stale, [])
+        self.assertEqual(len(pending), 2)
+
+    def test_notes_present_everywhere_report_nothing(self):
+        notes = self._notes({name: ['a.pdf'] for name in self.LOCATIONS})
+        self.assertEqual(reconcile_tags.presence_differences(notes, self.LOCATIONS),
+                         ([], []))
+
+    def test_a_pending_sync_does_not_fail_the_check(self):
+        """--check gates a script; a note mid-sync is no reason to stop it."""
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        locations = []
+        for name in self.LOCATIONS:
+            root = os.path.join(base, name)
+            directory = os.path.join(root, 'ISA', '2026', 'Nuclear')
+            os.makedirs(directory)
+            open(os.path.join(directory, 'a_BOUGHT_X.pdf'), 'w').close()
+            locations.append(reconcile_tags.LocalLocation(name, root))
+        open(os.path.join(base, 'icloud', 'ISA', '2026', 'Nuclear', 'b_BOUGHT_X.pdf'), 'w').close()
+
+        with patch.object(reconcile_tags, 'build_locations', return_value=locations):
+            self.assertEqual(reconcile_tags.main(['BOUGHT_X', '--check']), 0)
+
+
 class TestReconcileTagCaseInsensitivity(unittest.TestCase):
     """Tag directories are case-insensitively unique on macOS (investment-reviews#44)."""
 
