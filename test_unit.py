@@ -3302,6 +3302,66 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         self.assertEqual(body, self.MESSAGE, "the email body must be the report itself")
         self.assertIn('FAILED', subject)
 
+    def test_any_failed_update_is_emailed_not_just_unreadable_notes(self):
+        """A night with no row and no explanation is not a report.
+
+        The Google Sheets rejection of 2026-09-01 and 2026-09-03 failed this way twice in
+        three days and sent nothing either time; it was noticed by looking at the
+        spreadsheet (investment-reviews#64).
+        """
+        updater = self._updater()
+        sheets_error = RuntimeError(
+            'Invalid requests[0].insertDimension: range.startIndex must be less than '
+            'the grid size (60) if inheritFromBefore is false.')
+
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=sheets_error), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            result = updater.run()
+
+        self.assertFalse(result)
+        send.assert_called_once()
+        _, subject, body = send.call_args[0]
+        self.assertIn('FAILED', subject)
+        self.assertIn('the update failed', subject)
+        self.assertIn('insertDimension', body, 'the body must carry the actual reason')
+        self.assertIn('grid size (60)', body, 'and enough of it to act on')
+
+    def test_the_two_failures_are_distinguishable_in_the_subject(self):
+        """They need different responses: fix a note, or fix the spreadsheet."""
+        updater = self._updater()
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            updater.run()
+        self.assertIn('notes could not be read', send.call_args[0][1])
+
+        updater = self._updater()
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=RuntimeError('boom')), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            updater.run()
+        self.assertIn('the update failed', send.call_args[0][1])
+
+    def test_a_general_failure_keeps_its_own_exit_code(self):
+        """Emailing both does not merge them: exit 3 and exit 1 need different responses."""
+        updater = self._updater()
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=RuntimeError('boom')), \
+             patch('update_google_sheet.alerts.send_alert_email'):
+            updater.run()
+        self.assertIsNone(updater.unparseable_notes,
+                          'a general failure must not be reported as unreadable notes')
+
+    def test_an_undeliverable_failure_email_does_not_mask_the_failure(self):
+        updater = self._updater()
+        with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
+                          side_effect=RuntimeError('boom')), \
+             patch('update_google_sheet.alerts.send_alert_email',
+                   side_effect=update_google_sheet.alerts.AlertDeliveryError('relay down')):
+            self.assertFalse(updater.run())
+        self.assertFalse(updater.alert_delivery_ok)
+
     def test_a_missing_recipient_is_reported_rather_than_raising(self):
         """Nobody to tell is itself worth logging; it must not mask the real fault."""
         updater = self._updater(recipient=None)
