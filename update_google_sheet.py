@@ -12,6 +12,7 @@ Handles:
 import sys
 import os
 import subprocess
+import traceback
 import yaml
 import argparse
 from datetime import datetime, timedelta
@@ -237,28 +238,37 @@ class PortfolioUpdater:
                               "unchanged and no row added")
             for line in str(e).splitlines():
                 self.logger.error(f"  {line}")
-            self._send_unparseable_notes_alert(str(e))
+            self._send_failure_alert(str(e), 'notes could not be read')
             return False
 
         except Exception as e:
+            # Any failed update is reported, not just the unreadable-notes one above.
+            # A night with no row and no explanation leaves the operator unable to tell
+            # "nothing has happened yet" from "it broke four hours ago", which is how the
+            # same Sheets rejection went unnoticed twice in three days
+            # (investment-reviews#64).
             self.logger.error(f"Update failed: {e}")
             self.logger.exception("Full traceback:")
+            self._send_failure_alert(
+                f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}",
+                f'the update failed ({type(e).__name__})')
             return False
     
-    def _send_unparseable_notes_alert(self, message: str) -> None:
-        """Send the unreadable-note report as the whole of tonight's alert email.
+    def _send_failure_alert(self, message: str, summary: str) -> None:
+        """Send the reason the spreadsheet was not updated, as the whole of the email.
 
-        Replacing the usual alerts rather than accompanying them: the figures those
-        alerts would be drawn from are the ones we have just refused to trust.
+        Replacing the usual alerts rather than accompanying them: either there are no
+        figures to alert on, or the figures those alerts would be drawn from are the ones
+        just refused.
         """
         alert_config = self.config.get('notifications', {}).get('alerts', {})
         if not alert_config.get('to'):
-            self.logger.error("No alert recipient configured, so nobody will be told "
-                              "that the notes could not be read")
+            self.logger.error(f"No alert recipient configured, so nobody will be told "
+                              f"that {summary}")
             return
 
         subject = (f"Portfolio update FAILED {datetime.now().strftime('%Y-%m-%d')}: "
-                   f"notes could not be read")
+                   f"{summary}")
 
         if self.dry_run:
             self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: "
@@ -267,11 +277,11 @@ class PortfolioUpdater:
 
         try:
             alerts.send_alert_email(alert_config, subject, message)
-            self.logger.info(f"Emailed the unreadable-note report to {alert_config['to']}")
+            self.logger.info(f"Emailed the failure report to {alert_config['to']}")
         except alerts.AlertDeliveryError as e:
             # Both channels are now down: no spreadsheet row and no email. The run
             # already fails, so this only has to be visible in the log.
-            self.logger.error(f"Could not email the unreadable-note report: {e}")
+            self.logger.error(f"Could not email the failure report: {e}")
             self.alert_delivery_ok = False
 
     def _send_alerts(self, console_output: str) -> None:
