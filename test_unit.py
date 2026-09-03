@@ -24,6 +24,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
 import update_google_sheet
+import check_notes
 import pdf_parser
 import portfolio_review
 import reconcile_tags
@@ -3260,6 +3261,119 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         self.assertFalse(result)
         self.assertEqual(updater.unparseable_notes, self.MESSAGE)
         self.assertFalse(updater.alert_delivery_ok)
+
+
+class TestCheckNotes(unittest.TestCase):
+    """Checking a note against the market before it goes live (investment-reviews#59)."""
+
+    def _bar(self, low, high, currency='GBP'):
+        return {'low': low, 'high': high, 'currency': currency, 'bar_date': '2026-08-03'}
+
+    def _note(self, **kw):
+        base = {'ticker': 'ARMG.L', 'isin': 'IE000JCW3DZ3', 'stock_name': 'Global X ETFs',
+                'currency': 'GBP', 'price': 21.5484, 'transaction_date': datetime(2026, 8, 3),
+                'transaction_type': 'purchase'}
+        base.update(kw)
+        return base
+
+    def _check(self, note, bar):
+        with patch.object(check_notes, 'market_bar', return_value=bar):
+            return check_notes.check_transaction('note.pdf', note, {})
+
+    def test_a_price_inside_the_day_range_passes(self):
+        """A trade executes intraday, so the note's price belongs inside the day's range."""
+        result = self._check(self._note(), self._bar(21.20, 21.80))
+        self.assertEqual(result.status, check_notes.OK)
+
+    def test_a_price_matching_the_close_but_outside_the_range_is_not_required(self):
+        """Judged against closes rather than ranges, correct notes look wrong.
+
+        Measured over the live notes, comparing against a close rejected five holdings
+        whose price sat inside the trade day's own high/low.
+        """
+        result = self._check(self._note(price=105.0), self._bar(105.46, 109.47, 'USD'))
+        self.assertEqual(result.status, check_notes.FAIL)
+        result = self._check(self._note(price=107.0, currency='USD'), self._bar(105.46, 109.47, 'USD'))
+        self.assertEqual(result.status, check_notes.OK)
+
+    def test_a_currency_disagreement_fails_before_any_price_comparison(self):
+        """The cheapest decisive signal: both the note and Yahoo state a currency.
+
+        This alone catches #46 and #50 — bare WDEF is quoted in USD against a EUR note,
+        bare ARMG in USD against a GBP one.
+        """
+        result = self._check(self._note(ticker='ARMG'), self._bar(14.90, 15.10, 'USD'))
+        self.assertEqual(result.status, check_notes.FAIL)
+        self.assertIn('quoted in USD', result.detail)
+
+    def test_a_cost_base_entry_has_no_traded_price_to_check(self):
+        """A demerger transfer apportions a GBP cost base; the market says nothing about it.
+
+        Comparing it against the instrument's own currency reports a correct note as
+        wrong, which is how this first ran against the Kongsberg entry.
+        """
+        note = self._note(ticker='KMAR.OL', currency='GBP', price=4.9052,
+                          transaction_type='transfer')
+        result = self._check(note, self._bar(55.0, 57.0, 'NOK'))
+        self.assertEqual(result.status, check_notes.OK)
+        self.assertIn('cost-base entry', result.detail)
+
+    def test_a_cost_base_entry_still_has_to_name_a_real_security(self):
+        """Not price-checked is not unchecked: the identifier must still resolve."""
+        note = self._note(ticker='NOSUCH.L', transaction_type='transfer')
+        result = self._check(note, None)
+        self.assertEqual(result.status, check_notes.FAIL)
+
+    def test_the_ratio_says_what_kind_of_wrong_it_is(self):
+        for ratio, expected in ((100.0, 'pence'), (0.01, 'pence'),
+                                (10.0, '10x'), (1.35, 'FX rate'),
+                                (7.3, 'different instrument')):
+            with self.subTest(ratio=ratio):
+                self.assertIn(expected, check_notes.explain_ratio(ratio))
+
+    def test_provenance_names_where_the_identifier_came_from(self):
+        """A wrong identifier has to be traceable to the thing that produced it."""
+        self.assertEqual(
+            check_notes.identity_provenance({'ticker': 'ARMG.L', 'isin': 'IE000JCW3DZ3'}),
+            'ticker map')
+        self.assertEqual(
+            check_notes.identity_provenance(
+                {'ticker': None, 'stock_name': 'Jupiter India', 'isin': 'GB00BD08NQ14'}),
+            'name mapping')
+        self.assertEqual(
+            check_notes.identity_provenance({'ticker': 'CRM', 'isin': 'US79466L3024'}),
+            'ISIN country US')
+
+    def test_a_note_that_cannot_be_parsed_is_reported_not_skipped(self):
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        path = os.path.join(base, 'B1_BOUGHT_Broken.pdf')
+        open(path, 'w').write('not a pdf')
+        checks = check_notes.check_note(path, {})
+        self.assertEqual(checks[0].status, check_notes.FAIL)
+
+    def test_a_corporate_action_is_skipped_not_failed(self):
+        """Skipping is not the same as failing, and must not become it.
+
+        A corporate action has no traded price to check; #53 and #54 already report one
+        that cannot be read.  Collapsing the two made a broken contract note silent.
+        """
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        path = os.path.join(base, 'acme+inc+-+merger.pdf')
+        open(path, 'w').write('not a pdf either')
+        self.assertEqual(check_notes.check_note(path, {}), [])
+
+    def test_only_note_files_are_collected(self):
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        for name in ('B1_BOUGHT_X.pdf', 'trades.csv', 'export.mhtml', 'action.yaml',
+                     'notes.txt', '.DS_Store'):
+            open(os.path.join(base, name), 'w').close()
+        found = [os.path.basename(p) for p in check_notes.collect_notes([base])]
+        self.assertNotIn('notes.txt', found)
+        self.assertNotIn('.DS_Store', found)
+        self.assertEqual(len(found), 4)
 
 
 class TestReviewInvariants(unittest.TestCase):
