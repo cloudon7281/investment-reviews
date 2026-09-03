@@ -278,6 +278,42 @@ def disagreements(notes: Sequence[Note], locations: Sequence[str]) -> List[str]:
     return problems
 
 
+def presence_differences(notes: Sequence[Note], locations: Sequence[str]) -> List[str]:
+    """Notes that exist in some copies and not others, classified by direction.
+
+    Which way round it is decides whether it matters, and that follows from the two hops
+    not behaving alike.  A note upstream of where it is missing is simply waiting for an
+    hourly sync.  A note in staging that is no longer in iCloud is not: ditto never
+    deletes, so staging will keep pushing it to jarvis indefinitely.  A note on jarvis
+    that has left staging is removed by the next mirror on its own.
+
+    Reported separately from a tag disagreement because only one of these is a fault
+    (investment-reviews#61).
+    """
+    order = {name: index for index, name in enumerate(locations)}
+    where = defaultdict(set)
+    for note in notes:
+        where[note.filename].add(note.location)
+
+    pending, stale = [], []
+    for filename in sorted(where):
+        present = where[filename]
+        missing = [name for name in locations if name not in present]
+        if not missing:
+            continue
+        furthest_upstream = min(order[name] for name in present)
+        for name in missing:
+            if order[name] > furthest_upstream:
+                pending.append(f"{filename} is not in {name} yet, waiting for a sync")
+            elif name == 'icloud' and 'staging' in present:
+                stale.append(f"{filename} is in staging but not icloud: ditto does not "
+                             f"delete, so staging will keep pushing it to jarvis")
+            else:
+                pending.append(f"{filename} is in {', '.join(sorted(present))} but not "
+                               f"{name}; the next mirror removes it")
+    return stale, pending
+
+
 def report(notes: Sequence[Note], locations: Sequence[Location]) -> None:
     if not notes:
         print("No matching notes found.")
@@ -374,6 +410,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     names = [location.name for location in locations]
     problems = disagreements(notes, names)
+    stale, pending = presence_differences(notes, names)
+    problems.extend(stale)
 
     if args.move_to:
         respelt = spelling_differences(notes, args.move_to)
@@ -454,6 +492,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
 
         remaining = disagreements(after, names)
+        remaining.extend(presence_differences(after, names)[0])
         if remaining:
             print("FAILED: the notes are still not filed consistently:", file=sys.stderr)
             for problem in remaining:
@@ -466,12 +505,23 @@ def main(argv: Optional[List[str]] = None) -> int:
               "next hop if you want confirmation nothing was recreated.")
         return 0
 
+    if pending:
+        print("\nNOT YET IN EVERY COPY:")
+        for note in pending:
+            print(f"  {note}")
+
     if problems:
         print("\nINCONSISTENT:")
         for problem in problems:
             print(f"  {problem}")
-        print("\nUse --move-to TAG to file them all under one tag.")
+        if any('tag' in problem or 'split' in problem or 'filed' in problem
+               for problem in problems):
+            print("\nUse --move-to TAG to file them all under one tag.")
         return 1 if args.check else 0
+
+    if pending:
+        print("\nTags agree everywhere; the copies differ only by notes still to sync.")
+        return 0
 
     print("\nConsistent: one tag per category in every location.")
     return 0
