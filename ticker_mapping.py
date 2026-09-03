@@ -1,119 +1,73 @@
+"""Mappings from what a broker note says to what Yahoo Finance calls the same security.
+
+The mappings themselves live in ticker_mappings.yaml.  They are reference data, and a
+tool that maintains them should not be editing Python (investment-reviews#59); keeping
+them in the repo rather than a state directory keeps a change reviewable and revertible,
+which matters because a wrong mapping misprices a holding silently.
+
+This module loads that file and exposes the same four names it always did, so nothing
+downstream has to know where they came from.
 """
-Various mappings used to get the correct ticker name; a mix of:
-- TICKER_MAPPING when the stock note has no ticker code
-- EXCHANGE_SUFFIX_MAP for appending the correct exchange suffix to the ticker name
-- SPECIAL_EXCHANGE_SUFFIX_MAP for special cases where there are multiple bourses for the same country
-"""
 
-TICKER_MAPPING = {
-    'abrdn Latin American Equity': '0P0000XOMV.L',
-    'Artemis US Smaller Companies': '0P00013YAP.L',
-    'ASI Latin American Equity': '0P0000XOMV.L', # ASI was renamed abrdn and with a stock conversion
-    'AXA Framlington American Growth': '0P0000VKOU.L', # was converted from class R to class Z
-    'AXA Framlington Global Technology Fund': '0P0000XNBQ.L',
-    'Baillie Gifford High Yield Bond': '0P000090AH.L',
-    'Baillie Gifford American': '0P00000VC9.L',
-    'Barrick Gold Corp': 'ABX.TO',
-    'BlackRock Continental European Flexible': '0P0000TI06.L',
-    'BlackRock European Dynamic Fund': '0P0000ZZBQ.L',
-    'Blackrock ICS Sterling Liquidity': '0P0000UHZA.L',
-    'Celestica Inc': 'CLS.TO',
-    'Churchill Capital Corp IV': 'LCID',
-    'CT European Select': '0P0000X3IE.L',
-    'DEFSEC Technologies Inc': 'DFSC',
-    'Everbridge Inc': 'EVBG',
-    'Federal Realty Investment Trust': '0IL1.L',
-    'FSSA Global Emerging Markets Focus': '0P0001EEMN.L',
-    'Fundsmith Equity': '0P0000RU81.L',
-    'GS India Equity Portfolio': '0P0000XTCF.L',
-    'Hennessy Capital Acquisition Corp IV': 'GOEV',
-    'Invesco Perpetual High Income': '0P00000DII.L',
-    'JPMorgan Emerging Markets': '0P000013TQ.L', # was converted from class B to class C
-    'Jupiter Global Value Equity': '0P0001CWV4.L',
-    'Jupiter India': '0P00018LFD.L',
-    'Kensington Capital Acquisition Corp': 'QS',
-    'Kwesst Micro Systems Inc': 'KWE',
-    'Landseer Global Artificial Intelligence': '0P0001PGKI.L',
-    'Legal & General US Index': '0P000102MM.L',
-    'Lucid Group Inc': 'LCID',
-    'M&G Global Macro Bond': '0P0000UR3O.L',
-    'M&G Japan': '0P0000WN3Z.L',
-    'Man GLG Japan CoreAlpha': '0P0000810W.L',
-    'Man Japan CoreAlpha': '0P0000810W.L',
-    'Piedmont Lithium Ltd': 'PLL',
-    'Polar Capital Biotechnology': '0P0000ZVG5',  # Converted from IE00B42P0H75 on 2020-11-24
-    'Rathbone Ethical Bond': '0P0001D2M9.L',
-    'Rathbone Global Opportunities': '0P0001FE43.L',
-    'Rocket Lab USA Inc': 'RKLB',
-    'Skillz Inc': 'SKLZ', 
-    'Smith & Williamson Artificial Intelligence': '0P0001PGKI.L',
-    'Threadneedle European Select': '0P0000X3IE.L',
-    'T. Rowe Price US Smaller Companies Equity': '0P0001A1SC.L',
-    'Waverton European Capital Growth': '0P0001FG8T.L',
-    'Workhorse Group Inc': '1WO.BE',
-    #'ASI Latin American Equity': '0P0000SHRZ.L',
-    #'AXA Framlington American Growth': '0P00000DJJ.L',
-    #'JPMorgan Emerging Markets': '0P0000K7VW.L',
-    } 
+import os
+from typing import Any, Dict
 
-# Mapping from country code (first 2 chars of ISIN) to exchange suffix
-EXCHANGE_SUFFIX_MAP = {
-    'US': '',  # US stocks have no suffix
-    'GB': '.L',  # London Stock Exchange
-    'DE': '.DE',  # Deutsche Börse
-    'FR': '.PA',  # Euronext Paris
-    'IT': '.MI',  # Borsa Italiana
-    'CA': '.V'  # Vancouver
-}
+import yaml
 
-# Special case mapping for tickers that need different exchange suffixes
-SPECIAL_EXCHANGE_SUFFIX_MAP = {
-    'ASML': '.AS',  # ASML trades on Euronext Amsterdam despite being a Dutch company
-    'ING': '.AS',   # ING trades on Euronext Amsterdam
-    'KPN': '.AS',   # KPN trades on Euronext Amsterdam
-    'NN': '.AS',    # NN Group trades on Euronext Amsterdam
-    'UNA': '.AS',   # Unilever trades on Euronext Amsterdam
-    'UBS': '.SW',   # UBS trades on SIX Swiss Exchange
-    'NOVN': '.SW',  # Novartis trades on SIX Swiss Exchange
-    'ROG': '.SW',   # Roche trades on SIX Swiss Exchange
-    'NESN': '.SW',  # Nestle trades on SIX Swiss Exchange
-    'MAL': '.TO',   # Magellan trades on the Toronto Stock Exchange
-    'TECK': '',     # Teck is just weird
-    'BYDDY': '',    # BYD has no suffix
-    'PGY': '',      # Pagaya has no suffix
-    'FTG': '.TO',   # FTG is FTGFF in Toronto
-    'NATO': '.L',   # NATO is NATO.L in London
-    'IDFN': '.L',   # IDFN is IDFN.L in London
-    'DFNS': '.L',   # DFNS is DFNS.L in London
-    'PRIUA': '.PR', # Primoco is PRIUA.PR in Prague
-    'GOMX': '.ST',  # GOMX is GOMX.ST in Stockholm
-    'MILDEF': '.ST',# MILDEF is MILDEF.ST in Stockholm
-    'KOG': '.OL',   # KOG is KOG.OL in Oslo
-    'POET': '',     # POET has no suffix
-    'CLS': '.TO',   # CLS is CLS.TO in Toronto
-    'SSLV': '.L',   # SSLV is SSLV.L in London
-    'ARMR': '.L',   # ARMR is ARMR.L in London
-    # Irish- and Guernsey-domiciled funds listed in London.  EXCHANGE_SUFFIX_MAP is keyed
-    # on the ISIN's country of domicile, which for these says nothing about where they
-    # trade, so without an entry here they reach Yahoo as bare tickers and cannot be
-    # priced at all (investment-reviews#39).  Retiring this map in favour of the venue the
-    # note already states is investment-reviews#40.
-    'BTEK': '.L',   # BTEK is BTEK.L in London (IE00BYXG2H39)
-    'DFND': '.L',   # DFND is DFND.L in London
-    'FEML': '.L',   # FEML is FEML.L in London (GG00B4L0PD47)
-    'IWFV': '.L',   # IWFV is IWFV.L in London
-    'LTAM': '.L',   # LTAM is LTAM.L in London
-    # WDEF trades on the LSE as a EUR line; bare WDEF is a USD line on NYSE Arca, and
-    # pricing the wrong one understated the holding by 18% while looking like a loss
-    # (investment-reviews#46).
-    'WDEF': '.L',   # WDEF is WDEF.L in London
-    # ARMG is the GBP line of the Global X Defence Tech UCITS ETF on the LSE (ARMR.L is
-    # the same fund's USD line).  Bare ARMG is the Leverage Shares 2X Long ARM Daily ETF
-    # on Nasdaq — a different fund, a different underlying, and geared
-    # (investment-reviews#50).
-    'ARMG': '.L',   # ARMG is ARMG.L in London
-}
+MAPPINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'ticker_mappings.yaml')
 
-STOCK_RENAME_MAP = {
-    #'KWE':'DFSC'    # Kwesst renamed to Defense Security
-}
+
+def _flatten(section: Dict[str, Any], value_key: str) -> Dict[str, str]:
+    """Take the value out of each entry, whether or not it carries a note.
+
+    An entry is either a plain value or a mapping with the value under `value_key` and a
+    `note` saying why it is not obvious.  Both forms exist because most mappings need no
+    explanation and the ones that do need it badly.
+    """
+    flat = {}
+    for key, entry in (section or {}).items():
+        if isinstance(entry, dict):
+            if value_key not in entry:
+                raise ValueError(f"{MAPPINGS_FILE}: entry {key!r} has no {value_key!r}")
+            flat[key] = entry[value_key]
+        else:
+            flat[key] = entry
+    return flat
+
+
+def load_mappings(path: str = None) -> Dict[str, Dict[str, str]]:
+    """Read the mappings file.  Raises rather than returning empty maps.
+
+    An unreadable mappings file would leave every holding to be identified by its bare
+    ticker, which is how investment-reviews#50 priced a defence ETF off a leveraged ARM
+    fund.  Failing loudly at import is the lesser harm.
+    """
+    path = path or MAPPINGS_FILE
+    try:
+        with open(path, encoding='utf-8') as handle:
+            data = yaml.safe_load(handle) or {}
+    except Exception as error:
+        raise RuntimeError(f"cannot read the ticker mappings at {path}: {error}") from error
+
+    return {
+        'names': _flatten(data.get('names'), 'yahoo'),
+        'exchange_suffixes': _flatten(data.get('exchange_suffixes'), 'suffix'),
+        'ticker_suffixes': _flatten(data.get('ticker_suffixes'), 'suffix'),
+        'renames': _flatten(data.get('renames'), 'to'),
+    }
+
+
+_MAPPINGS = load_mappings()
+
+# The stock name a note carries, for notes that carry no ticker.
+TICKER_MAPPING = _MAPPINGS['names']
+
+# The Yahoo suffix implied by an ISIN's country of domicile.
+EXCHANGE_SUFFIX_MAP = _MAPPINGS['exchange_suffixes']
+
+# Per-ticker overrides, because domicile is not listing venue.
+SPECIAL_EXCHANGE_SUFFIX_MAP = _MAPPINGS['ticker_suffixes']
+
+# A ticker that became another ticker.
+STOCK_RENAME_MAP = _MAPPINGS['renames']

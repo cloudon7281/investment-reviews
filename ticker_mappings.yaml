@@ -1,0 +1,193 @@
+# Mappings from what a broker note says to what Yahoo Finance calls the same security.
+#
+# Data, not code, and kept here rather than in a state directory so that a change is
+# reviewable and revertible: a wrong mapping misprices a holding silently, and
+# investment-reviews#50 showed that costing a 49% phantom loss on a flat position.
+#
+# There are three separate problems here, and they are not interchangeable:
+#
+#   names             a note that carries no ticker at all — unit trusts and OEICs —
+#                     identified by the stock name the note does carry
+#   exchange_suffixes the Yahoo suffix implied by an ISIN's country of domicile
+#   ticker_suffixes   per-ticker overrides, because domicile is not listing venue: a
+#                     London-listed fund with an Irish ISIN needs .L, and one exchange
+#                     carries lines of the same fund in several currencies
+#   renames           a ticker that became another ticker
+#
+# An entry may be a plain value, or a mapping with a `note` recording why it is not
+# obvious. Prefer the note: it is the part that is expensive to rediscover.
+#
+# check_notes.py verifies these against the market. Run it over new notes before copying
+# them into the live tree (investment-reviews#59).
+
+exchange_suffixes:
+  CA:
+    note: Vancouver
+    suffix: .V
+  DE:
+    note: Deutsche Börse
+    suffix: .DE
+  FR:
+    note: Euronext Paris
+    suffix: .PA
+  GB:
+    note: London Stock Exchange
+    suffix: .L
+  IT:
+    note: Borsa Italiana
+    suffix: .MI
+  US:
+    note: US stocks have no suffix
+    suffix: ''
+names:
+  ASI Latin American Equity:
+    note: ASI was renamed abrdn and with a stock conversion
+    yahoo: 0P0000XOMV.L
+  AXA Framlington American Growth:
+    note: was converted from class R to class Z
+    yahoo: 0P0000VKOU.L
+  AXA Framlington Global Technology Fund: 0P0000XNBQ.L
+  Artemis US Smaller Companies: 0P00013YAP.L
+  Baillie Gifford American: 0P00000VC9.L
+  Baillie Gifford High Yield Bond: 0P000090AH.L
+  Barrick Gold Corp: ABX.TO
+  BlackRock Continental European Flexible: 0P0000TI06.L
+  BlackRock European Dynamic Fund: 0P0000ZZBQ.L
+  Blackrock ICS Sterling Liquidity: 0P0000UHZA.L
+  CT European Select: 0P0000X3IE.L
+  Celestica Inc: CLS.TO
+  Churchill Capital Corp IV: LCID
+  DEFSEC Technologies Inc: DFSC
+  Everbridge Inc: EVBG
+  FSSA Global Emerging Markets Focus: 0P0001EEMN.L
+  Federal Realty Investment Trust: 0IL1.L
+  Fundsmith Equity: 0P0000RU81.L
+  GS India Equity Portfolio: 0P0000XTCF.L
+  Hennessy Capital Acquisition Corp IV: GOEV
+  Invesco Perpetual High Income: 0P00000DII.L
+  JPMorgan Emerging Markets:
+    note: was converted from class B to class C
+    yahoo: 0P000013TQ.L
+  Jupiter Global Value Equity: 0P0001CWV4.L
+  Jupiter India: 0P00018LFD.L
+  Kensington Capital Acquisition Corp: QS
+  Kwesst Micro Systems Inc: KWE
+  Landseer Global Artificial Intelligence: 0P0001PGKI.L
+  Legal & General US Index: 0P000102MM.L
+  Lucid Group Inc: LCID
+  M&G Global Macro Bond: 0P0000UR3O.L
+  M&G Japan: 0P0000WN3Z.L
+  Man GLG Japan CoreAlpha: 0P0000810W.L
+  Man Japan CoreAlpha: 0P0000810W.L
+  Piedmont Lithium Ltd: PLL
+  Polar Capital Biotechnology:
+    note: Converted from IE00B42P0H75 on 2020-11-24
+    yahoo: 0P0000ZVG5
+  Rathbone Ethical Bond: 0P0001D2M9.L
+  Rathbone Global Opportunities: 0P0001FE43.L
+  Rocket Lab USA Inc: RKLB
+  Skillz Inc: SKLZ
+  Smith & Williamson Artificial Intelligence: 0P0001PGKI.L
+  T. Rowe Price US Smaller Companies Equity: 0P0001A1SC.L
+  Threadneedle European Select: 0P0000X3IE.L
+  Waverton European Capital Growth: 0P0001FG8T.L
+  Workhorse Group Inc: 1WO.BE
+  abrdn Latin American Equity: 0P0000XOMV.L
+renames: {}
+ticker_suffixes:
+  ARMG:
+    note: ARMG is ARMG.L in London
+    suffix: .L
+  ARMR:
+    note: ARMR is ARMR.L in London
+    suffix: .L
+  ASML:
+    note: ASML trades on Euronext Amsterdam despite being a Dutch company
+    suffix: .AS
+  BTEK:
+    note: BTEK is BTEK.L in London (IE00BYXG2H39)
+    suffix: .L
+  BYDDY:
+    note: BYD has no suffix
+    suffix: ''
+  CLS:
+    note: CLS is CLS.TO in Toronto
+    suffix: .TO
+  DFND:
+    note: DFND is DFND.L in London
+    suffix: .L
+  DFNS:
+    note: DFNS is DFNS.L in London
+    suffix: .L
+  FEML:
+    note: FEML is FEML.L in London (GG00B4L0PD47)
+    suffix: .L
+  FTG:
+    note: FTG is FTGFF in Toronto
+    suffix: .TO
+  GOMX:
+    note: GOMX is GOMX.ST in Stockholm
+    suffix: .ST
+  IDFN:
+    note: IDFN is IDFN.L in London
+    suffix: .L
+  ING:
+    note: ING trades on Euronext Amsterdam
+    suffix: .AS
+  IWFV:
+    note: IWFV is IWFV.L in London
+    suffix: .L
+  KOG:
+    note: KOG is KOG.OL in Oslo
+    suffix: .OL
+  KPN:
+    note: KPN trades on Euronext Amsterdam
+    suffix: .AS
+  LTAM:
+    note: LTAM is LTAM.L in London
+    suffix: .L
+  MAL:
+    note: Magellan trades on the Toronto Stock Exchange
+    suffix: .TO
+  MILDEF:
+    note: MILDEF is MILDEF.ST in Stockholm
+    suffix: .ST
+  NATO:
+    note: NATO is NATO.L in London
+    suffix: .L
+  NESN:
+    note: Nestle trades on SIX Swiss Exchange
+    suffix: .SW
+  NN:
+    note: NN Group trades on Euronext Amsterdam
+    suffix: .AS
+  NOVN:
+    note: Novartis trades on SIX Swiss Exchange
+    suffix: .SW
+  PGY:
+    note: Pagaya has no suffix
+    suffix: ''
+  POET:
+    note: POET has no suffix
+    suffix: ''
+  PRIUA:
+    note: Primoco is PRIUA.PR in Prague
+    suffix: .PR
+  ROG:
+    note: Roche trades on SIX Swiss Exchange
+    suffix: .SW
+  SSLV:
+    note: SSLV is SSLV.L in London
+    suffix: .L
+  TECK:
+    note: Teck is just weird
+    suffix: ''
+  UBS:
+    note: UBS trades on SIX Swiss Exchange
+    suffix: .SW
+  UNA:
+    note: Unilever trades on Euronext Amsterdam
+    suffix: .AS
+  WDEF:
+    note: WDEF is WDEF.L in London
+    suffix: .L

@@ -25,6 +25,8 @@ from portfolio_review import StockTransaction
 import transaction_processor
 import update_google_sheet
 import check_notes
+import ticker_mapping
+import yaml
 import pdf_parser
 import portfolio_review
 import reconcile_tags
@@ -3435,6 +3437,65 @@ class TestCheckNotes(unittest.TestCase):
         self.assertNotIn('notes.txt', found)
         self.assertNotIn('.DS_Store', found)
         self.assertEqual(len(found), 4)
+
+
+class TestTickerMappingsFile(unittest.TestCase):
+    """The mappings are data now, loaded from YAML (investment-reviews#59)."""
+
+    def test_every_mapping_survived_the_move_out_of_python(self):
+        """Counts pinned at what the Python dicts held, verified entry by entry then.
+
+        Reference data whose errors are silent and financial: a dropped entry would send
+        a holding to Yahoo as a bare ticker, which is how #50 priced a defence ETF off a
+        leveraged ARM fund.
+        """
+        self.assertEqual(len(ticker_mapping.TICKER_MAPPING), 45)
+        self.assertEqual(len(ticker_mapping.EXCHANGE_SUFFIX_MAP), 6)
+        self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 32)
+
+    def test_the_entries_that_earlier_issues_turned_on_are_still_there(self):
+        for ticker, suffix in (('ARMG', '.L'), ('ARMR', '.L'), ('WDEF', '.L'),
+                               ('FEML', '.L'), ('BTEK', '.L'), ('TECK', '')):
+            with self.subTest(ticker=ticker):
+                self.assertEqual(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP[ticker], suffix)
+        self.assertEqual(ticker_mapping.TICKER_MAPPING['Jupiter India'], '0P00018LFD.L')
+
+    def test_an_entry_may_carry_a_note_or_not(self):
+        """Most mappings need no explanation; the ones that do need it badly."""
+        data = {'names': {'Plain': 'AAA.L',
+                          'Explained': {'yahoo': 'BBB.L', 'note': 'class R became class Z'}}}
+        path = os.path.join(tempfile.mkdtemp(), 'm.yaml')
+        self.addCleanup(shutil.rmtree, os.path.dirname(path), True)
+        with open(path, 'w') as handle:
+            yaml.safe_dump(data, handle)
+        loaded = ticker_mapping.load_mappings(path)
+        self.assertEqual(loaded['names'], {'Plain': 'AAA.L', 'Explained': 'BBB.L'})
+
+    def test_an_entry_missing_its_value_is_rejected(self):
+        path = os.path.join(tempfile.mkdtemp(), 'm.yaml')
+        self.addCleanup(shutil.rmtree, os.path.dirname(path), True)
+        with open(path, 'w') as handle:
+            yaml.safe_dump({'names': {'Broken': {'note': 'no identifier here'}}}, handle)
+        with self.assertRaises(ValueError):
+            ticker_mapping.load_mappings(path)
+
+    def test_an_unreadable_mappings_file_raises_rather_than_loading_empty(self):
+        """Empty maps would silently send every holding to Yahoo as a bare ticker."""
+        with self.assertRaises(RuntimeError):
+            ticker_mapping.load_mappings('/nonexistent/ticker_mappings.yaml')
+
+    def test_a_suffix_is_empty_or_starts_with_a_dot(self):
+        for source in (ticker_mapping.EXCHANGE_SUFFIX_MAP,
+                       ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP):
+            for key, suffix in source.items():
+                with self.subTest(key=key):
+                    self.assertTrue(suffix == '' or suffix.startswith('.'),
+                                    f'{key!r} maps to {suffix!r}')
+
+    def test_no_mapping_points_at_nothing(self):
+        for name, identifier in ticker_mapping.TICKER_MAPPING.items():
+            with self.subTest(name=name):
+                self.assertTrue(identifier and identifier.strip(), f'{name!r} maps to nothing')
 
 
 class TestReviewInvariants(unittest.TestCase):
