@@ -1,11 +1,13 @@
-# Capped below 4.0.0 deliberately.  yfinance calls pd.Timestamp.utcnow(), which pandas
-# has deprecated and will remove in 4.0 — so a pandas 4 release would not warn, it would
-# break the nightly run with an AttributeError, on the next image rebuild rather than on
-# any change of ours.  The cap turns that into an upgrade we schedule.  Raising it is
-# investment-reviews#48, which also has to move yfinance off 0.2.x.
+# Capped below 4.0.0 deliberately.  The original reason is gone — yfinance no longer
+# calls pd.Timestamp.utcnow() — but the argument for the cap never depended on that one
+# call: pandas is where every figure in this tool lives, an unbounded major means the
+# next image rebuild after a pandas 4 release picks it up, and the break would arrive at
+# 22:05 on a night nobody chose rather than when someone decided to upgrade.  Our own
+# code raises no deprecation warnings under pandas 3, so lifting this is a small and
+# schedulable piece of work, which is exactly the point of the cap.
 pandas>=2.0.0,<4.0.0
 numpy>=1.24.0
-yfinance>=0.2.66,<1.0.0
+yfinance>=1.7.0,<2.0.0
 beautifulsoup4>=4.12.0
 tabulate>=0.9.0
 openpyxl>=3.1.2
