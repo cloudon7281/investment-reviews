@@ -245,18 +245,31 @@ class GoogleSheetsClient:
         """
         # Get current row count
         row_count = self.get_row_count()
-        
-        # Insert blank column
+
+        properties = self._get_sheet_properties()
+        grid_columns = properties.get('gridProperties', {}).get('columnCount', 0)
+
         request = {
             'insertDimension': {
                 'range': {
-                    'sheetId': self._get_sheet_id(),
+                    'sheetId': properties['sheetId'],
                     'dimension': 'COLUMNS',
                     'startIndex': column_index,
                     'endIndex': column_index + 1
                 }
             }
         }
+
+        # inheritFromBefore decides which neighbour the new column takes its formatting
+        # from, and false means the one *after* it.  Appending past the last column there
+        # is no column after, and the API rejects the request outright: "startIndex must
+        # be less than the grid size if inheritFromBefore is false".  The only caller
+        # always appends, so this fired whenever a new tag arrived and the sheet had no
+        # spare column — twice in three days (investment-reviews#65).  Inheriting from
+        # the left is also what an appended column should do.
+        if column_index >= grid_columns and column_index > 0:
+            request['insertDimension']['inheritFromBefore'] = True
+
         
         self.sheets.batchUpdate(
             spreadsheetId=self.spreadsheet_id,
@@ -332,19 +345,27 @@ class GoogleSheetsClient:
         # For initial version, charts can be manually adjusted or recreated
         print(f"Chart update for '{chart_title}' - manual adjustment may be needed")
     
+    def _get_sheet_properties(self) -> Dict[str, Any]:
+        """The worksheet's own properties, which carry its id and its grid size.
+
+        Both come from the same fetch, so a caller needing each does not make the call
+        twice.
+        """
+        spreadsheet = self.sheets.get(spreadsheetId=self.spreadsheet_id).execute()
+
+        for sheet in spreadsheet.get('sheets', []):
+            if sheet['properties']['title'] == self.worksheet_name:
+                return sheet['properties']
+
+        raise ValueError(f"Worksheet '{self.worksheet_name}' not found")
+
     def _get_sheet_id(self) -> int:
         """Get the sheet ID (not spreadsheet ID) for the worksheet.
-        
+
         Returns:
             Integer sheet ID
         """
-        spreadsheet = self.sheets.get(spreadsheetId=self.spreadsheet_id).execute()
-        
-        for sheet in spreadsheet.get('sheets', []):
-            if sheet['properties']['title'] == self.worksheet_name:
-                return sheet['properties']['sheetId']
-        
-        raise ValueError(f"Worksheet '{self.worksheet_name}' not found")
+        return self._get_sheet_properties()['sheetId']
     
     @staticmethod
     def _column_number_to_letter(n: int) -> str:

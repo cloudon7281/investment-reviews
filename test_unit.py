@@ -24,6 +24,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_review import StockTransaction
 import transaction_processor
 import update_google_sheet
+from google_sheets_client import GoogleSheetsClient
 import check_notes
 import ticker_mapping
 import yaml
@@ -3556,6 +3557,59 @@ class TestTickerMappingsFile(unittest.TestCase):
         for name, identifier in ticker_mapping.TICKER_MAPPING.items():
             with self.subTest(name=name):
                 self.assertTrue(identifier and identifier.strip(), f'{name!r} maps to nothing')
+
+
+class TestInsertColumnAtTheEnd(unittest.TestCase):
+    """Appending a column to a full grid (investment-reviews#65)."""
+
+    def _client(self, grid_columns, row_count=937):
+        client = GoogleSheetsClient.__new__(GoogleSheetsClient)
+        client.logger = logging.getLogger('test-sheets')
+        client.spreadsheet_id = 'sheet-id'
+        client.worksheet_name = 'Sheet1'
+        client.sheets = Mock()
+        client.sheets.get.return_value.execute.return_value = {
+            'sheets': [{'properties': {'title': 'Sheet1', 'sheetId': 7,
+                                       'gridProperties': {'columnCount': grid_columns}}}]
+        }
+        client.get_row_count = Mock(return_value=row_count)
+        return client
+
+    def _insert_request(self, client):
+        body = client.sheets.batchUpdate.call_args.kwargs['body']
+        return body['requests'][0]['insertDimension']
+
+    def test_appending_past_the_last_column_inherits_from_the_left(self):
+        """The failure itself: 60 named columns in a 60-wide grid.
+
+        With inheritFromBefore false the API is asked to inherit from the column after
+        the last one, which does not exist, and rejects the request.
+        """
+        client = self._client(grid_columns=60)
+        client.insert_column(60, 'Orbital compute')
+        request = self._insert_request(client)
+        self.assertEqual(request['range']['startIndex'], 60)
+        self.assertTrue(request.get('inheritFromBefore'),
+                        'appending must inherit from the column to its left')
+
+    def test_inserting_inside_the_grid_is_unchanged(self):
+        """A spare trailing column already worked; that behaviour is not disturbed."""
+        client = self._client(grid_columns=61)
+        client.insert_column(60, 'Orbital compute')
+        self.assertFalse(self._insert_request(client).get('inheritFromBefore', False))
+
+    def test_the_very_first_column_cannot_inherit_from_its_left(self):
+        """The API requires startIndex > 0 when inheritFromBefore is true."""
+        client = self._client(grid_columns=0)
+        client.insert_column(0, 'First')
+        self.assertFalse(self._insert_request(client).get('inheritFromBefore', False))
+
+    def test_the_grid_size_and_sheet_id_come_from_one_fetch(self):
+        """Both live in the same metadata; asking twice is a wasted round trip."""
+        client = self._client(grid_columns=60)
+        client.insert_column(60, 'Orbital compute')
+        self.assertEqual(client.sheets.get.call_count, 1)
+        self.assertEqual(self._insert_request(client)['range']['sheetId'], 7)
 
 
 class TestReviewInvariants(unittest.TestCase):
