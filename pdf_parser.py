@@ -356,8 +356,13 @@ def parse_stock_transaction_pdf(pdf_path):
         # (investment-reviews#36).
         raise
     except Exception as e:
-        logger.error(f"Error reading PDF {pdf_path}: {str(e)}")
-        return None
+        # And an unreadable file is no better.  Returning None here made a corrupt note
+        # indistinguishable from one that was never filed: the run dropped a transaction,
+        # priced everything else, and reported that all invariants held — which they did,
+        # over what was left.  #54 gave the corporate-action parsers the opposite
+        # treatment and this path was left behind (investment-reviews#70).
+        raise ContractNoteParseError(
+            f"Could not read the contract note {pdf_path}: {e}") from e
 
 def parse_subdivision_pdf(pdf_path: str) -> Optional[Dict]:
     """
