@@ -2672,6 +2672,28 @@ class TestUnreadableContractNote(unittest.TestCase):
         with self.assertRaises(pdf_parser.NoteParseError):
             self._scan(['B1_BOUGHT_One.pdf'], raiser)
 
+    def test_a_corrupt_contract_note_is_reported_like_a_corrupt_corporate_action(self):
+        """The same corruption had opposite outcomes depending on the note's kind.
+
+        A corrupt corporate action failed the run from #54; a corrupt contract note was
+        skipped, the rest priced, and "all invariants hold" reported — which was true of
+        what was left. A dropped transaction shifts cost basis, units held and every
+        figure derived from them (investment-reviews#70).
+        """
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        directory = os.path.join(base, 'ISA', '2026', 'Defense')
+        os.makedirs(directory)
+        path = os.path.join(directory, 'B1_BOUGHT_Corrupt.pdf')
+        open(path, 'w').write('this is not a pdf')
+
+        with self.assertRaises(pdf_parser.ContractNoteParseError) as caught:
+            pdf_parser.parse_stock_transaction_pdf(path)
+        self.assertIn('B1_BOUGHT_Corrupt.pdf', str(caught.exception))
+
+        with self.assertRaises(pdf_parser.NoteParseError):
+            PortfolioReview(base, 'full-history')
+
     def test_other_parse_errors_still_only_skip_that_file(self):
         """Only an unvaluable note is fatal; an unreadable file keeps its old behaviour."""
         def raiser(path):
