@@ -3647,6 +3647,110 @@ class TestInsertColumnAtTheEnd(unittest.TestCase):
         self.assertEqual(self._insert_request(client)['range']['sheetId'], 7)
 
 
+class TestCheckNotesCandidates(unittest.TestCase):
+    """Proposing an identifier and recording the choice (investment-reviews#59)."""
+
+    def _note(self, **kw):
+        base = {'ticker': 'ARMG', 'isin': 'IE000JCW3DZ3', 'stock_name': 'Global X ETFs',
+                'currency': 'GBP', 'price': 21.5484,
+                'transaction_date': datetime(2026, 8, 3), 'transaction_type': 'purchase'}
+        base.update(kw)
+        return base
+
+    def test_a_ticker_note_is_offered_suffixes_it_can_actually_record(self):
+        """Only what the resolver can use: a match that cannot be written is a trap."""
+        candidates = check_notes.candidates_for(self._note())
+        self.assertEqual(candidates[0].identifier, 'ARMG.L', 'the likeliest first')
+        for candidate in candidates:
+            with self.subTest(identifier=candidate.identifier):
+                self.assertEqual(candidate.section, 'ticker_suffixes')
+                self.assertEqual(candidate.key, 'ARMG')
+
+    def test_the_isin_is_only_offered_where_the_resolver_would_look_at_names(self):
+        """Names are consulted only for a note with no ticker, so offering the ISIN for a
+        ticker-bearing note would propose something that could never take effect."""
+        with_ticker = check_notes.candidates_for(self._note())
+        self.assertNotIn('IE000JCW3DZ3', [c.identifier for c in with_ticker])
+
+        without = check_notes.candidates_for(self._note(ticker=None))
+        isin = [c for c in without if c.identifier == 'IE000JCW3DZ3']
+        self.assertEqual(len(isin), 1)
+        self.assertEqual(isin[0].section, 'names')
+        self.assertEqual(isin[0].key, 'Global X ETFs')
+
+    def test_a_candidate_is_judged_the_same_way_the_note_was(self):
+        """Scoring a suggestion more leniently than the thing it replaces is worse than
+        making no suggestion."""
+        calls = []
+        def fake(ticker, currency, price, trade_date, rate, cache):
+            calls.append(ticker)
+            return (check_notes.OK, 'inside', {}) if ticker == 'ARMG.L' else (check_notes.FAIL, 'no', {})
+        with patch.object(check_notes, 'compare_to_market', side_effect=fake):
+            scored = check_notes.search_candidates(self._note(), {})
+        self.assertIn('ARMG.L', calls)
+        matched = [c.identifier for c in scored if c.status == check_notes.OK]
+        self.assertEqual(matched, ['ARMG.L'])
+
+    def test_choosing_nothing_records_nothing(self):
+        """A first-class answer: the tool cannot tell a wrong identifier from a security
+        Yahoo does not carry, and guessing is how a plausible wrong number gets in."""
+        check = check_notes.Check('n.pdf', check_notes.FAIL, 'ARMG', 'note ticker',
+                                  'GBP', 21.5484, '2026-08-03', None, None, None, None, 'outside')
+        with patch.object(check_notes, 'search_candidates', return_value=[
+                check_notes.Candidate('ARMG.L', 'ticker_suffixes', 'ARMG', '.L',
+                                      check_notes.OK, 'inside')]), \
+             patch.object(check_notes, 'write_mapping') as write:
+            written = check_notes.offer_candidates(check, self._note(), {},
+                                                   prompt=lambda _: '', out=lambda *a: None)
+        self.assertFalse(written)
+        write.assert_not_called()
+
+    def test_an_answer_outside_the_choices_records_nothing(self):
+        check = check_notes.Check('n.pdf', check_notes.FAIL, 'ARMG', 'note ticker',
+                                  'GBP', 21.5484, '2026-08-03', None, None, None, None, 'outside')
+        with patch.object(check_notes, 'search_candidates', return_value=[
+                check_notes.Candidate('ARMG.L', 'ticker_suffixes', 'ARMG', '.L',
+                                      check_notes.OK, 'inside')]), \
+             patch.object(check_notes, 'write_mapping') as write:
+            for answer in ('2', 'x', '0', '-1'):
+                with self.subTest(answer=answer):
+                    self.assertFalse(check_notes.offer_candidates(
+                        check, self._note(), {}, prompt=lambda _: answer, out=lambda *a: None))
+            write.assert_not_called()
+
+    def test_the_chosen_mapping_is_written_with_its_reason(self):
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        path = os.path.join(base, 'ticker_mappings.yaml')
+        header = '# a header explaining the file\n# second line\n\n'
+        with open(path, 'w') as handle:
+            handle.write(header)
+            yaml.safe_dump({'ticker_suffixes': {'ARMR': '.L'}}, handle)
+
+        check_notes.write_mapping('ticker_suffixes', 'ARMG', '.L',
+                                  note='chosen against the 2026-08-03 price', path=path)
+        written = open(path).read()
+        self.assertTrue(written.startswith(header), 'the header must survive a write')
+
+        data = yaml.safe_load(written)
+        self.assertEqual(data['ticker_suffixes']['ARMR'], '.L', 'existing entries kept')
+        self.assertEqual(data['ticker_suffixes']['ARMG'],
+                         {'suffix': '.L', 'note': 'chosen against the 2026-08-03 price'})
+
+    def test_the_written_file_still_loads(self):
+        """A writer that produced something the loader rejects would break every run."""
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        path = os.path.join(base, 'ticker_mappings.yaml')
+        with open(path, 'w') as handle:
+            handle.write('# header\n\n')
+            yaml.safe_dump({'names': {}, 'exchange_suffixes': {}, 'renames': {},
+                            'ticker_suffixes': {'ARMR': '.L'}}, handle)
+        check_notes.write_mapping('ticker_suffixes', 'ARMG', '.L', note='why', path=path)
+        loaded = ticker_mapping.load_mappings(path)
+        self.assertEqual(loaded['ticker_suffixes'], {'ARMR': '.L', 'ARMG': '.L'})
+
+
 class TestReviewInvariants(unittest.TestCase):
     """Each invariant must be able to fire, or it is coverage in name only (#29)."""
 

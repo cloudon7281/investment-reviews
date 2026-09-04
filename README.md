@@ -390,6 +390,36 @@ Run over the whole history the tool also reports holdings that have since been d
 or renamed, which is true but not actionable — `--since` keeps a routine check to the
 notes that are actually new.
 
+#### Finding an identifier
+
+`--fix` takes each note that does not check out, proposes identifiers that *do* match the
+note's own price on its trade date, and records the one you choose in
+`ticker_mappings.yaml`:
+
+```bash
+python3 check_notes.py ~/Downloads/new-notes/ --fix
+```
+
+```
+  ARMG (note ticker, no suffix): £21.5484 is outside 2026-08-03 range [10.2804, 12.4744]
+  Candidates that match the note's own price on its trade date:
+    1. ARMG.L         £21.5484 is inside 2026-08-03 range [21.2100, 21.8250] (GBP)
+       ticker_suffixes: ARMG -> '.L'
+  Choose a number, or Enter for none:
+```
+
+Each candidate is scored by exactly the same comparison the note itself was: a suggestion
+judged more leniently than the thing it replaces would be worse than no suggestion.
+
+Only identifiers the resolver can actually reach are offered — a suffix for a note that
+carries a ticker, and the stock name for one that does not, which is the only case where
+names are consulted. Choosing nothing is a first-class answer: the tool cannot tell a
+wrong identifier from a security Yahoo does not carry, and where none match it says what
+it ruled out and leaves the search to you.
+
+The choice is written with the note and date it was decided against, and the file is
+still yours to review and commit.
+
 ### Reconciling a Stock's Tag (`reconcile_tags.py`)
 
 A stock's tag is the directory its notes sit in — `<category>/<year>/<tag>/`. The scanner
