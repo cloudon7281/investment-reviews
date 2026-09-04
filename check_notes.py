@@ -52,8 +52,11 @@ NOTE_EXTENSIONS = ('.pdf', '.mhtml', '.csv', '.yaml', '.yml')
 # a holiday settles against the next session, and funds do not price every day.
 TRADING_DAY_SEARCH = 4
 
-# Allowed either side of the day's own high/low, for the rounding between what the broker
-# recorded and what the exchange published.
+# Allowed either side of the day's own high/low.  It has to absorb more than rounding:
+# where the note's price is derived from a consideration in another currency, that
+# consideration carries dealing costs and a retail FX spread that the exchange's own
+# range does not.  The AGGG.L purchase lands 0.74% above its converted range for exactly
+# that reason and is correct.
 RANGE_TOLERANCE = 0.02
 
 OK, WARN, FAIL = 'OK', 'WARN', 'FAIL'
@@ -181,16 +184,63 @@ def market_bar(ticker: str, trade_date: datetime, cache: Dict) -> Optional[Dict]
     return result
 
 
+def whole_factor(ratio: float) -> Optional[int]:
+    """The whole-number factor this ratio is, if it is one, either way up.
+
+    Not a fixed list: splits compound.  NVIDIA's 4:1 in 2021 and 10:1 in 2024 leave a
+    2020 note sitting 40x from its own adjusted history, and no list of likely factors
+    was going to contain 40.
+    """
+    for candidate in (ratio, 1 / ratio if ratio else 0):
+        if candidate >= 1.5:
+            nearest = round(candidate)
+            if nearest >= 2 and abs(candidate - nearest) / nearest < 0.03:
+                return nearest
+    return None
+
+
 def explain_ratio(ratio: float) -> str:
     """What a price disagreement of this size usually means."""
-    if 90 <= ratio <= 110 or 0.009 <= ratio <= 0.011:
-        return 'pence quoted against pounds'
-    for factor in (2, 3, 4, 5, 6, 8, 10, 20, 100):
-        if abs(ratio - factor) / factor < 0.03 or abs(ratio * factor - 1) < 0.03:
-            return f'about {factor}x: split-adjusted history against an unadjusted note?'
+    factor = whole_factor(ratio)
+    if factor == 100:
+        # Both readings are exactly 100, and nothing in the numbers separates them.
+        return 'exactly 100x: pence against pounds, or a 100:1 split?'
+    if factor:
+        return f'about {factor}x: split-adjusted history against an unadjusted note?'
     if 1.05 <= ratio <= 1.6 or 0.62 <= ratio <= 0.95:
         return 'close to an FX rate: the right fund on the wrong currency line?'
     return 'a different instrument'
+
+
+def fx_to_gbp(currency: Optional[str], trade_date: datetime, cache: Dict,
+              stated: Optional[float] = None) -> Optional[float]:
+    """What one unit of `currency` was worth in sterling on the trade date.
+
+    A rate stated on the note itself wins: it is the rate the broker actually applied,
+    where a mid-market rate fetched afterwards is only close to it.
+    """
+    if not currency or currency == 'GBP':
+        return 1.0
+    if stated:
+        return float(stated)
+
+    key = ('fx', currency, trade_date.date())
+    if key in cache:
+        return cache[key]
+
+    rate = None
+    try:
+        import yfinance as yf
+        history = yf.Ticker(f'{currency}GBP=X').history(
+            start=(trade_date - timedelta(days=TRADING_DAY_SEARCH)).strftime('%Y-%m-%d'),
+            end=(trade_date + timedelta(days=1)).strftime('%Y-%m-%d'))
+        if not history.empty:
+            rate = float(history['Close'].iloc[-1])
+    except Exception:
+        rate = None
+
+    cache[key] = rate
+    return rate
 
 
 def trade_date_of(raw) -> Optional[datetime]:
@@ -251,14 +301,34 @@ def check_transaction(path: str, parsed: Dict, cache: Dict) -> Check:
     mid = (low + high) / 2 or 1.0
     ratio = mid / price if price else 0.0
 
-    if currency and yf_currency and currency != yf_currency:
-        return result(FAIL, f'note is in {currency}, {ticker} is quoted in {yf_currency}',
+    # Both sides are converted to sterling rather than requiring their currency labels to
+    # agree.  A label mismatch is routine and says nothing: AGGG.L is listed on the LSE
+    # and quoted in USD, and the Interactive Investor CSV states every price in GBP
+    # because it derives them from a GBP consideration.  Failing on the labels rejected
+    # correct notes while the prices agreed perfectly (investment-reviews#59).
+    if currency == yf_currency:
+        # Already like for like.  Converting anyway needs a rate that may not exist —
+        # Yahoo has no CZKGBP=X — and would fail a note that never needed converting.
+        note_rate = quote_rate = 1.0
+    else:
+        note_rate = fx_to_gbp(currency, trade_date, cache, parsed.get('exchange_rate'))
+        quote_rate = fx_to_gbp(yf_currency, trade_date, cache)
+    if note_rate is None or quote_rate is None:
+        return result(WARN, f'no {currency}/{yf_currency} rate for {trade_date.date()}; '
+                            f'cannot compare a {currency} note with a {yf_currency} quote',
+                      yf_currency=yf_currency, low=low, high=high)
+
+    note_gbp = price * note_rate
+    low_gbp, high_gbp = low * quote_rate, high * quote_rate
+    ratio = ((low_gbp + high_gbp) / 2) / note_gbp if note_gbp else 0.0
+    quoted = f' ({yf_currency}, converted)' if yf_currency != currency else ''
+
+    if low_gbp * (1 - RANGE_TOLERANCE) <= note_gbp <= high_gbp * (1 + RANGE_TOLERANCE):
+        return result(OK, f'£{note_gbp:.4f} is inside {bar["bar_date"]} range '
+                          f'[{low_gbp:.4f}, {high_gbp:.4f}]{quoted}',
                       yf_currency=yf_currency, low=low, high=high, ratio=ratio)
 
-    margin = RANGE_TOLERANCE
-    if low * (1 - margin) <= price <= high * (1 + margin):
-        return result(OK, f'{price:.4f} is inside {bar["bar_date"]} range',
-                      yf_currency=yf_currency, low=low, high=high, ratio=ratio)
+    low, high, price = low_gbp, high_gbp, note_gbp
 
     reason = explain_ratio(ratio)
     # Yahoo's history carries splits back; a note records the shares as they traded on the
