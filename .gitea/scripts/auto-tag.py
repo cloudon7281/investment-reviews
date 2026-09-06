@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Create semver tag and close linked issue on PR merge. Set SKIP_TAG=true to skip tagging (docs repos)."""
+"""Create the next release tag and close the linked issue on PR merge.
+
+The tag lineage is the one the repo declares in deploy/service.yaml (`tagScheme`, SDI §5.7);
+SemVer is the default. SKIP_TAG=true skips tagging entirely (the documentation-repo workflow).
+"""
 import json, os, re, urllib.request, urllib.error
 from datetime import datetime, timezone
 
@@ -23,6 +27,47 @@ def gitea(method, path, body=None):
             return r.status, (json.loads(raw) if raw else {})
     except urllib.error.HTTPError as e:
         return e.code, {}
+
+
+def manifest_scalars(ref):
+    """Top-level scalars from `deploy/service.yaml` at `ref`; {} when the repo has none.
+
+    Deliberately not PyYAML: the jarvis Actions runner is host-mode and carries python3/curl/git and
+    nothing else, which is the same reason gate-b.py hand-parses this file. SDI §5.7 declares its
+    lineage as top-level scalars precisely so this parse is enough.
+    """
+    import base64
+    status, obj = gitea('GET', f'contents/deploy/service.yaml?ref={ref}')
+    if status != 200 or not isinstance(obj, dict) or not obj.get('content'):
+        return {}
+    raw = base64.b64decode(obj['content'].replace('\n', '')).decode('utf-8', 'replace')
+    out = {}
+    for line in raw.splitlines():
+        if line[:1].isspace() or line.lstrip().startswith('#') or ':' not in line:
+            continue
+        key, _, value = line.partition(':')
+        value = value.split('#', 1)[0].strip().strip('\'"')
+        if value:
+            out[key.strip()] = value
+    return out
+
+
+def all_tags():
+    """Every tag name in the repo, paged.
+
+    A single `?limit=50` page is a truncated view of the lineage, and a truncated view yields a
+    wrong next tag rather than an error — `investment-reviews` already sits at exactly 50 tags.
+    """
+    names, page = [], 1
+    while page <= 20:
+        _, data = gitea('GET', f'tags?limit=50&page={page}')
+        batch = data if isinstance(data, list) else []
+        names += [t.get('name', '') for t in batch if t.get('name')]
+        if len(batch) < 50:
+            break
+        page += 1
+    return names
+
 
 
 _, pr = gitea('GET', f'pulls/{PR_NUM}')
@@ -89,33 +134,74 @@ if not SKIP_TAG:
     bump = 'minor' if 'enhancement' in labels else 'patch'
     print(f'Bump: {bump}')
 
-    # 2. Find latest semver tag and compute next
-    _, tags_data = gitea('GET', 'tags?limit=50')
-    tags_list = tags_data if isinstance(tags_data, list) else []
-    semver = [t['name'] for t in tags_list
-              if re.fullmatch(r'v\d+\.\d+\.\d+', t.get('name', ''))]
-    latest = (max(semver, key=lambda t: [int(x) for x in t[1:].split('.')])
-              if semver else 'v0.0.0')
-    print(f'Latest: {latest}')
-
-    major, minor, patch = (int(x) for x in latest[1:].split('.'))
-    if bump == 'minor':
-        minor += 1; patch = 0
-    else:
-        patch += 1
-    next_tag = f'v{major}.{minor}.{patch}'
-    print(f'Next: {next_tag}')
-
-    # 3. Create tag on HEAD of main (idempotent — 409 = already exists)
+    # 2. Compute the next tag in the lineage this repo declares (SDI §5.7).
+    #    The declaration is read from the manifest at the commit being tagged, never from
+    #    registration state: this runs in Actions, and a Tier-1 repo must be able to cut a tag while
+    #    Tier-2 is down (deploy-model §5.1). Registration validates and publishes it; it is not on
+    #    this path.
     _, branch = gitea('GET', 'branches/main')
     sha = branch['commit']['id']
-    status, _ = gitea('POST', 'tags', {'tag_name': next_tag, 'target': sha, 'message': next_tag})
-    if status == 201:
-        print(f'Tagged: {next_tag}')
-    elif status == 409:
-        print(f'Tag {next_tag} already exists, skipping')
+    manifest = manifest_scalars(sha)
+    scheme = manifest.get('tagScheme', 'semver')
+    tags_list = all_tags()
+
+    if scheme not in ('semver', 'upstream-build', 'none'):
+        raise SystemExit(f'deploy/service.yaml: unknown tagScheme {scheme!r} '
+                         f'(expected semver|upstream-build|none, SDI §5.7) -- not tagging')
+
+    if scheme == 'none':
+        next_tag = None
+        print('tagScheme: none -- this repo is tagged by hand (SDI §5.7); no tag created')
+    elif scheme == 'upstream-build':
+        # <prefix>-<upstream>+<n>: the tag names the upstream release this wrapper approves. N
+        # counts wrapper revisions WITHIN one upstream version, so it restarts at 1 when
+        # upstreamVersion changes -- which falls out of matching only this version's tags.
+        # The PR labels above decided a bump that does not apply here: there is no major/minor/patch
+        # choice to make when the version in the tag is upstream's.
+        prefix = manifest.get('tagPrefix', '')
+        upstream = manifest.get('upstreamVersion', '')
+        if not prefix or not upstream:
+            raise SystemExit('deploy/service.yaml: tagScheme: upstream-build needs both tagPrefix '
+                             'and upstreamVersion (SDI §5.7) -- not tagging')
+        pat = re.compile(rf'^{re.escape(prefix)}-{re.escape(upstream)}\+(\d+)$')
+        builds = [int(m.group(1)) for m in (pat.match(t) for t in tags_list) if m]
+        print(f'Scheme: upstream-build, upstream {upstream}, existing builds: {sorted(builds)}')
+        next_tag = f'{prefix}-{upstream}+{max(builds) + 1 if builds else 1}'
+        print(f'Next: {next_tag}')
     else:
-        raise SystemExit(f'Tagging failed: HTTP {status}')
+        semver = [t for t in tags_list if re.fullmatch(r'v\d+\.\d+\.\d+', t)]
+        # Tags exist but none of them are SemVer, and nothing declared otherwise: this repo's
+        # lineage is something the default cannot read, and starting a fresh one at v0.0.0 mints a
+        # tag that looks installable and names nothing. That is how tier-1-gitea acquired fourteen
+        # v0.x tags alongside its real gitea-<upstream>+<n> ones, one of which was installed as a
+        # Tier-1 release (tier2-project#262). No tags AT ALL is still a genuine fresh start.
+        if tags_list and not semver:
+            raise SystemExit(
+                f'{len(tags_list)} tag(s) exist and none are SemVer (newest: {tags_list[0]}) -- '
+                f'refusing to start a new v0.0.x lineage. Declare this repo\'s lineage in '
+                f'deploy/service.yaml (tagScheme, SDI §5.7) and re-run.')
+        latest = (max(semver, key=lambda t: [int(x) for x in t[1:].split('.')])
+                  if semver else 'v0.0.0')
+        print(f'Latest: {latest}')
+
+        major, minor, patch = (int(x) for x in latest[1:].split('.'))
+        if bump == 'minor':
+            minor += 1; patch = 0
+        else:
+            patch += 1
+        next_tag = f'v{major}.{minor}.{patch}'
+        print(f'Next: {next_tag}')
+
+    # 3. Create tag on the commit the manifest was read from (idempotent — 409 = already exists)
+    if next_tag:
+        status, _ = gitea('POST', 'tags',
+                          {'tag_name': next_tag, 'target': sha, 'message': next_tag})
+        if status == 201:
+            print(f'Tagged: {next_tag}')
+        elif status == 409:
+            print(f'Tag {next_tag} already exists, skipping')
+        else:
+            raise SystemExit(f'Tagging failed: HTTP {status}')
 else:
     next_tag = None
     print('SKIP_TAG=true — skipping semver bump and tag creation')
