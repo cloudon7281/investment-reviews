@@ -2113,13 +2113,56 @@ class TestAlertDelivery(unittest.TestCase):
         config = {
             'to': 'someone@example.com',
             'from': 'alerts@calumlabs.uk',
-            'smtp_host': 'host.docker.internal',
+            'smtp_host': 'fallback.invalid',
             'smtp_port': 1025,
             'smtp_user': 'account@proton.me',
             'smtp_password': 'bridge-generated',
         }
         config.update(overrides)
         return config
+
+    def test_the_brokered_endpoint_wins_over_config(self):
+        """SDI §13.3: registration is the authority on where another service is, so a config file
+        that disagrees is stale by definition — and this one was, naming a route out to the host
+        and back to reach a container on the same host (devops-model#205)."""
+        self._patch()
+        os.environ['CONSUMED_SMTP_HOST'] = 'smtp'
+        os.environ['CONSUMED_SMTP_PORT'] = '25'
+        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_HOST', None)
+        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_PORT', None)
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        smtp = _FakeSMTP.instances[0]
+        self.assertEqual((smtp.host, smtp.port), ('smtp', 25))
+
+    def test_the_brokered_port_is_an_int_not_the_string_it_arrives_as(self):
+        """It comes from the environment, so it is text. smtplib wants a number, and a string port
+        fails at connect time — inside a scheduled job, at night."""
+        self._patch()
+        os.environ['CONSUMED_SMTP_HOST'] = 'smtp'
+        os.environ['CONSUMED_SMTP_PORT'] = '25'
+        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_HOST', None)
+        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_PORT', None)
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        self.assertIsInstance(_FakeSMTP.instances[0].port, int)
+
+    def test_config_is_still_the_fallback_when_nothing_is_brokered(self):
+        """An unregistered deploy must still have somewhere to try rather than crash."""
+        self._patch()
+        os.environ.pop('CONSUMED_SMTP_HOST', None)
+        os.environ.pop('CONSUMED_SMTP_PORT', None)
+        alerts.send_alert_email(self._config(), 'subject', 'body')
+        smtp = _FakeSMTP.instances[0]
+        self.assertEqual((smtp.host, smtp.port), ('fallback.invalid', 1025))
+
+    def test_no_host_at_all_is_reported_as_undeliverable(self):
+        """The service already separates "the run failed" from "the email could not be sent" — an
+        unresolved endpoint belongs in the second, so the nightly job stays green and
+        alert_delivery_ok goes to 0 rather than the run reporting failure."""
+        self._patch()
+        os.environ.pop('CONSUMED_SMTP_HOST', None)
+        with self.assertRaises(alerts.AlertDeliveryError) as caught:
+            alerts.send_alert_email(self._config(smtp_host=''), 'subject', 'body')
+        self.assertIn('CONSUMED_SMTP_HOST', str(caught.exception))
 
     def test_authenticates_before_sending(self):
         """STARTTLS then login must both precede the message (the #20 regression)."""

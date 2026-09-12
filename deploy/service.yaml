@@ -13,6 +13,21 @@ state:
 # No inbound ports for this stack.
 ports: []
 
+# SDI §13.2: the nightly alert email goes through the Proton Bridge relay, which is a container on
+# this same host. That hop ran out to `host.docker.internal:1025` and back — a container reaching a
+# container on one host by way of the host — with the address written into this service's own state
+# config, where no manifest declared it and no sweep could see it (devops-model#194).
+#
+# It was invisible to the undeclared-dependency check for a specific reason worth recording: that
+# check looks for a reference to another service's `host:port`, and this one names no host in code
+# at all — `smtp_port` is a config default and `smtp_host` lives in state. A dependency can be
+# undeclared without being detectable.
+#
+# `from` is unset: this service runs as a container, which is what the registrar derives from the
+# compose file.
+consumesPorts:
+  - name: smtp
+
 # Explicitly mark this stack as jobs-only.
 # Back-compat default is always-on for stacks that omit this.
 lifecycle: jobs-only
