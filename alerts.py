@@ -10,6 +10,7 @@ and emails them via the Proton Bridge SMTP relay.
 """
 
 import logging
+import os
 import smtplib
 import ssl
 from datetime import datetime
@@ -165,8 +166,22 @@ def send_alert_email(alert_config: Dict, subject: str, body: str) -> None:
     """
     to_addr = alert_config['to']
     from_addr = alert_config.get('from', 'alerts@calumlabs.uk')
-    smtp_host = alert_config.get('smtp_host', 'host.docker.internal')
-    smtp_port = alert_config.get('smtp_port', 1025)
+    # SDI §13.3/§13.6: the relay's address is brokered by registration, not written down here.
+    # `smtplib.SMTP` takes host and port as separate arguments, which is why the platform delivers
+    # the endpoint split as well as combined (devops-model#209).
+    #
+    # The brokered value WINS over config. Registration is the authority on where another service
+    # is; a config file that disagrees is stale by definition, and this one was — it said
+    # `host.docker.internal`, which sent a container out to the host and back to reach a container
+    # on the same host (devops-model#205). Config remains the fallback so an unregistered deploy
+    # still has somewhere to try, and if neither yields a host the existing AlertDeliveryError path
+    # reports it as undeliverable rather than failing the run.
+    smtp_host = os.environ.get('CONSUMED_SMTP_HOST') or alert_config.get('smtp_host', '')
+    smtp_port = int(os.environ.get('CONSUMED_SMTP_PORT') or alert_config.get('smtp_port', 1025))
+    if not smtp_host:
+        raise AlertDeliveryError(
+            "no SMTP host: registration has not brokered CONSUMED_SMTP_HOST into this container "
+            "and no smtp_host is configured (declare `consumesPorts: smtp` and re-register)")
     smtp_user = alert_config.get('smtp_user', '')
     smtp_password = _read_smtp_password(alert_config)
 
