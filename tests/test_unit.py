@@ -2554,7 +2554,7 @@ class TestExchangeRateSeriesShape(unittest.TestCase):
 
 
 import review_invariants
-import test_runner
+import review_harness
 
 
 class TestContractNoteLayout(unittest.TestCase):
@@ -3960,20 +3960,20 @@ class TestIntegrationHarness(unittest.TestCase):
     def test_strip_log_lines_removes_records_but_keeps_the_report(self):
         output = ("2026-08-31 WARNING [root] Stock NVDA tag changed\n"
                   "Tax Report Summary\n==================\n")
-        cleaned = test_runner.strip_log_lines(output)
+        cleaned = review_harness.strip_log_lines(output)
         self.assertNotIn('WARNING', cleaned)
         self.assertIn('Tax Report Summary', cleaned)
 
     def test_check_review_run_passes_on_a_sound_run(self):
-        self.assertTrue(test_runner.check_review_run(self.GRID, 'Full history', ['Portfolio Summary']))
+        self.assertTrue(review_harness.check_review_run(self.GRID, 'Full history', ['Portfolio Summary']))
 
     def test_check_review_run_fails_on_an_invariant_violation(self):
         output = self.GRID + "\n2026-08-31 ERROR [root] INVARIANT VIOLATION: 3 held positions have no price\n"
-        self.assertFalse(test_runner.check_review_run(output, 'Full history', ['Portfolio Summary']))
+        self.assertFalse(review_harness.check_review_run(output, 'Full history', ['Portfolio Summary']))
 
     def test_check_review_run_fails_when_a_table_is_absent(self):
         """A collapsed run reports no violations; the table check is what catches it."""
-        self.assertFalse(test_runner.check_review_run(
+        self.assertFalse(review_harness.check_review_run(
             "nothing was produced", 'Full history', ['Portfolio Summary']))
 
     def test_summary_tables_extract_rows(self):
@@ -3987,7 +3987,7 @@ class TestIntegrationHarness(unittest.TestCase):
 | New        | £179,159,466  |
 +------------+---------------+
 """
-        rows = test_runner.extract_table_data(summary, table_name='Periodic Review Summary')
+        rows = review_harness.extract_table_data(summary, table_name='Periodic Review Summary')
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['Category'], 'New')
 

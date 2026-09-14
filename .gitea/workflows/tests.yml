@@ -1,0 +1,47 @@
+name: tests
+
+# devops-model#143 scenario 1: run this repository's suite on every PR and leave a commit status, so a
+# proposed change — a Renovate dependency bump above all — can be gated on tests having passed.
+#
+# Gitea Actions posts the job's outcome as a commit status automatically (context
+# "tests / test (pull_request)"), which is exactly what Renovate's `prCreation: 'status-success'` reads.
+# Nothing here posts a status by hand.
+#
+# Written for this runner's measured constraints (#143 phase 1a), not for GitHub's:
+#
+#   * NO JS actions. `actions/checkout@v4` fails with "Cannot find: node in PATH", and its *post* step
+#     fails too, so `continue-on-error` cannot contain it. The clone below replaces it in three lines.
+#   * The workspace is created EMPTY and nothing populates it.
+#   * The run token is provided automatically — nothing has to be provisioned for a clone or a status.
+#   * Steps run under bash -e -o pipefail, so a failing command in a pipeline fails the step.
+#
+# The suite itself is not described here on purpose: `./scripts/test` is the contract, it is distributed
+# from tier-1-ci, and it resolves its own interpreter and dependencies. This workflow's only job is to
+# fetch the code and run that one command.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the commit under test
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          # For a pull_request event the PR head is what must be tested, not the merge ref.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          HOST="${SERVER#http://}"; HOST="${HOST#https://}"
+          git clone -q "http://token:${TOKEN}@${HOST}/${REPO}.git" repo
+          cd repo
+          git checkout -q "$SHA"
+          echo "testing $(git rev-parse --short HEAD) on $(git log -1 --pretty=%s)"
+
+      - name: Run the suite
+        run: |
+          cd repo
+          ./scripts/test

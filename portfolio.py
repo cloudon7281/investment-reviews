@@ -8,7 +8,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
 from pdf_parser import NoteParseError
 from portfolio_review import PortfolioReview
-from test_runner import run_tests
+from review_harness import run_tests
 import review_invariants
 from periodic_review_processor import BENCHMARKS
 import pandas as pd

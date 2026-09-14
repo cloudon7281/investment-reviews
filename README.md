@@ -55,7 +55,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Automated regression testing
 - Deterministic modes (tax report, list trades) are compared against reference outputs
 - Price-dependent modes are checked against invariants rather than a stored snapshot
-- Runs every unit test in `test_unit.py` plus 5 integration tests
+- Runs every unit test in `tests/test_unit.py` plus 5 integration tests
 
 ### Recent Highs
 
