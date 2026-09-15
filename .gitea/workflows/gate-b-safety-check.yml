@@ -1,7 +1,9 @@
 name: gate-b-safety-check
 
-# Gate B, pre-merge half (deploy-model §1a.3). Asks whether this PR changes a field that would
-# relocate the service's live state — `stack` or `srvName` (SDI §1.2b). The AUTHORITATIVE gate is
+# Gate B, pre-merge half (deploy-model.md, "Gate A and Gate B"). Asks whether this PR changes a
+# field that would
+# relocate the service's live state — `stack` or `srvName` (service-manifest-reference.md,
+# "Safe/unsafe deployed changes"). The AUTHORITATIVE gate is
 # at registration, which fails closed; this one exists because a pre-merge conversation is cheap and
 # a post-merge one leaves `main` carrying a manifest that cannot be deployed.
 
