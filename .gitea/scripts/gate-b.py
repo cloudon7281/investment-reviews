@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate B, pre-merge half (deploy-model §1a.3, SDI §1.2b).
+"""Gate B, pre-merge half (deploy-model.md, "Gate A and Gate B").
 
 Fails the PR when it changes a field that would relocate the service's live state. Stdlib only: the
 jarvis Actions runner is host-mode and carries python3/curl/git and nothing else.
@@ -16,7 +16,8 @@ import os
 import sys
 import urllib.request
 
-# SDI §1.2b: the fields that decide where state lives. Everything else is safe to change while
+# service-manifest-reference.md, "Safe/unsafe deployed changes": the fields that decide where
+# state lives. Everything else is safe to change while
 # deployed. Keep in step with _SERVICE_YAML_FIELDS in tier2-project's parser.
 UNSAFE_FIELDS = ("stack", "srvName")
 
@@ -97,7 +98,8 @@ def main() -> int:
     else:
         print("  This service IS registered. Applying this would leave its real state stranded at")
         print("  the old path while the registry, backups and monitoring point at a new, empty one.")
-    print("  Registration cannot move data, only describe it (deploy-model §1a.2, SDI §1.2b).")
+    print("  Registration cannot move data, only describe it (deploy-model.md, \"Safe and unsafe "
+          "changes\").")
     print("  Supported route: undeploy first, then register and deploy, restoring from backup if")
     print("  the state matters — backup artefacts are keyed by stack and survive both.")
     return 1
