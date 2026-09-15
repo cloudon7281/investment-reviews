@@ -6,13 +6,24 @@ Read SPEC.md/README.md for the project specification.
 
 # .Development and production environment, processes and standards
 
-All development and deployment must conform to the standards in the devops-model repo (master at ssh://git@192.168.5.106:2222/Calum-Labs/devops-model.git, checked out under /Users/cl/dev/devops-model).  Start with the README.md, then read and follow:
-- software-development-standards.md - defines the development standards that must be followed
-- deploy-model.md - explains the process for how tiers 0-4 are deployed and upgraded
-- service-deployment-interface.md - defines the interface between services and the run-time deployment environment
-- networking-model.md - defines the networking model, including addressing, firewalling and subnet/port allocation
-- issue-workflow.md - describes the use of Gitea issues for enhancements and fixes
-- root-cause-analysis-policy.md - describes the root cause analysis approach to be adopted during debugging.
+All development and deployment must conform to the standards in the devops-model repo (master at ssh://git@192.168.5.106:2222/Calum-Labs/devops-model.git, checked out under /Users/cl/dev/devops-model).
+
+Start with README.md. It carries a concept-ownership map: every rule has exactly one owning document, and the map says which one. Read the document that owns what you are changing and follow its cross-references. Do not read the whole set by default.
+
+For most service work that means:
+- software-development-standards.md - project types, repo layout, git/PR/release workflow, testing, logging payloads
+- service-deployment-interface.md - the contract between a service and the deployment environment
+- service-manifest-reference.md - the exact deploy/service.yaml fields, defaults, and which changes are unsafe while deployed
+- issue-workflow.md - Gitea issue states, ownership and handoff
+- root-cause-analysis-policy.md - the analysis required for a material defect
+
+and, when the change touches those concepts:
+- deploy-model.md - tiers, project lifecycle, registration and deployment semantics, backup responsibilities
+- networking-model.md - addressing, port exposure, docker networks and transports
+- cross-host-interaction-model.md - which shape a cross-host interaction should have
+- published-state-interface.md - producing or consuming published state
+
+Cite these documents by name and heading rather than by section number. The numbers move; the headings are what a reader can find.
 
 # Development location
 
