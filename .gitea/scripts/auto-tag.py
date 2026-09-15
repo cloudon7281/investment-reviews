@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Create the next release tag and close the linked issue on PR merge.
 
-The tag lineage is the one the repo declares in deploy/service.yaml (`tagScheme`, SDI §5.7);
+The tag lineage is the one the repo declares in deploy/service.yaml (`tagScheme`; see
+service-manifest-reference.md, "Release tag scheme");
 SemVer is the default. SKIP_TAG=true skips tagging entirely (the documentation-repo workflow).
 """
 import json, os, re, urllib.request, urllib.error
@@ -33,7 +34,8 @@ def manifest_scalars(ref):
     """Top-level scalars from `deploy/service.yaml` at `ref`; {} when the repo has none.
 
     Deliberately not PyYAML: the jarvis Actions runner is host-mode and carries python3/curl/git and
-    nothing else, which is the same reason gate-b.py hand-parses this file. SDI §5.7 declares its
+    nothing else, which is the same reason gate-b.py hand-parses this file. The manifest reference
+    declares its
     lineage as top-level scalars precisely so this parse is enough.
     """
     import base64
@@ -77,7 +79,8 @@ if not SKIP_TAG:
     #    (tier2-project#47). Ask registrard on EVERY tag-driven deploy, not just when this PR's
     #    diff touched deploy/service.yaml (tier2-project#127): registrard compares the current
     #    manifest digest against the one recorded at registration and applies devops-model#74
-    #    §13.7 to the result, so a manifest change an earlier blocked PR left unregistered cannot
+    #    the registration-freshness gate to the result, so a manifest change an earlier blocked PR
+    #    left unregistered cannot
     #    slip out on the next unrelated merge. Register and deploy stay decoupled — this only
     #    sequences them. A gate failure withholds the tag (no broken deploy). Rollout-safe: only
     #    active where REGISTRARD_URL is configured; otherwise behaviour is unchanged.
@@ -134,10 +137,11 @@ if not SKIP_TAG:
     bump = 'minor' if 'enhancement' in labels else 'patch'
     print(f'Bump: {bump}')
 
-    # 2. Compute the next tag in the lineage this repo declares (SDI §5.7).
+    # 2. Compute the next tag in the lineage this repo declares (manifest reference, release tag
+    #    scheme).
     #    The declaration is read from the manifest at the commit being tagged, never from
     #    registration state: this runs in Actions, and a Tier-1 repo must be able to cut a tag while
-    #    Tier-2 is down (deploy-model §5.1). Registration validates and publishes it; it is not on
+    #    Tier-2 is down (deploy-model.md, "Upgrade model"). Registration validates and publishes it; it is not on
     #    this path.
     _, branch = gitea('GET', 'branches/main')
     sha = branch['commit']['id']
@@ -147,11 +151,11 @@ if not SKIP_TAG:
 
     if scheme not in ('semver', 'upstream-build', 'none'):
         raise SystemExit(f'deploy/service.yaml: unknown tagScheme {scheme!r} '
-                         f'(expected semver|upstream-build|none, SDI §5.7) -- not tagging')
+                         f'(expected semver|upstream-build|none; see service-manifest-reference.md) -- not tagging')
 
     if scheme == 'none':
         next_tag = None
-        print('tagScheme: none -- this repo is tagged by hand (SDI §5.7); no tag created')
+        print('tagScheme: none -- this repo is tagged by hand; no tag created')
     elif scheme == 'upstream-build':
         # <prefix>-<upstream>+<n>: the tag names the upstream release this wrapper approves. N
         # counts wrapper revisions WITHIN one upstream version, so it restarts at 1 when
@@ -162,7 +166,7 @@ if not SKIP_TAG:
         upstream = manifest.get('upstreamVersion', '')
         if not prefix or not upstream:
             raise SystemExit('deploy/service.yaml: tagScheme: upstream-build needs both tagPrefix '
-                             'and upstreamVersion (SDI §5.7) -- not tagging')
+                             'and upstreamVersion (see service-manifest-reference.md) -- not tagging')
         pat = re.compile(rf'^{re.escape(prefix)}-{re.escape(upstream)}\+(\d+)$')
         builds = [int(m.group(1)) for m in (pat.match(t) for t in tags_list) if m]
         print(f'Scheme: upstream-build, upstream {upstream}, existing builds: {sorted(builds)}')
@@ -179,7 +183,7 @@ if not SKIP_TAG:
             raise SystemExit(
                 f'{len(tags_list)} tag(s) exist and none are SemVer (newest: {tags_list[0]}) -- '
                 f'refusing to start a new v0.0.x lineage. Declare this repo\'s lineage in '
-                f'deploy/service.yaml (tagScheme, SDI §5.7) and re-run.')
+                f'deploy/service.yaml (tagScheme) and re-run.')
         latest = (max(semver, key=lambda t: [int(x) for x in t[1:].split('.')])
                   if semver else 'v0.0.0')
         print(f'Latest: {latest}')
