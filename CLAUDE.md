@@ -6,7 +6,7 @@ Read SPEC.md/README.md for the project specification.
 
 # .Development and production environment, processes and standards
 
-All development and deployment must conform to the standards in the devops-model repo (master at ssh://git@192.168.5.106:2222/Calum-Labs/devops-model.git, checked out under /Users/cl/dev/devops-model).
+All development and deployment must conform to the standards in the devops-model repo (master at ssh://git@jarvis:2222/Calum-Labs/devops-model.git, checked out under /Users/cl/dev/devops-model).
 
 Start with README.md. It carries a concept-ownership map: every rule has exactly one owning document, and the map says which one. Read the document that owns what you are changing and follow its cross-references. Do not read the whole set by default.
 
