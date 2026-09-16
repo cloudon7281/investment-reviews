@@ -166,9 +166,9 @@ def send_alert_email(alert_config: Dict, subject: str, body: str) -> None:
     """
     to_addr = alert_config['to']
     from_addr = alert_config.get('from', 'alerts@calumlabs.uk')
-    # SDI §13.3/§13.6: the relay's address is brokered by registration, not written down here.
-    # `smtplib.SMTP` takes host and port as separate arguments, which is why the platform delivers
-    # the endpoint split as well as combined (devops-model#209).
+    # SDI, "Service-to-service endpoints": the relay's address is brokered by registration, not
+    # written down here. `smtplib.SMTP` takes host and port as separate arguments, which is why
+    # the platform delivers the endpoint split as well as combined (devops-model#209).
     #
     # The brokered value WINS over config. Registration is the authority on where another service
     # is; a config file that disagrees is stale by definition, and this one was — it said

@@ -2,8 +2,9 @@
 #
 # `requires-python` is the one line the estate's CI depends on. tier-1-ci's runner resolves it to an
 # installed interpreter and REFUSES to run the suite if nothing satisfies it, rather than testing on
-# whatever `python3` happens to be on PATH (software-development-standards §8.12). That applies even to a
-# shell-only suite, because the venv is built either way.
+# whatever `python3` happens to be on PATH (software-development-standards.md, "Python runtime
+# policy for host-side Python"). That applies even to a shell-only suite, because the venv is built
+# either way.
 #
 # NARROW IT TO WHAT THIS SERVICE SHIPS. If the Dockerfile says `python:3.12-slim`, this should say
 # `==3.12.*`. A wide range is not caution, it is a different interpreter: `>=3.9` resolves to 3.9 and

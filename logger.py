@@ -1,6 +1,6 @@
 """Logging configuration for investment-reviews.
 
-Copied from devops-model scaffold/logging_config.py. Conforms to SDI §10.
+Copied from devops-model scaffold/logging_config.py. Conforms to SDI, "Logging".
 """
 
 from __future__ import annotations

@@ -9,16 +9,18 @@ services:
     # NOTE: On macOS/Colima mounts, uid/gid mapping can be inconsistent (9p).
     # Run as root to ensure the runner can write to bind-mounted outputs dir.
     networks:
-      # SDI §13.3: the Proton Bridge relay is a container on this host, so this reaches it over the
-      # shared service network by the name tier-4-infra publishes it under. It used to go out to
-      # `host.docker.internal:1025` and back — a hop through the host between two containers on one
-      # host, which is what `extra_hosts` was here for and why it is now gone (devops-model#205).
+      # SDI, "Service-to-service endpoints": the Proton Bridge relay is a container on this host,
+      # so this reaches it over the shared service network by the name tier-4-infra publishes it
+      # under. It used to go out to `host.docker.internal:1025` and back — a hop through the host
+      # between two containers on one host, which is what `extra_hosts` was here for and why it is
+      # now gone (devops-model#205).
       #
       # `infra_mail`, which the comment here used to name, no longer exists at all.
       estate_services:
     environment:
       - TZ=Europe/London
-      # SDI §13.6: the brokered endpoint, split because smtplib takes host and port separately.
+      # SDI, "Service-to-service endpoints": the brokered endpoint, split because smtplib takes
+      # host and port separately.
       - CONSUMED_SMTP_HOST=${CONSUMED_SMTP_HOST:-}
       - CONSUMED_SMTP_PORT=${CONSUMED_SMTP_PORT:-}
       - CONFIG_PATH=/run/config/config.yaml
@@ -29,14 +31,15 @@ services:
       - ${STATE_DIR}/credentials:/run/credentials:ro
       - ${STATE_DIR}/history:/data/history:ro
       - ${STATE_DIR}/outputs:/data/outputs
-      # SDI §12 shared store (metrics-textfile); node_exporter scrapes *.prom here.
+      # SDI, "Shared stores" (metrics-textfile); node_exporter scrapes *.prom here.
       - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
     secrets:
       - smtp_password
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
 
 networks:
-  # networking-model §3.4: created by the platform on every host; referenced, never defined here.
+  # networking-model.md, "Shared service network": created by the platform on every host;
+  # referenced, never defined here.
   estate_services:
     external: true
 
