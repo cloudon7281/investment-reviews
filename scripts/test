@@ -15,11 +15,14 @@ set -eu
 #
 #   1. in this repository    — tier-1-ci itself
 #   2. the installed release — how it is found on jarvis, including inside a sweep's throwaway clone
-#   3. the dev clone         — the canonical working copy, which §8.2 puts on both hosts
+#   3. the dev clone         — the canonical working copy (software-development-standards.md,
+#                              "Canonical working clones"), which its "Development hosts" section
+#                              puts on both hosts
 #
 # If none of them is present this exits 1 and says so. It does NOT fall back to running pytest against
 # whatever `python3` is on PATH: a suite that runs on an unknown interpreter with unknown dependencies
-# answers a question nobody asked, and reports green for it (§8.12).
+# answers a question nobody asked, and reports green for it (software-development-standards.md,
+# "Python runtime policy for host-side Python").
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -33,6 +36,7 @@ done
 
 echo "scripts/test: FAIL — cannot find tier-1-ci's lib/run-tests." >&2
 echo "  Looked in: $REPO/lib, /Users/cl/srv/tier-1-ci/current/lib, /Users/cl/dev/tier-1-ci/lib" >&2
-echo "  Fix: install tier-1-ci on this host, or clone it to /Users/cl/dev/tier-1-ci (§8.2 puts dev" >&2
-echo "  clones on both hosts). Guessing an interpreter instead is what §8.12 forbids." >&2
+echo "  Fix: install tier-1-ci on this host, or clone it to /Users/cl/dev/tier-1-ci —" >&2
+echo "  (software-development-standards.md, 'Development hosts' puts dev clones on both hosts.)" >&2
+echo "  Guessing an interpreter is what its 'Python runtime policy for host-side Python' forbids." >&2
 exit 1
