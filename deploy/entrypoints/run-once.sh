@@ -5,9 +5,9 @@ set -euo pipefail
 
 metrics_dir="${METRICS_TEXTFILE_DIR:-/textfile}"
 
-# Write a node_exporter textfile atomically (SDI §11 jobs-only metrics). The temp name is
-# deliberately NOT derived from the destination: a *.prom glob must never see a partial
-# file, and a collector racing the rename must not find two candidates (kicker#19).
+# Write a node_exporter textfile atomically (SDI, "Metrics and health" — jobs-only metrics). The
+# temp name is deliberately NOT derived from the destination: a *.prom glob must never see a
+# partial file, and a collector racing the rename must not find two candidates (kicker#19).
 write_metric_file() {
   local dest="$1"; shift
   local tmp

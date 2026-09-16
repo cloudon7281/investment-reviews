@@ -3,7 +3,7 @@
 
 stack: investment-reviews
 
-# SDI §1.2a state budget (devops-model#114). An expected ceiling for ${STATE_DIR}, not a
+# SDI, "State budget" (devops-model#114). An expected ceiling for ${STATE_DIR}, not a
 # quota — nothing enforces it. Tier-4 alerts at 80%/100% so the shared host volume filling
 # is announced rather than discovered.
 # state/history appends indefinitely but slowly (~87M today).
@@ -13,10 +13,11 @@ state:
 # No inbound ports for this stack.
 ports: []
 
-# SDI §13.2: the nightly alert email goes through the Proton Bridge relay, which is a container on
-# this same host. That hop ran out to `host.docker.internal:1025` and back — a container reaching a
-# container on one host by way of the host — with the address written into this service's own state
-# config, where no manifest declared it and no sweep could see it (devops-model#194).
+# service-manifest-reference.md, "Consumed ports": the nightly alert email goes through the Proton
+# Bridge relay, which is a container on this same host. That hop ran out to
+# `host.docker.internal:1025` and back — a container reaching a container on one host by way of the
+# host — with the address written into this service's own state config, where no manifest declared
+# it and no sweep could see it (devops-model#194).
 #
 # It was invisible to the undeclared-dependency check for a specific reason worth recording: that
 # check looks for a reference to another service's `host:port`, and this one names no host in code
@@ -32,8 +33,8 @@ consumesPorts:
 # Back-compat default is always-on for stacks that omit this.
 lifecycle: jobs-only
 
-# SDI §12 — mount monitoring's metrics-textfile store rw so the nightly job can
-# emit a node_exporter textfile metric (SDI §11 jobs-only metrics). Registration
+# SDI, "Shared stores" — mount monitoring's metrics-textfile store rw so the nightly job can emit
+# a node_exporter textfile metric (SDI, "Metrics and health" — jobs-only metrics). Registration
 # resolves this to SHARED_METRICS_TEXTFILE in deploy.env and pre-creates the dir.
 sharedMounts:
   - store: metrics-textfile
@@ -80,22 +81,23 @@ schedules:
         hostLock: true
         lockWaitSec: 0
 
-# SDI §11 (devops-model#85 / #87 Phase 3): nightly pipeline — emits its own node_exporter textfile,
-# and its liveness is whether that file was written recently. maxAgeSec ~36h (matches the retired
-# health-rule's window) so one missed night is tolerated.
-# SDI §11.1: a LIST, one entry per family (devops-model#164). The alert-channel health is tracked
-# independently of the pipeline — that is the whole point of it, so "the email is broken" cannot hide
-# behind a green pipeline — and until the list existed it could not be declared alongside the
-# pipeline metric, so it was invisible to the §12.6 audit.
+# SDI, "Metrics and health" (devops-model#85 / #87 Phase 3): nightly pipeline — emits its own
+# node_exporter textfile, and its liveness is whether that file was written recently. maxAgeSec
+# ~36h (matches the retired health-rule's window) so one missed night is tolerated.
+# service-manifest-reference.md, "Metrics": a LIST, one entry per family (devops-model#164). The
+# alert-channel health is tracked independently of the pipeline — that is the whole point of it, so
+# "the email is broken" cannot hide behind a green pipeline — and until the list existed it could
+# not be declared alongside the pipeline metric, so it was invisible to the audit in SDI,
+# "Silent-producer detection".
 metrics:
   - mode: prom
     file: investment-reviews.prom
   - mode: prom
     file: investment-reviews-alert.prom
-# SDI §11.2: with more than one family the platform must not pick, so name the one that carries the
-# verdict. Liveness is "did the nightly pipeline run" — the alert-channel file is deliberately a
-# SEPARATE signal, so that a broken email channel cannot hide behind a green pipeline, and it must
-# not be the thing that decides whether this service is alive.
+# SDI, "Health": with more than one family the platform must not pick, so name the one that
+# carries the verdict. Liveness is "did the nightly pipeline run" — the alert-channel file is
+# deliberately a SEPARATE signal, so that a broken email channel cannot hide behind a green
+# pipeline, and it must not be the thing that decides whether this service is alive.
 health:
   mode: prom
   file: investment-reviews.prom

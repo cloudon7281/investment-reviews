@@ -2122,9 +2122,10 @@ class TestAlertDelivery(unittest.TestCase):
         return config
 
     def test_the_brokered_endpoint_wins_over_config(self):
-        """SDI §13.3: registration is the authority on where another service is, so a config file
-        that disagrees is stale by definition — and this one was, naming a route out to the host
-        and back to reach a container on the same host (devops-model#205)."""
+        """SDI, "Service-to-service endpoints": registration is the authority on where another
+        service is, so a config file that disagrees is stale by definition — and this one was,
+        naming a route out to the host and back to reach a container on the same host
+        (devops-model#205)."""
         self._patch()
         os.environ['CONSUMED_SMTP_HOST'] = 'smtp'
         os.environ['CONSUMED_SMTP_PORT'] = '25'

@@ -54,10 +54,11 @@ notifications:
     # SMTP relay (Proton Bridge). From inside the container it is reached over the shared service
     # network by its declared name; use localhost for a local run outside the estate.
     # Fallback only. Registration brokers the relay's address into the container as
-    # CONSUMED_SMTP_HOST / CONSUMED_SMTP_PORT (SDI §13.6) and that value WINS over this one —
-    # the platform is the authority on where another service is. Left as a fallback so an
-    # unregistered deploy has somewhere to try. It said `host.docker.internal`, which sent a
-    # container out to the host and back to reach a container on the same host.
+    # CONSUMED_SMTP_HOST / CONSUMED_SMTP_PORT (SDI, "Service-to-service endpoints") and that
+    # value WINS over this one — the platform is the authority on where another service is. Left
+    # as a fallback so an unregistered deploy has somewhere to try. It said
+    # `host.docker.internal`, which sent a container out to the host and back to reach a
+    # container on the same host.
     smtp_host: ""
     smtp_port: 1025
     # The bridge account's PRIMARY address, not the send-as address above: the bridge runs

@@ -347,9 +347,9 @@ An email is sent only on nights where at least one stock qualifies. Configure th
 and SMTP relay under `notifications.alerts` in `config.yaml`; leaving `to` empty disables
 alerts. On jarvis the relay is the Proton Bridge container, reached over the shared service
 network at the name registration brokers in as `CONSUMED_SMTP_HOST`/`CONSUMED_SMTP_PORT`
-(SDI §13). `smtp_host` in `config.yaml` is a fallback for a run outside the estate; the brokered
-value wins. This used to go out to `host.docker.internal:1025` and back, and the `infra_mail`
-network it named no longer exists (devops-model#205).
+(SDI, "Service-to-service endpoints"). `smtp_host` in `config.yaml` is a fallback for a run
+outside the estate; the brokered value wins. This used to go out to `host.docker.internal:1025`
+and back, and the `infra_mail` network it named no longer exists (devops-model#205).
 
 ### Checking New Notes (`check_notes.py`)
 
