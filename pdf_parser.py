@@ -410,26 +410,45 @@ def parse_subdivision_pdf(pdf_path: str) -> Optional[Dict]:
             if stock_name != new_match.group(1).strip():
                 logger.warning(f"Stock name mismatch in subdivision PDF: {stock_name} vs {new_match.group(1).strip()}")
             
-            # Extract transaction date - try multiple patterns
+            # Extract transaction date - try multiple patterns.
+            # The note carries three dates and only the first is the one the holding
+            # actually changed on.  The record date applies to every holder of the
+            # share; the account-update date is when this one account's books caught
+            # up, and the letter date is later still.  Dating the subdivision by the
+            # update date puts it after purchases already made at the post-split price,
+            # and the conversion is ratio-based, so those shares get doubled a second
+            # time (investment-reviews#77).
             transaction_date = None
-            
-            # Pattern 1: "was updated on 4 April 2025" (account update date - preferred)
-            date_pattern1 = r"was updated on (\d+ \w+ \d{4})"
+
+            # Pattern 1: "as at the close of business on 2 September 2026" (record date
+            # - preferred).  The date can wrap across a line in the extracted text.
+            date_pattern1 = r"as at the close of business on (\d+\s+\w+\s+\d{4})"
             date_match1 = re.search(date_pattern1, text)
             if date_match1:
                 try:
-                    transaction_date = datetime.strptime(date_match1.group(1), '%d %B %Y')
-                    logger.debug(f"Found account update date: {transaction_date.strftime('%Y-%m-%d')}")
+                    transaction_date = datetime.strptime(' '.join(date_match1.group(1).split()), '%d %B %Y')
+                    logger.debug(f"Found subdivision record date: {transaction_date.strftime('%Y-%m-%d')}")
                 except ValueError:
                     pass
-            
-            # Pattern 2: "Subdivision DD MMM YYYY" in header (letter date - fallback)
+
+            # Pattern 2: "was updated on 4 April 2025" (account update date - fallback)
             if not transaction_date:
-                date_pattern2 = r"Subdivision (\d+ \w+ \d{4})"
+                date_pattern2 = r"was updated on (\d+\s+\w+\s+\d{4})"
                 date_match2 = re.search(date_pattern2, text)
                 if date_match2:
                     try:
-                        transaction_date = datetime.strptime(date_match2.group(1), '%d %b %Y')
+                        transaction_date = datetime.strptime(' '.join(date_match2.group(1).split()), '%d %B %Y')
+                        logger.debug(f"Found account update date: {transaction_date.strftime('%Y-%m-%d')}")
+                    except ValueError:
+                        pass
+
+            # Pattern 3: "Subdivision DD MMM YYYY" in header (letter date - fallback)
+            if not transaction_date:
+                date_pattern3 = r"Subdivision (\d+ \w+ \d{4})"
+                date_match3 = re.search(date_pattern3, text)
+                if date_match3:
+                    try:
+                        transaction_date = datetime.strptime(date_match3.group(1), '%d %b %Y')
                         logger.debug(f"Found subdivision letter date: {transaction_date.strftime('%Y-%m-%d')}")
                     except ValueError:
                         pass
