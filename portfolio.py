@@ -2,13 +2,11 @@
 import argparse
 import logging
 import sys
-from pathlib import Path
 from logger import setup_logger, logger
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
 from pdf_parser import NoteParseError
 from portfolio_review import PortfolioReview
-from review_harness import run_tests
 import review_invariants
 from periodic_review_processor import BENCHMARKS
 import pandas as pd
@@ -28,8 +26,8 @@ def parse_args():
     parser.add_argument('--output-file', default=None,
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
-                      choices=['full-history', 'periodic-review', 'test', 'tax-report', 'annual-review', 'list-trades'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (chronological trade list from a start date), test (run automated tests), or tax-report (tax reporting for a specific tax year)')
+                      choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (chronological trade list from a start date), or tax-report (tax reporting for a specific tax year)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -59,11 +57,6 @@ def parse_args():
     # Price over time specific arguments (annual-review mode)
     parser.add_argument('--price-over-time', action='store_true',
                       help='Generate CSV showing individual stock prices since start date (annual-review mode only, requires --output-file)')
-
-    # Test mode specific arguments
-    parser.add_argument('--test-data', type=str,
-                      default='anonymised_test_data',
-                      help='Directory containing test data and reference outputs (test mode only). Default: anonymised_test_data')
 
     # Filtering arguments (apply to full-history and periodic-review modes only)
     parser.add_argument('--include-category', type=str,
@@ -151,13 +144,7 @@ def main():
         sys.exit(1)
     
     try:
-        # In test mode, use the --test-data directory; otherwise use --base-dir
         base_dir = args.base_dir
-        if args.mode == 'test':
-            base_dir = args.test_data
-            if not Path(base_dir).exists():
-                logger.error(f"Test data directory not found: {base_dir}")
-                sys.exit(1)
 
         # Parse filter arguments
         include_categories = None
@@ -221,10 +208,6 @@ def main():
                     full_history_results['value_over_time'],
                     args.value_over_time
                 )
-        elif args.mode == 'test':
-            # Test mode: Run automated tests
-            # base_dir was already set above based on --test-data flag
-            run_tests(portfolio_review, portfolio_analysis, reporter, base_dir)
         elif args.mode == 'tax-report':
             # Tax reporting mode: Generate tax report for specific tax year
             if not args.tax_year:
