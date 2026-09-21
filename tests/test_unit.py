@@ -3917,11 +3917,12 @@ class TestTickerMappingsFile(unittest.TestCase):
         """
         self.assertEqual(len(ticker_mapping.TICKER_MAPPING), 45)
         self.assertEqual(len(ticker_mapping.EXCHANGE_SUFFIX_MAP), 6)
-        self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 32)
+        self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 33)
 
     def test_the_entries_that_earlier_issues_turned_on_are_still_there(self):
         for ticker, suffix in (('ARMG', '.L'), ('ARMR', '.L'), ('WDEF', '.L'),
-                               ('FEML', '.L'), ('BTEK', '.L'), ('TECK', '')):
+                               ('FEML', '.L'), ('BTEK', '.L'), ('TECK', ''),
+                               ('DRO', '.AX')):
             with self.subTest(ticker=ticker):
                 self.assertEqual(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP[ticker], suffix)
         self.assertEqual(ticker_mapping.TICKER_MAPPING['Jupiter India'], '0P00018LFD.L')
