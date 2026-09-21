@@ -50,5 +50,33 @@ fleet testing moved it into `tests/` and renamed the second file to `review_harn
 - `tests/conftest.py` puts the repository root on `sys.path`, because the modules under test are single
   files there and pytest prepends the test file's directory rather than the rootdir.
 
-Integration scenarios still run through `review_harness` against `anonymised_test_data/`; only the unit
-suite is what `./scripts/test` executes.
+## The integration scenarios
+
+They drive the real CLI over `anonymised_test_data/` — real anonymised broker notes in the real
+directory shape — which is the only thing in this repository that reads an actual document. The unit
+suite builds trees of empty files with the parsers patched out, so nothing in it can observe a
+corporate action landing on a holding or a number reaching a row.
+
+They are split by whether they need a price:
+
+| Scenario | Checked by | Runs in |
+|---|---|---|
+| `list-trades` | byte comparison against `reference_outputs/` | `tests/test_integration.py` — every PR and the sweep |
+| `tax-report` | byte comparison against `reference_outputs/` | `tests/test_integration.py` — every PR and the sweep |
+| `full-history` | invariants and table presence | `tests/nightly/` — the sweep only |
+| `periodic-review` | invariants and table presence | `tests/nightly/` — the sweep only |
+| `annual-review` | invariants and table presence | `tests/nightly/` — the sweep only |
+
+The bottom three fetch live prices from Yahoo, so gating a merge on them would gate it on a third
+party being up. `tests/nightly/` is the estate-wide mechanism for that
+(`software-development-standards.md`, "Test layout"); run them locally with
+`RUN_TESTS_INCLUDE_NIGHTLY=1 ./scripts/test`.
+
+They cannot have reference outputs for the same reason: the values come from prices on the day, so a
+stored snapshot would go stale and fail spuriously, or be loosened until it could not fail (#29).
+
+**They used to run behind `portfolio.py --mode test`, and stopped.** Moving the unit suite into
+`tests/` broke the import that harness used, and because nothing reported on it, the fact that they
+had not run since 2026-09-14 surfaced only when a subdivision defect got through (#77, #78). That
+mode, `run_tests` and `--test-data` are gone; the scenarios live in `tests/` now, where the one
+entry point the estate already has runs them.
