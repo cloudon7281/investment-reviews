@@ -3299,6 +3299,187 @@ class TestUnreadableCorporateAction(unittest.TestCase):
                 self.assertIn(kind, str(caught.exception))
 
 
+class TestSubdivisionNoteDate(unittest.TestCase):
+    """Which of a subdivision note's three dates the holding changed on (#77)."""
+
+    # The HL letter, verbatim in shape.  The record date wraps across a line exactly as
+    # pdfplumber extracts it, because that is what the pattern has to cope with.
+    RECORD = ("Amphenol Corp has subdivided its share capital. Under the terms of the "
+              "subdivision every 1 share as at the close of business on 2\n"
+              "September 2026 was subdivided into 2 new shares.")
+    UPDATED = "Your Stocks & Shares ISA was updated on 10 September 2026 on the following basis:"
+    HOLDINGS = ("Original holding of Amphenol Corp shares: 134 shares\n"
+                "New Amphenol Corp shares you have received "
+                "(in place of your original holding): 268 shares")
+
+    def _parse(self, *paragraphs):
+        text = "Amphenol Corp - Subdivision 18 Sep 2026\n" + "\n".join(paragraphs)
+        page = MagicMock()
+        page.extract_text.return_value = text
+        with patch('pdf_parser.pdfplumber.open') as opener:
+            opener.return_value.__enter__.return_value.pages = [page]
+            return pdf_parser.parse_subdivision_pdf(
+                '/notes/ISA/2026/amphenol+corp+-+subdivision.pdf')
+
+    def test_the_record_date_is_preferred(self):
+        """The date the shares actually subdivided, for every holder of them.
+
+        Dating the split by the account-update date puts it after a purchase already
+        made at the post-split price, and the conversion is ratio-based, so those
+        shares are doubled a second time.
+        """
+        result = self._parse(self.RECORD, self.UPDATED, self.HOLDINGS)
+        self.assertEqual(result['transaction_date'], datetime(2026, 9, 2))
+
+    def test_the_account_update_date_is_the_first_fallback(self):
+        """Older notes in the tree may not state a record date at all."""
+        result = self._parse(self.UPDATED, self.HOLDINGS)
+        self.assertEqual(result['transaction_date'], datetime(2026, 9, 10))
+
+    def test_the_letter_date_is_the_last_resort(self):
+        """Still better than no date, which would leave the split at datetime.now()."""
+        result = self._parse(self.HOLDINGS)
+        self.assertEqual(result['transaction_date'], datetime(2026, 9, 18))
+
+    def test_the_share_counts_are_read_whichever_date_was_found(self):
+        for paragraphs in ((self.RECORD, self.UPDATED, self.HOLDINGS),
+                           (self.UPDATED, self.HOLDINGS),
+                           (self.HOLDINGS,)):
+            with self.subTest(dates=len(paragraphs)):
+                result = self._parse(*paragraphs)
+                self.assertEqual(result['old_shares'], 134)
+                self.assertEqual(result['new_shares'], 268)
+
+
+class TestCorporateActionAppliesToTheRightHoldings(unittest.TestCase):
+    """A corporate action must find its holding, and only its holding (#77)."""
+
+    BUY = {'ticker': 'APH', 'stock_name': 'Amphenol Corp', 'currency': 'USD',
+           'num_shares': 134.0, 'price': 110.90, 'total_amount': 14860.14,
+           'transaction_type': 'purchase', 'transaction_date': datetime(2026, 2, 18)}
+    SPLIT = {'stock_name': 'Amphenol Corp', 'old_shares': 134, 'new_shares': 268,
+             'transaction_date': datetime(2026, 9, 2)}
+
+    def _scan(self, paths, directory_order=None):
+        """Scan a tree of empty files with the parsers stubbed.
+
+        `directory_order` fixes the order os.walk yields directories in, because that
+        order is the hazard: a real filesystem's is neither sorted nor stable, and the
+        defect only appears for a company whose name sorts before the "B" of a
+        contract note's filename.
+        """
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        for relative in paths:
+            path = os.path.join(base, relative)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, 'w').close()
+
+        real_walk = os.walk
+
+        def walk(directory):
+            entries = list(real_walk(directory))
+            if directory_order is not None:
+                entries.sort(key=lambda e: next(
+                    (i for i, name in enumerate(directory_order) if e[0].endswith(name)),
+                    len(directory_order)))
+            return iter(entries)
+
+        with patch('portfolio_review.os.walk', walk), \
+             patch('portfolio_review.parse_stock_transaction_pdf', return_value=dict(self.BUY)), \
+             patch('portfolio_review.parse_subdivision_pdf', return_value=dict(self.SPLIT)):
+            return PortfolioReview(base, 'full-history')
+
+    def _units(self, review, category):
+        held = [n for n in review.stock_notes[category] if n.ticker == 'APH']
+        self.assertEqual(len(held), 1, f"expected one APH holding in {category}")
+        return transaction_processor.calculate_transactions_through_date(
+            held[0].transactions, datetime(2026, 9, 21))['units_held']
+
+    def test_a_note_read_before_its_contract_note_still_finds_the_holding(self):
+        """The reported defect: 'No matching stock found', and the pre-split holding.
+
+        os.walk yields directory entries in directory order and the collected files are
+        sorted by year alone, so 'amphenol+...' is read before 'B3051...' and the split
+        acted on a holding that did not exist yet.
+        """
+        review = self._scan([
+            'ISA/2026/Data centre infrastructure/amphenol+corp+-+subdivision.pdf',
+            'ISA/2026/Data centre infrastructure/B305149824_BOUGHT_Amphenol_Corp.pdf',
+        ])
+        self.assertEqual(self._units(review, 'isa'), 268)
+
+    def test_the_holding_may_be_in_a_different_directory_from_the_note(self):
+        """The pass has to be global, not a reordering within each directory.
+
+        The note is filed under its own folder rather than beside the contract note,
+        and both are in the same year, so the sort by year does not separate them and
+        os.walk yields the note's directory first.  Sorting filenames within a
+        directory would leave this broken, because the two are not in one.
+        """
+        review = self._scan(
+            ['ISA/2026/Corporate actions/amphenol+corp+-+subdivision.pdf',
+             'ISA/2026/Data centre infrastructure/B305149824_BOUGHT_Amphenol_Corp.pdf'],
+            directory_order=['Corporate actions', 'Data centre infrastructure'])
+        self.assertEqual(self._units(review, 'isa'), 268)
+
+    def test_each_account_is_converted_once_by_its_own_note(self):
+        """HL issues one note per account, and each states that account's holding.
+
+        Applied to every account, each of the two notes acted on both holdings, so both
+        were doubled twice: 536 shares where 268 is right.
+        """
+        review = self._scan([
+            'ISA/2026/Tech/amphenol+corp+-+subdivision.pdf',
+            'ISA/2026/Tech/B305149824_BOUGHT_Amphenol_Corp.pdf',
+            'Taxable/2026/Tech/amphenol+corp+-+subdivision.pdf',
+            'Taxable/2026/Tech/B473409004_BOUGHT_Amphenol_Corp.pdf',
+        ])
+        self.assertEqual(self._units(review, 'isa'), 268)
+        self.assertEqual(self._units(review, 'taxable'), 268)
+
+    def test_a_note_does_not_reach_an_account_it_was_not_filed_under(self):
+        """The taxable holding here was bought after the split, at the post-split price.
+
+        It has no note of its own because it was never subdivided, and a note filed
+        under the ISA must not convert it.
+        """
+        review = self._scan([
+            'ISA/2026/Tech/amphenol+corp+-+subdivision.pdf',
+            'ISA/2026/Tech/B305149824_BOUGHT_Amphenol_Corp.pdf',
+            'Taxable/2026/Tech/B473409004_BOUGHT_Amphenol_Corp.pdf',
+        ])
+        self.assertEqual(self._units(review, 'isa'), 268)
+        self.assertEqual(self._units(review, 'taxable'), 134)
+
+    def test_a_manual_yaml_conversion_still_applies_to_every_account(self):
+        """The YAML path is deliberately not scoped, and must stay that way.
+
+        It records an action the broker sent no note for, and the operator writes it
+        once rather than once per account, so scoping it would silently drop the
+        conversion from every account but the one it happens to be filed under.
+        """
+        base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, True)
+        for relative in ('ISA/2026/Tech/B305149824_BOUGHT_Amphenol_Corp.pdf',
+                         'Taxable/2026/Tech/B473409004_BOUGHT_Amphenol_Corp.pdf',
+                         'ISA/2026/Tech/aph_split.yaml'):
+            path = os.path.join(base, relative)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, 'w').close()
+
+        conversion = {'transaction_type': 'conversion', 'ticker': 'APH',
+                      'stock_name': 'Amphenol Corp', 'transaction_date': datetime(2026, 9, 2),
+                      'old_shares': 134.0, 'new_shares': 268.0,
+                      'new_ticker': None, 'new_currency': None}
+        with patch('portfolio_review.parse_stock_transaction_pdf', return_value=dict(self.BUY)), \
+             patch('portfolio_review.parse_stock_transaction_yaml', return_value=[conversion]):
+            review = PortfolioReview(base, 'full-history')
+
+        self.assertEqual(self._units(review, 'isa'), 268)
+        self.assertEqual(self._units(review, 'taxable'), 268)
+
+
 class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
     """Notes that could not be read must not produce a spreadsheet row (#38)."""
 

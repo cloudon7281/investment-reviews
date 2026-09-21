@@ -365,8 +365,10 @@ class PortfolioReview:
         
         
         # Collect all files with their paths
-        # Separate YAML files (conversions) to process after other transactions
+        # Separate corporate-action notes and YAML files (conversions) to process after
+        # the contract notes, so both can find the holdings they act on
         all_files = []
+        corporate_action_files = []
         yaml_files = []
         
         for root, _, files in os.walk(directory):
@@ -380,9 +382,14 @@ class PortfolioReview:
                         logger.debug(f"Skipping file {file_path} - excluded by filters")
                         continue
                     
-                    # Separate YAML files for second pass
+                    # Separate YAML files and corporate-action notes for later passes.
+                    # A contract note is identified the same way the dispatch below does
+                    # it, so a file that is both stays a contract note.
+                    is_contract_note = 'BOUGHT' in file.upper() or 'SOLD' in file.upper()
                     if file.endswith('.yaml') or file.endswith('.yml'):
                         yaml_files.append((file_path, account_type, year, tag, file))
+                    elif file.endswith('.pdf') and not is_contract_note and corporate_action_in(file):
+                        corporate_action_files.append((file_path, account_type, year, tag, file))
                     else:
                         all_files.append((file_path, account_type, year, tag, file))
                 else:
@@ -390,6 +397,7 @@ class PortfolioReview:
         
         # Sort files by year to ensure chronological processing
         all_files.sort(key=lambda x: x[2])  # Sort by year (index 2)
+        corporate_action_files.sort(key=lambda x: x[2])  # Sort corporate actions by year too
         yaml_files.sort(key=lambda x: x[2])  # Sort YAML files by year too
         
         # Notes the scan recognised but could not use.  A transaction that cannot be
@@ -399,8 +407,12 @@ class PortfolioReview:
         # (investment-reviews#36, #54).
         unreadable_notes = []
 
-        # Process files in chronological order
-        for file_path, account_type, year, tag, file in all_files:
+        # Process files in chronological order.  Corporate actions come after every
+        # contract note: a subdivision, conversion or merger acts on holdings that may
+        # have been bought from any account or year directory, and os.walk yields those
+        # in directory order, so a note read first would find no holding to act on and
+        # be dropped with a warning (investment-reviews#77).
+        for file_path, account_type, year, tag, file in all_files + corporate_action_files:
             try:
                 if file.endswith('.pdf'):
                     action = corporate_action_in(file)
@@ -417,17 +429,20 @@ class PortfolioReview:
                         # Parse subdivision PDF
                         data = parse_subdivision_pdf(file_path)
                         if data:
-                            self._process_stock_split(data, file_path, account_type, year, stocks_by_ticker)
+                            self._process_stock_split(data, file_path, account_type, year,
+                                                      stocks_by_ticker, scope_to_account=True)
                     elif action == 'conversion':
                         # Parse conversion PDF
                         data = parse_conversion_pdf(file_path)
                         if data:
-                            self._process_stock_split(data, file_path, account_type, year, stocks_by_ticker)
+                            self._process_stock_split(data, file_path, account_type, year,
+                                                      stocks_by_ticker, scope_to_account=True)
                     elif action == 'merger':
                         # Parse merger PDF
                         data = parse_merger_pdf(file_path)
                         if data:
-                            self._process_stock_merger(data, file_path, account_type, year, stocks_by_ticker)
+                            self._process_stock_merger(data, file_path, account_type, year,
+                                                       stocks_by_ticker, scope_to_account=True)
                 elif file.endswith('.mhtml'):
                     # Parse MHTML file
                     try:
@@ -793,23 +808,46 @@ class PortfolioReview:
         # Insert transaction chronologically
         self._insert_transaction_chronologically(stock_note.transactions, transaction)
 
-    def _process_stock_split(self, data: dict, file_path: str, account_type: str, year: str, stocks_by_ticker: Dict[Tuple[str, str], StockNote]) -> None:
+    @staticmethod
+    def _notes_a_corporate_action_applies_to(stocks_by_ticker: Dict[Tuple[str, str], StockNote],
+                                             account_type: str,
+                                             scope_to_account: bool) -> List[Tuple[Tuple[str, str], StockNote]]:
+        """The holdings a corporate action may act on, which depends on where it came from.
+
+        A broker's note is issued per account and states that account's own holding, so
+        it applies only to the account it was filed under.  Applied to every account,
+        each of the notes for a stock held in two accounts acts on both, so both
+        holdings are converted twice (investment-reviews#77).
+
+        A manual YAML entry is the operator's record of an action the broker sent no
+        note for.  It is written once, not once per account, so it still applies
+        wherever the stock is held.
+        """
+        return [(key, note) for key, note in stocks_by_ticker.items()
+                if not scope_to_account or key[1] == account_type]
+
+    def _process_stock_split(self, data: dict, file_path: str, account_type: str, year: str,
+                             stocks_by_ticker: Dict[Tuple[str, str], StockNote],
+                             scope_to_account: bool = False) -> None:
         """Process a stock conversion and add to the appropriate stock."""
         ticker = data.get('ticker')
         stock_name = data.get('stock_name')
         
-        # Find all stocks with matching ticker or name across all categories (conversion applies to all)
+        candidates = self._notes_a_corporate_action_applies_to(
+            stocks_by_ticker, account_type, scope_to_account)
+        
+        # Find all stocks with matching ticker or name
         matching_stocks = []
         
         # Prefer matching by ticker (more robust), fall back to stock_name for conversion PDFs
         if ticker:
             # Match by ticker
-            for stock_key, note in stocks_by_ticker.items():
+            for stock_key, note in candidates:
                 if stock_key[0] == ticker:  # stock_key is (ticker, category)
                     matching_stocks.append((stock_key, note))
         elif stock_name:
             # Fall back to matching by stock_name (for conversion PDFs that don't have ticker)
-            for stock_key, note in stocks_by_ticker.items():
+            for stock_key, note in candidates:
                 if note.stock_name == stock_name:
                     matching_stocks.append((stock_key, note))
         else:
@@ -818,7 +856,8 @@ class PortfolioReview:
         
         if not matching_stocks:
             identifier = ticker if ticker else stock_name
-            logger.warning(f"No matching stock found for {identifier} in {file_path}")
+            where = f" in {account_type}" if scope_to_account else ""
+            logger.warning(f"No matching stock found for {identifier}{where} in {file_path}")
             return
         
         # Create stock conversion transaction
@@ -852,21 +891,25 @@ class PortfolioReview:
                 self.ticker_mapping[new_ticker] = original_ticker
                 logger.info(f"Added ticker mapping: {new_ticker} -> {original_ticker}")
 
-    def _process_stock_merger(self, data: dict, file_path: str, account_type: str, year: str, stocks_by_ticker: Dict[Tuple[str, str], StockNote]) -> None:
+    def _process_stock_merger(self, data: dict, file_path: str, account_type: str, year: str,
+                              stocks_by_ticker: Dict[Tuple[str, str], StockNote],
+                              scope_to_account: bool = False) -> None:
         """Process a stock merger and add as a sale transaction to the appropriate stock."""
         stock_name = data.get('stock_name')
         if not stock_name:
             logger.warning(f"No stock name found in merger data for {file_path}")
             return
         
-        # Find all stocks with matching name across all categories (merger applies to all)
+        # Find all stocks with matching name
         matching_stocks = []
-        for stock_key, note in stocks_by_ticker.items():
+        for stock_key, note in self._notes_a_corporate_action_applies_to(
+                stocks_by_ticker, account_type, scope_to_account):
             if note.stock_name == stock_name:
                 matching_stocks.append((stock_key, note))
         
         if not matching_stocks:
-            logger.warning(f"No matching stock found for merger {stock_name} in {file_path}")
+            where = f" in {account_type}" if scope_to_account else ""
+            logger.warning(f"No matching stock found for merger {stock_name}{where} in {file_path}")
             return
         
         # Create merger transaction (effectively a sale)
