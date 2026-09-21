@@ -119,6 +119,9 @@ ticker_suffixes:
   DFNS:
     note: DFNS is DFNS.L in London
     suffix: .L
+  DRO:
+    note: DRO is DRO.AX in Sydney
+    suffix: .AX
   FEML:
     note: FEML is FEML.L in London (GG00B4L0PD47)
     suffix: .L
