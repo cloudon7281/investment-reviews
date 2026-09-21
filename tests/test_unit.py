@@ -10,6 +10,7 @@ Tests cover:
 
 import os
 import sys
+import json
 import logging
 import shutil
 import subprocess
@@ -3634,6 +3635,128 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         self.assertFalse(updater.alert_delivery_ok)
 
 
+class TestFailureAlertNamesTheCause(unittest.TestCase):
+    """The alert must say what broke, not that something did (investment-reviews#81).
+
+    On 2026-09-21 the nightly emailed `the update failed (RuntimeError)` while the cause
+    -- `No price data available for DRO`, a missing ticker mapping -- sat in captured
+    stdout that nothing emailed.  Diagnosing a two-minute fix meant reading the container
+    log on the host.
+    """
+
+    # The shape of the real 2026-09-21 output: yfinance logs its own failed download at
+    # ERROR *first*, so anything that takes the earliest error reports library noise.
+    REAL_SHAPE = "\n".join([
+        json.dumps({"ts": "2026-09-21T21:43:31.000Z", "level": "INFO",
+                    "msg": "Phase 2: Fetching market data"}),
+        json.dumps({"ts": "2026-09-21T21:43:35.000Z", "level": "ERROR",
+                    "msg": "$DRO: possibly delisted; no price data found  (1d 2026-06-02 -> 2026-09-22)",
+                    "component": "yfinance"}),
+        json.dumps({"ts": "2026-09-21T21:43:35.000Z", "level": "ERROR",
+                    "msg": "\n1 Failed download:", "component": "yfinance"}),
+        json.dumps({"ts": "2026-09-21T21:43:35.000Z", "level": "ERROR",
+                    "msg": "['DRO']: possibly delisted; no price data found",
+                    "component": "yfinance"}),
+        json.dumps({"ts": "2026-09-21T21:43:38.747Z", "level": "ERROR",
+                    "msg": "No price data available for DRO (holding 8500.00 shares)"}),
+        json.dumps({"ts": "2026-09-21T21:43:38.747Z", "level": "ERROR",
+                    "msg": "Error processing portfolio: No price data available for DRO "
+                           "(holding 8500.00 shares)"}),
+        json.dumps({"ts": "2026-09-21T21:43:38.747Z", "level": "ERROR",
+                    "msg": "Full traceback:",
+                    "err": "Traceback (most recent call last):\n"
+                           "  File \"/app/portfolio.py\", line 196, in main\n"
+                           "    full_history_results = portfolio_analysis.process_full_history(\n"
+                           "RuntimeError: No price data available for DRO (holding 8500.00 shares)"}),
+    ])
+
+    CAUSE = "No price data available for DRO (holding 8500.00 shares)"
+
+    def _updater(self):
+        updater = update_google_sheet.PortfolioUpdater.__new__(
+            update_google_sheet.PortfolioUpdater)
+        updater.logger = logging.getLogger('test-updater')
+        updater.dry_run = False
+        updater.alert_delivery_ok = True
+        updater.unparseable_notes = None
+        updater.config = {'notifications': {'alerts': {'to': 'calum@example.com'}}}
+        return updater
+
+    def test_the_analysis_own_message_is_taken_over_earlier_library_noise(self):
+        """The load-bearing case: three yfinance ERRORs precede the real one."""
+        reason = update_google_sheet._analysis_failure_reason(self.REAL_SHAPE, '')
+        self.assertEqual(reason, self.CAUSE)
+        self.assertNotIn('possibly delisted', reason)
+        self.assertNotIn('Failed download', reason)
+
+    def test_the_text_log_format_is_read_too(self):
+        """LOG_FORMAT is text locally and json in the container; both must be legible."""
+        text = ("2026-09-21T21:43:35 ERROR [yfinance] $DRO: possibly delisted\n"
+                "2026-09-21T21:43:38 ERROR [__main__] Error processing portfolio: " + self.CAUSE)
+        self.assertEqual(update_google_sheet._analysis_failure_reason(text, ''), self.CAUSE)
+
+    def test_the_traceback_is_used_when_the_analysis_prefix_is_absent(self):
+        """The prefix is a coupling to portfolio.py; the traceback is the fallback."""
+        without_prefix = "\n".join(
+            line for line in self.REAL_SHAPE.splitlines()
+            if update_google_sheet.ANALYSIS_ERROR_PREFIX not in line)
+        self.assertEqual(
+            update_google_sheet._analysis_failure_reason(without_prefix, ''), self.CAUSE)
+
+    def test_output_saying_nothing_usable_falls_back_rather_than_inventing(self):
+        """No reason is honest; a wrong reason in a subject line is not."""
+        self.assertEqual(update_google_sheet._analysis_failure_reason('', ''), '')
+        self.assertEqual(
+            update_google_sheet._analysis_failure_reason('not a log line at all\n', ''), '')
+        self.assertEqual(
+            update_google_sheet._failure_summary(update_google_sheet.AnalysisFailedError('')),
+            'the update failed (AnalysisFailedError)')
+
+    def test_a_long_reason_is_cut_down_to_a_subject_line(self):
+        """A subject line is not a log file."""
+        long_cause = 'x' * 500
+        record = json.dumps({"level": "ERROR",
+                             "msg": update_google_sheet.ANALYSIS_ERROR_PREFIX + long_cause})
+        reason = update_google_sheet._analysis_failure_reason(record, '')
+        self.assertLessEqual(len(reason), update_google_sheet._SUBJECT_REASON_LIMIT)
+        self.assertTrue(reason.endswith('\u2026'), reason[-10:])
+
+    def test_the_emailed_subject_names_the_stock(self):
+        """The requirement, end to end: the operator learns the cause from the email."""
+        updater = self._updater()
+        updater.sheets_client = Mock()
+        error = subprocess.CalledProcessError(1, ['portfolio'])
+        error.stdout, error.stderr = self.REAL_SHAPE, ''
+
+        with patch('subprocess.run', side_effect=error), \
+             patch.object(update_google_sheet.PortfolioUpdater, '_load_portfolio_config',
+                          create=True, return_value=None), \
+             patch('update_google_sheet.alerts.send_alert_email') as send:
+            updater.config['portfolio'] = {'base_dir': '/notes', 'temp_output': '/tmp/x.numbers'}
+            result = updater.run()
+
+        self.assertFalse(result)
+        send.assert_called_once()
+        _, subject, body = send.call_args[0]
+        self.assertIn('DRO', subject)
+        self.assertIn(self.CAUSE, subject)
+        self.assertNotIn('the update failed (', subject)
+        self.assertIn(self.CAUSE, body)
+
+    def test_unreadable_notes_still_take_their_own_path(self):
+        """Exit 3 keeps its dedicated error; #38's behaviour must not regress."""
+        updater = self._updater()
+        updater.config['portfolio'] = {'base_dir': '/notes', 'temp_output': '/tmp/x.numbers'}
+        error = subprocess.CalledProcessError(update_google_sheet.EXIT_UNPARSEABLE_NOTES,
+                                              ['portfolio'])
+        error.stdout, error.stderr = '', (
+            f"{update_google_sheet.UNPARSEABLE_NOTES_BEGIN}\nA.pdf\n"
+            f"{update_google_sheet.UNPARSEABLE_NOTES_END}\n")
+        with patch('subprocess.run', side_effect=error):
+            with self.assertRaises(update_google_sheet.UnparseableNotesError):
+                updater._run_portfolio_analysis()
+
+
 class TestCheckNotes(unittest.TestCase):
     """Checking a note against the market before it goes live (investment-reviews#59)."""
 
@@ -3794,11 +3917,12 @@ class TestTickerMappingsFile(unittest.TestCase):
         """
         self.assertEqual(len(ticker_mapping.TICKER_MAPPING), 45)
         self.assertEqual(len(ticker_mapping.EXCHANGE_SUFFIX_MAP), 6)
-        self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 32)
+        self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 33)
 
     def test_the_entries_that_earlier_issues_turned_on_are_still_there(self):
         for ticker, suffix in (('ARMG', '.L'), ('ARMR', '.L'), ('WDEF', '.L'),
-                               ('FEML', '.L'), ('BTEK', '.L'), ('TECK', '')):
+                               ('FEML', '.L'), ('BTEK', '.L'), ('TECK', ''),
+                               ('DRO', '.AX')):
             with self.subTest(ticker=ticker):
                 self.assertEqual(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP[ticker], suffix)
         self.assertEqual(ticker_mapping.TICKER_MAPPING['Jupiter India'], '0P00018LFD.L')

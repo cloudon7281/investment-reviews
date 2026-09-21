@@ -11,6 +11,8 @@ Handles:
 
 import sys
 import os
+import json
+import re
 import subprocess
 import traceback
 import yaml
@@ -40,6 +42,123 @@ def _unparseable_notes_message(stderr: str) -> str:
     if begin == -1 or end == -1 or end < begin:
         return text.strip()
     return text[begin + len(UNPARSEABLE_NOTES_BEGIN):end].strip()
+
+
+# portfolio.py's own terminating handler writes this before it exits 1, so it is the
+# analysis's statement of why it stopped rather than anything inferred from the noise
+# around it.  Kept as a constant because matching it is a coupling, not a detail.
+ANALYSIS_ERROR_PREFIX = "Error processing portfolio: "
+
+_TRACEBACK_MARKER = "Traceback (most recent call last):"
+
+# `<TS> ERROR [<component>] <message>`, the text log format from logger.py.  The JSON
+# format is parsed as JSON; this is the local/dev shape.
+_TEXT_LOG_LINE = re.compile(r"^\S+\s+(?P<level>ERROR|FATAL)\s+\[[^\]]*\]\s?(?P<msg>.*)$")
+
+# A subject line is not a log file.
+_SUBJECT_REASON_LIMIT = 160
+
+
+def _one_line(text: str, limit: int = _SUBJECT_REASON_LIMIT) -> str:
+    """Flatten to a single line, short enough to read in a subject."""
+    flat = " ".join((text or "").split())
+    return flat if len(flat) <= limit else flat[:limit - 1].rstrip() + "\u2026"
+
+
+def _error_records(output: str):
+    """Yield (message, traceback) for each ERROR/FATAL record in the analysis's output.
+
+    The analysis logs JSON in production and text locally (logger.py, LOG_FORMAT), and a
+    failure has to be legible from either, so both are read here.  Lines that are neither
+    are skipped rather than guessed at: the output also carries library chatter.
+    """
+    for line in (output or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("{"):
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict) and record.get("level") in ("ERROR", "FATAL"):
+                yield str(record.get("msg", "")), str(record.get("err", ""))
+            continue
+        match = _TEXT_LOG_LINE.match(line)
+        if match:
+            yield match.group("msg"), ""
+
+
+def _terminating_exception(traceback_text: str) -> str:
+    """The message of the exception a traceback ends on, without its class name."""
+    if _TRACEBACK_MARKER not in (traceback_text or ""):
+        return ""
+    tail = traceback_text[traceback_text.rfind(_TRACEBACK_MARKER):].splitlines()
+    for line in reversed(tail):
+        # The final line of a traceback is the only unindented `SomeError: message`.
+        if line[:1].strip() and ": " in line:
+            return line.split(": ", 1)[1].strip()
+    return ""
+
+
+def _analysis_failure_reason(stdout: str, stderr: str) -> str:
+    """What the analysis said went wrong, for the alert to lead with.
+
+    Without this the operator is told only `Portfolio analysis execution failed`, and the
+    cause sits in captured stdout that nothing emails.  On 2026-09-21 that cause was
+    `No price data available for DRO` -- a missing ticker mapping, a two-minute fix --
+    and finding it meant reading the container log on the host (investment-reviews#81).
+
+    Taking the *first* error logged would be wrong: yfinance reports its own failed
+    download at ERROR first, so the first three records that night were library noise
+    about `$DRO: possibly delisted`.  The analysis's own terminating message is the
+    signal, and the traceback it prints alongside is the fallback if that ever drifts.
+    """
+    records = list(_error_records(stdout)) + list(_error_records(stderr))
+
+    for message, _ in reversed(records):
+        if message.startswith(ANALYSIS_ERROR_PREFIX):
+            return _one_line(message[len(ANALYSIS_ERROR_PREFIX):])
+
+    for _, traceback_text in reversed(records):
+        reason = _terminating_exception(traceback_text)
+        if reason:
+            return _one_line(reason)
+
+    # Text-format logging attaches the traceback to the record rather than carrying it
+    # in a field of its own, so it is only findable in the raw output.
+    for raw in (stdout, stderr):
+        reason = _terminating_exception(raw or "")
+        if reason:
+            return _one_line(reason)
+
+    return ""
+
+
+class AnalysisFailedError(RuntimeError):
+    """The analysis exited non-zero, carrying the reason it gave.
+
+    A RuntimeError so that the catch-all in run() still handles it exactly as before;
+    `reason` exists so the alert can name the cause instead of repeating the wrapper.
+    Empty when the analysis said nothing usable, which is the pre-#81 behaviour.
+    """
+
+    def __init__(self, reason: str = ""):
+        self.reason = reason
+        super().__init__(f"Portfolio analysis execution failed: {reason}" if reason
+                         else "Portfolio analysis execution failed")
+
+
+def _failure_summary(error: BaseException) -> str:
+    """The one line that goes in the alert subject.
+
+    Names the cause when the failure carries one; otherwise the exception type, which is
+    all that can honestly be said.
+    """
+    reason = getattr(error, "reason", "")
+    if reason:
+        return _one_line(reason)
+    return f"the update failed ({type(error).__name__})"
 
 
 class UnparseableNotesError(Exception):
@@ -251,7 +370,7 @@ class PortfolioUpdater:
             self.logger.exception("Full traceback:")
             self._send_failure_alert(
                 f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}",
-                f'the update failed ({type(e).__name__})')
+                _failure_summary(e))
             return False
     
     def _send_failure_alert(self, message: str, summary: str) -> None:
@@ -401,7 +520,7 @@ class PortfolioUpdater:
             self.logger.error(f"STDERR: {e.stderr}")
             if e.returncode == EXIT_UNPARSEABLE_NOTES:
                 raise UnparseableNotesError(_unparseable_notes_message(e.stderr))
-            raise RuntimeError("Portfolio analysis execution failed")
+            raise AnalysisFailedError(_analysis_failure_reason(e.stdout, e.stderr))
     
     def _build_new_row(self, parsed_values: Dict[str, float], 
                        current_headers: List[str], 
