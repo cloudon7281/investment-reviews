@@ -380,27 +380,21 @@ class PortfolioUpdater:
         figures to alert on, or the figures those alerts would be drawn from are the ones
         just refused.
         """
-        alert_config = self.config.get('notifications', {}).get('alerts', {})
-        if not alert_config.get('to'):
-            self.logger.error(f"No alert recipient configured, so nobody will be told "
-                              f"that {summary}")
-            return
-
         subject = (f"Portfolio update FAILED {datetime.now().strftime('%Y-%m-%d')}: "
                    f"{summary}")
 
         if self.dry_run:
-            self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: "
-                             f"{subject}\n{message}")
+            self.logger.info(f"[DRY RUN] Would notify: {subject}\n{message}")
             return
 
         try:
-            alerts.send_alert_email(alert_config, subject, message)
-            self.logger.info(f"Emailed the failure report to {alert_config['to']}")
+            alerts.send_alert(subject, message, alerts.FAILURE_SEVERITY,
+                              'investment-reviews/update-failed')
+            self.logger.info("Sent the failure report for delivery")
         except alerts.AlertDeliveryError as e:
-            # Both channels are now down: no spreadsheet row and no email. The run
+            # Both channels are now down: no spreadsheet row and no notification. The run
             # already fails, so this only has to be visible in the log.
-            self.logger.error(f"Could not email the failure report: {e}")
+            self.logger.error(f"Could not deliver the failure report: {e}")
             self.alert_delivery_ok = False
 
     def _send_alerts(self, console_output: str) -> None:
@@ -409,11 +403,6 @@ class PortfolioUpdater:
         Args:
             console_output: Console output from the portfolio analysis run
         """
-        alert_config = self.config.get('notifications', {}).get('alerts', {})
-        if not alert_config.get('to'):
-            self.logger.info("No alert recipient configured, skipping alerts")
-            return
-
         stocks = ConsoleOutputParser.extract_stocks_from_output(console_output)
         found = alerts.find_alerts(stocks, self.daily_change_threshold)
 
@@ -424,17 +413,18 @@ class PortfolioUpdater:
         subject, body = alerts.format_alert_email(found, self.daily_change_threshold)
 
         if self.dry_run:
-            self.logger.info(f"[DRY RUN] Would email {alert_config['to']}: {subject}\n{body}")
+            self.logger.info(f"[DRY RUN] Would notify: {subject}\n{body}")
             return
 
         try:
-            alerts.send_alert_email(alert_config, subject, body)
+            alerts.send_alert(subject, body, alerts.PORTFOLIO_SEVERITY,
+                              'investment-reviews/portfolio-alerts')
         except alerts.AlertDeliveryError as e:
             # Record, do not raise. The spreadsheet is already updated and correct;
             # failing the whole run here is what made a broken mail relay look like a
             # broken portfolio pipeline for ten days (investment-reviews#20).
             self.alert_delivery_ok = False
-            self.logger.error(f"Alert email delivery failed: {e}")
+            self.logger.error(f"Alert delivery failed: {e}")
 
     def _run_portfolio_analysis(self) -> str:
         """Run the portfolio analysis tool and capture console output.
@@ -628,30 +618,6 @@ class PortfolioUpdater:
         # Match column letter(s) followed by row number (e.g., A1, AB123)
         return re.sub(r'([A-Z]+)(\d+)', increment_match, formula)
     
-    def _send_error_notification(self, error: Exception) -> None:
-        """Send error notification email if configured.
-        
-        Args:
-            error: The exception that occurred
-        """
-        email = self.config.get('notifications', {}).get('email_on_error')
-        if not email:
-            return
-        
-        # Simple notification via mail command (requires mail to be configured on Ubuntu)
-        subject = f"Portfolio Update Failed: {datetime.now().strftime('%Y-%m-%d')}"
-        body = f"Portfolio update failed with error:\n\n{str(error)}\n\nCheck logs for details."
-        
-        try:
-            subprocess.run(
-                ['mail', '-s', subject, email],
-                input=body.encode(),
-                check=False
-            )
-            self.logger.info(f"Error notification sent to {email}")
-        except Exception as e:
-            self.logger.warning(f"Could not send email notification: {e}")
-
 
 def main():
     """Main entry point."""

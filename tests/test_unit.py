@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import logging
+import pathlib
 import shutil
 import subprocess
 import tempfile
@@ -2045,24 +2046,14 @@ class TestAlertSelection(unittest.TestCase):
         self.assertNotIn('Moved at least', body)
 
 
-class _FakeSMTP:
-    """Minimal stand-in for smtplib.SMTP recording the conversation.
+class _FakeResponse:
+    """A minimal stand-in for what urlopen returns: a context manager `json.load` can read."""
 
-    The original alert bug was entirely in the parts of the send that no test touched —
-    whether we authenticate at all, and as whom — so these tests assert on the sequence of
-    calls rather than just "no exception raised".
-    """
+    def __init__(self, payload):
+        self._body = json.dumps(payload).encode()
 
-    instances = []
-
-    def __init__(self, host, port, timeout=None, starttls_offered=True, fail_on=None):
-        self.host, self.port, self.timeout = host, port, timeout
-        self.starttls_offered = starttls_offered
-        self.fail_on = fail_on or {}
-        self.calls = []
-        self.login_args = None
-        self.sent = None
-        _FakeSMTP.instances.append(self)
+    def read(self, *args):
+        return self._body
 
     def __enter__(self):
         return self
@@ -2070,177 +2061,157 @@ class _FakeSMTP:
     def __exit__(self, *exc):
         return False
 
-    def _maybe_fail(self, name):
-        if name in self.fail_on:
-            raise self.fail_on[name]
-
-    def ehlo(self):
-        self.calls.append('ehlo')
-
-    def has_extn(self, name):
-        return name == 'starttls' and self.starttls_offered
-
-    def starttls(self, context=None):
-        self.calls.append('starttls')
-
-    def login(self, user, password):
-        self.calls.append('login')
-        self.login_args = (user, password)
-        self._maybe_fail('login')
-
-    def send_message(self, message):
-        self.calls.append('send_message')
-        self._maybe_fail('send_message')
-        self.sent = message
-
 
 class TestAlertDelivery(unittest.TestCase):
-    """Tests for alerts.send_alert_email — the path that silently broke in #20."""
+    """Tests for alerts.send_alert — the path that silently broke in #20, now via tier-4-notify.
+
+    The original bug was entirely in the parts of the send that no test touched. The SMTP details
+    it was about are somebody else's problem since devops-model#264, so these assert the new
+    contract instead: where the request goes, what it carries, and which answers mean the message
+    did not arrive. The last of those is the subtle one — tier-4-notify answers 200 both when it
+    delivered and when the severity routed nowhere.
+    """
 
     def setUp(self):
-        _FakeSMTP.instances = []
-        self._real_smtp = alerts.smtplib.SMTP
+        self.requests = []
+        self.timeouts = []
+        self._real_urlopen = alerts.urllib.request.urlopen
+        os.environ['CONSUMED_NOTIFY'] = 'notify:8071'
+        self.addCleanup(os.environ.pop, 'CONSUMED_NOTIFY', None)
 
     def tearDown(self):
-        alerts.smtplib.SMTP = self._real_smtp
+        alerts.urllib.request.urlopen = self._real_urlopen
 
-    def _patch(self, **kwargs):
-        def factory(host, port, timeout=None):
-            return _FakeSMTP(host, port, timeout, **kwargs)
-        alerts.smtplib.SMTP = factory
+    def _patch(self, outcome=None, raises=None):
+        def urlopen(request, timeout=None):
+            self.requests.append(request)
+            self.timeouts.append(timeout)
+            if raises is not None:
+                raise raises
+            return _FakeResponse(outcome if outcome is not None else
+                                 {'delivered': ['email'], 'failed': [], 'queued': False})
+        alerts.urllib.request.urlopen = urlopen
 
-    @staticmethod
-    def _config(**overrides):
-        config = {
-            'to': 'someone@example.com',
-            'from': 'alerts@calumlabs.uk',
-            'smtp_host': 'fallback.invalid',
-            'smtp_port': 1025,
-            'smtp_user': 'account@proton.me',
-            'smtp_password': 'bridge-generated',
-        }
-        config.update(overrides)
-        return config
+    def _sent(self):
+        return json.loads(self.requests[0].data)
 
-    def test_the_brokered_endpoint_wins_over_config(self):
+    def test_posts_to_the_brokered_endpoint(self):
         """SDI, "Service-to-service endpoints": registration is the authority on where another
-        service is, so a config file that disagrees is stale by definition — and this one was,
-        naming a route out to the host and back to reach a container on the same host
-        (devops-model#205)."""
+        service is. The path matters as much as the host — a POST to the right container and the
+        wrong path is a 404 at night, in a scheduled job."""
         self._patch()
-        os.environ['CONSUMED_SMTP_HOST'] = 'smtp'
-        os.environ['CONSUMED_SMTP_PORT'] = '25'
-        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_HOST', None)
-        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_PORT', None)
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        smtp = _FakeSMTP.instances[0]
-        self.assertEqual((smtp.host, smtp.port), ('smtp', 25))
+        alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+        self.assertEqual(self.requests[0].full_url, 'http://notify:8071/notify')
+        self.assertEqual(self.requests[0].get_method(), 'POST')
 
-    def test_the_brokered_port_is_an_int_not_the_string_it_arrives_as(self):
-        """It comes from the environment, so it is text. smtplib wants a number, and a string port
-        fails at connect time — inside a scheduled job, at night."""
+    def test_declares_json_which_the_service_requires(self):
+        """tier-4-notify answers 400 to a body it will not parse, and a 400 here is
+        indistinguishable from a relay outage in the log."""
         self._patch()
-        os.environ['CONSUMED_SMTP_HOST'] = 'smtp'
-        os.environ['CONSUMED_SMTP_PORT'] = '25'
-        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_HOST', None)
-        self.addCleanup(os.environ.pop, 'CONSUMED_SMTP_PORT', None)
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        self.assertIsInstance(_FakeSMTP.instances[0].port, int)
+        alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+        self.assertEqual(self.requests[0].headers.get('Content-type'), 'application/json')
 
-    def test_config_is_still_the_fallback_when_nothing_is_brokered(self):
-        """An unregistered deploy must still have somewhere to try rather than crash."""
+    def test_sends_the_four_fields_the_service_routes_on(self):
         self._patch()
-        os.environ.pop('CONSUMED_SMTP_HOST', None)
-        os.environ.pop('CONSUMED_SMTP_PORT', None)
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        smtp = _FakeSMTP.instances[0]
-        self.assertEqual((smtp.host, smtp.port), ('fallback.invalid', 1025))
+        alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/portfolio-alerts')
+        self.assertEqual(self._sent(), {'subject': 'subject', 'body': 'body',
+                                        'severity': 'warning',
+                                        'source': 'investment-reviews/portfolio-alerts'})
 
-    def test_no_host_at_all_is_reported_as_undeliverable(self):
-        """The service already separates "the run failed" from "the email could not be sent" — an
+    def test_no_brokered_endpoint_is_reported_as_undeliverable(self):
+        """The service already separates "the run failed" from "the alert could not be sent" — an
         unresolved endpoint belongs in the second, so the nightly job stays green and
         alert_delivery_ok goes to 0 rather than the run reporting failure."""
+        os.environ.pop('CONSUMED_NOTIFY', None)
         self._patch()
-        os.environ.pop('CONSUMED_SMTP_HOST', None)
         with self.assertRaises(alerts.AlertDeliveryError) as caught:
-            alerts.send_alert_email(self._config(smtp_host=''), 'subject', 'body')
-        self.assertIn('CONSUMED_SMTP_HOST', str(caught.exception))
+            alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+        self.assertIn('CONSUMED_NOTIFY', str(caught.exception))
+        self.assertEqual(self.requests, [], 'it should not have tried to send anywhere')
 
-    def test_authenticates_before_sending(self):
-        """STARTTLS then login must both precede the message (the #20 regression)."""
-        self._patch()
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        smtp = _FakeSMTP.instances[0]
-        self.assertEqual(smtp.calls, ['ehlo', 'starttls', 'ehlo', 'login', 'send_message'])
-
-    def test_authenticates_as_the_account_not_the_sender(self):
-        """Username is the bridge account address; From stays the send-as address."""
-        self._patch()
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        smtp = _FakeSMTP.instances[0]
-        self.assertEqual(smtp.login_args, ('account@proton.me', 'bridge-generated'))
-        self.assertEqual(smtp.sent['From'], 'alerts@calumlabs.uk')
-
-    def test_password_read_from_file_when_configured(self):
-        """A secret file wins over an inline value, and is stripped of its trailing newline."""
-        self._patch()
-        with tempfile.NamedTemporaryFile('w', suffix='.secret', delete=False) as handle:
-            handle.write('from-a-file\n')
-            path = handle.name
-        try:
-            alerts.send_alert_email(
-                self._config(smtp_password_file=path), 'subject', 'body')
-        finally:
-            os.unlink(path)
-        self.assertEqual(_FakeSMTP.instances[0].login_args[1], 'from-a-file')
-
-    def test_unreadable_secret_file_is_a_delivery_error(self):
-        """A missing secret must not surface as a bare OSError."""
-        self._patch()
-        with self.assertRaises(alerts.AlertDeliveryError):
-            alerts.send_alert_email(
-                self._config(smtp_password_file='/nonexistent/smtp_password'),
-                'subject', 'body')
-
-    def test_user_without_password_refuses_to_send(self):
-        """An unseeded placeholder must fail loudly, not send unauthenticated."""
-        self._patch()
-        with self.assertRaises(alerts.AlertDeliveryError):
-            alerts.send_alert_email(self._config(smtp_password=''), 'subject', 'body')
-        self.assertEqual(_FakeSMTP.instances[0].calls, ['ehlo', 'starttls', 'ehlo'])
-
-    def test_starttls_skipped_when_not_offered(self):
-        """A relay without STARTTLS still authenticates rather than erroring."""
-        self._patch(starttls_offered=False)
-        alerts.send_alert_email(self._config(), 'subject', 'body')
-        self.assertEqual(_FakeSMTP.instances[0].calls, ['ehlo', 'login', 'send_message'])
-
-    def test_rejection_at_data_becomes_a_delivery_error(self):
-        """The exact 554 the bridge returns for an unowned From address."""
-        self._patch(fail_on={'send_message': alerts.smtplib.SMTPDataError(
-            554, b'5.0.0 Error: no such user')})
+    def test_every_channel_failing_is_a_delivery_error(self):
+        """502 is tier-4-notify's word for "I could not deliver this", which is exactly the signal
+        the exit-code contract is derived from."""
+        self._patch(raises=alerts.urllib.error.HTTPError(
+            'http://notify:8071/notify', 502, 'Bad Gateway', {}, io.BytesIO(b'{"failed":["email"]}')))
         with self.assertRaises(alerts.AlertDeliveryError) as caught:
-            alerts.send_alert_email(self._config(), 'subject', 'body')
-        self.assertIn('no such user', str(caught.exception))
+            alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+        self.assertIn('502', str(caught.exception))
 
-    def test_unreachable_relay_becomes_a_delivery_error(self):
-        """A connection failure is a delivery error, not an unhandled OSError."""
-        def factory(host, port, timeout=None):
-            raise ConnectionRefusedError(61, 'Connection refused')
-        alerts.smtplib.SMTP = factory
+    def test_accepted_but_delivered_nowhere_is_a_delivery_error(self):
+        """The one that a naive check misses. tier-4-notify answers **200** when a severity routes
+        to no channel at all, so "did it return successfully" is not the same question as "did it
+        arrive". Reporting the channel healthy here would say a message nobody received was sent.
+        """
+        self._patch(outcome={'delivered': [], 'failed': [], 'queued': False})
         with self.assertRaises(alerts.AlertDeliveryError):
-            alerts.send_alert_email(self._config(), 'subject', 'body')
+            alerts.send_alert('subject', 'body', 'info', 'investment-reviews/test')
+
+    def test_unreachable_service_becomes_a_delivery_error(self):
+        """A connection failure is a delivery error, not an unhandled URLError."""
+        self._patch(raises=alerts.urllib.error.URLError(ConnectionRefusedError(61, 'refused')))
+        with self.assertRaises(alerts.AlertDeliveryError):
+            alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+
+    def test_an_unreadable_answer_becomes_a_delivery_error(self):
+        """A 200 whose body is not JSON means something other than tier-4-notify answered — a
+        proxy, or the wrong port. It must not surface as a bare ValueError."""
+        def urlopen(request, timeout=None):
+            self.requests.append(request)
+
+            class NotJson:
+                def read(self, *args):
+                    return b'<html>nope</html>'
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *exc):
+                    return False
+            return NotJson()
+        alerts.urllib.request.urlopen = urlopen
+        with self.assertRaises(alerts.AlertDeliveryError):
+            alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+
+    def test_the_send_is_bounded_in_time(self):
+        """Without a timeout, a notification service that accepts the connection and never answers
+        hangs the nightly job until the kicker's own 7200-second limit kills it — and a timed-out
+        compose job leaves its container behind (tier-1-kicker#98). An unanswered POST has to end
+        as a delivery failure, which is a state this service already knows how to report."""
+        self._patch()
+        alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/test')
+        self.assertTrue(self.timeouts and all(isinstance(t, (int, float)) and 0 < t <= 120
+                                              for t in self.timeouts),
+                        f'unbounded or implausible timeout: {self.timeouts}')
+
+    def test_the_severities_this_service_uses_reach_a_channel(self):
+        """tier-4-notify routes `critical` and `warning` to email and `info` to nothing at all.
+        These alerts are content rather than faults, which reads like `info` — and `info` would
+        deliver them nowhere while returning 200. Encoded here so the reasoning survives the next
+        person who tidies the severity up."""
+        self.assertIn(alerts.PORTFOLIO_SEVERITY, {'critical', 'warning'})
+        self.assertIn(alerts.FAILURE_SEVERITY, {'critical', 'warning'})
+
+    def test_no_smtp_is_left_in_this_service(self):
+        """devops-model#264's actual objective: one implementation of mail in the estate, and one
+        copy of the credential. A second sender growing back here is the thing to catch."""
+        source = (pathlib.Path(__file__).resolve().parents[1] / 'alerts.py').read_text()
+        for token in ('smtplib', 'EmailMessage', 'starttls', 'smtp_password'):
+            self.assertNotIn(token, source, f'{token} is back in alerts.py')
 
 
 class TestAlertFailureIsNonFatal(unittest.TestCase):
-    """A dead mail relay must not be reported as a failed portfolio update (#20).
+    """A dead notification path must not be reported as a failed portfolio update (#20).
 
-    The spreadsheet is already written by the time alerts are sent, so an undeliverable
-    email has to stay distinguishable from a broken pipeline — that conflation is what made
-    the dashboard show DOWN for ten days while the sheet updated correctly every night.
+    The spreadsheet is already written by the time alerts are sent, so an undelivered alert has to
+    stay distinguishable from a broken pipeline — that conflation is what made the dashboard show
+    DOWN for ten days while the sheet updated correctly every night.
     """
 
-    def _updater(self, alert_config):
+    STOCK = {'company': 'Palantir', 'ticker': 'PLTR', 'tag': 'AI',
+             'current_value': 1000.0, 'progress_to_2x': 2.5, 'daily_change': 0.01}
+
+    def _updater(self):
         import logging
         import update_google_sheet
         updater = update_google_sheet.PortfolioUpdater.__new__(
@@ -2249,38 +2220,49 @@ class TestAlertFailureIsNonFatal(unittest.TestCase):
         updater.dry_run = False
         updater.daily_change_threshold = 3.0
         updater.alert_delivery_ok = True
-        updater.config = {'notifications': {'alerts': alert_config}}
+        updater.config = {}
+        return updater
+
+    def _run(self, **send_kwargs):
+        updater = self._updater()
+        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
+                          return_value=[self.STOCK]), \
+             patch.object(alerts, 'send_alert', **send_kwargs):
+            updater._send_alerts('irrelevant — the parser is stubbed')
         return updater
 
     def test_delivery_failure_is_recorded_not_raised(self):
         """The exception is swallowed, but the failure is recorded for the metric."""
-        updater = self._updater({'to': 'someone@example.com'})
-        console_output = 'irrelevant — the parser is stubbed below'
-        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
-                          return_value=[{'company': 'Palantir', 'ticker': 'PLTR',
-                                         'tag': 'AI', 'current_value': 1000.0,
-                                         'progress_to_2x': 2.5, 'daily_change': 0.01}]), \
-             patch.object(alerts, 'send_alert_email',
-                          side_effect=alerts.AlertDeliveryError('554 no such user')):
-            updater._send_alerts(console_output)
+        updater = self._run(side_effect=alerts.AlertDeliveryError('every channel failed'))
         self.assertFalse(updater.alert_delivery_ok)
 
     def test_successful_delivery_leaves_the_channel_healthy(self):
         """The happy path must not flip the alert-delivery flag."""
-        updater = self._updater({'to': 'someone@example.com'})
+        self.assertTrue(self._run().alert_delivery_ok)
+
+    def test_an_unregistered_deploy_reports_the_channel_broken_not_healthy(self):
+        """This is a deliberate change from the recipient-in-config gate it replaces.
+
+        That gate read "no recipient configured" as alerting switched off, and reported the channel
+        healthy. There is no recipient here any more — it is tier-4-notify's business — so the only
+        remaining reading of a missing endpoint is that this service cannot reach the estate's
+        notification layer. Alerts existed and did not arrive, which is exactly what
+        `investment_reviews_alert_delivery_ok 0` is for.
+        """
+        os.environ.pop('CONSUMED_NOTIFY', None)
+        updater = self._updater()
         with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
-                          return_value=[{'company': 'Palantir', 'ticker': 'PLTR',
-                                         'tag': 'AI', 'current_value': 1000.0,
-                                         'progress_to_2x': 2.5, 'daily_change': 0.01}]), \
-             patch.object(alerts, 'send_alert_email'):
+                          return_value=[self.STOCK]):
+            updater._send_alerts('irrelevant')
+        self.assertFalse(updater.alert_delivery_ok)
+
+    def test_nothing_to_report_is_not_a_delivery_failure(self):
+        """A quiet night sends nothing and must leave the channel reported healthy."""
+        updater = self._updater()
+        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output', return_value=[]):
             updater._send_alerts('irrelevant')
         self.assertTrue(updater.alert_delivery_ok)
 
-    def test_no_recipient_configured_is_not_a_delivery_failure(self):
-        """Alerts switched off must leave the channel reported healthy, not broken."""
-        updater = self._updater({'to': ''})
-        updater._send_alerts('irrelevant')
-        self.assertTrue(updater.alert_delivery_ok)
 
 
 import financial_metrics
@@ -3488,14 +3470,15 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
                "  Could not read price from /notes/ISA/2026/A.pdf\n"
                "  Could not read the merger note /notes/ISA/2026/B.pdf")
 
-    def _updater(self, recipient='calum@example.com'):
+    def _updater(self):
         updater = update_google_sheet.PortfolioUpdater.__new__(
             update_google_sheet.PortfolioUpdater)
         updater.logger = logging.getLogger('test-updater')
         updater.dry_run = False
         updater.alert_delivery_ok = True
         updater.unparseable_notes = None
-        updater.config = {'notifications': {'alerts': {'to': recipient} if recipient else {}}}
+        # No recipient, relay or credential: they are tier-4-notify's since devops-model#264.
+        updater.config = {}
         return updater
 
     def _fenced(self, message):
@@ -3538,7 +3521,7 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
 
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+             patch('update_google_sheet.alerts.send_alert') as send:
             result = updater.run()
 
         self.assertFalse(result)
@@ -3547,7 +3530,7 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         sheets.insert_column.assert_not_called()
 
         send.assert_called_once()
-        _, subject, body = send.call_args[0]
+        subject, body, _severity, _source = send.call_args[0]
         self.assertEqual(body, self.MESSAGE, "the email body must be the report itself")
         self.assertIn('FAILED', subject)
 
@@ -3565,12 +3548,12 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
 
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=sheets_error), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+             patch('update_google_sheet.alerts.send_alert') as send:
             result = updater.run()
 
         self.assertFalse(result)
         send.assert_called_once()
-        _, subject, body = send.call_args[0]
+        subject, body, _severity, _source = send.call_args[0]
         self.assertIn('FAILED', subject)
         self.assertIn('the update failed', subject)
         self.assertIn('insertDimension', body, 'the body must carry the actual reason')
@@ -3581,23 +3564,23 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         updater = self._updater()
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+             patch('update_google_sheet.alerts.send_alert') as send:
             updater.run()
-        self.assertIn('notes could not be read', send.call_args[0][1])
+        self.assertIn('notes could not be read', send.call_args[0][0])
 
         updater = self._updater()
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=RuntimeError('boom')), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+             patch('update_google_sheet.alerts.send_alert') as send:
             updater.run()
-        self.assertIn('the update failed', send.call_args[0][1])
+        self.assertIn('the update failed', send.call_args[0][0])
 
     def test_a_general_failure_keeps_its_own_exit_code(self):
         """Emailing both does not merge them: exit 3 and exit 1 need different responses."""
         updater = self._updater()
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=RuntimeError('boom')), \
-             patch('update_google_sheet.alerts.send_alert_email'):
+             patch('update_google_sheet.alerts.send_alert'):
             updater.run()
         self.assertIsNone(updater.unparseable_notes,
                           'a general failure must not be reported as unreadable notes')
@@ -3606,28 +3589,33 @@ class TestUnparseableNotesStopTheUpdate(unittest.TestCase):
         updater = self._updater()
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=RuntimeError('boom')), \
-             patch('update_google_sheet.alerts.send_alert_email',
+             patch('update_google_sheet.alerts.send_alert',
                    side_effect=update_google_sheet.alerts.AlertDeliveryError('relay down')):
             self.assertFalse(updater.run())
         self.assertFalse(updater.alert_delivery_ok)
 
-    def test_a_missing_recipient_is_reported_rather_than_raising(self):
-        """Nobody to tell is itself worth logging; it must not mask the real fault."""
-        updater = self._updater(recipient=None)
+    def test_no_way_to_notify_is_reported_rather_than_raising(self):
+        """Nowhere to send is itself worth logging; it must not mask the real fault.
+
+        This replaces a missing-recipient check. There is no recipient here any more, so the
+        equivalent is an unregistered deploy with no brokered CONSUMED_NOTIFY: the attempt is made,
+        fails as a delivery error, and the run still fails for the notes rather than for the alert.
+        """
+        updater = self._updater()
+        os.environ.pop('CONSUMED_NOTIFY', None)
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
-                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+                          side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)):
             result = updater.run()
         self.assertFalse(result)
         self.assertEqual(updater.unparseable_notes, self.MESSAGE)
-        send.assert_not_called()
+        self.assertFalse(updater.alert_delivery_ok)
 
     def test_an_undeliverable_report_does_not_hide_the_note_failure(self):
         """Both channels down: the run still fails for the notes, not for the email."""
         updater = self._updater()
         with patch.object(update_google_sheet.PortfolioUpdater, '_run_portfolio_analysis',
                           side_effect=update_google_sheet.UnparseableNotesError(self.MESSAGE)), \
-             patch('update_google_sheet.alerts.send_alert_email',
+             patch('update_google_sheet.alerts.send_alert',
                    side_effect=update_google_sheet.alerts.AlertDeliveryError('relay down')):
             result = updater.run()
         self.assertFalse(result)
@@ -3679,7 +3667,7 @@ class TestFailureAlertNamesTheCause(unittest.TestCase):
         updater.dry_run = False
         updater.alert_delivery_ok = True
         updater.unparseable_notes = None
-        updater.config = {'notifications': {'alerts': {'to': 'calum@example.com'}}}
+        updater.config = {}
         return updater
 
     def test_the_analysis_own_message_is_taken_over_earlier_library_noise(self):
@@ -3731,13 +3719,13 @@ class TestFailureAlertNamesTheCause(unittest.TestCase):
         with patch('subprocess.run', side_effect=error), \
              patch.object(update_google_sheet.PortfolioUpdater, '_load_portfolio_config',
                           create=True, return_value=None), \
-             patch('update_google_sheet.alerts.send_alert_email') as send:
+             patch('update_google_sheet.alerts.send_alert') as send:
             updater.config['portfolio'] = {'base_dir': '/notes', 'temp_output': '/tmp/x.numbers'}
             result = updater.run()
 
         self.assertFalse(result)
         send.assert_called_once()
-        _, subject, body = send.call_args[0]
+        subject, body, _severity, _source = send.call_args[0]
         self.assertIn('DRO', subject)
         self.assertIn(self.CAUSE, subject)
         self.assertNotIn('the update failed (', subject)

@@ -343,13 +343,24 @@ monthly review, so brief price spikes are not missed:
 python3 update_google_sheet.py --daily-change-threshold 5
 ```
 
-An email is sent only on nights where at least one stock qualifies. Configure the recipient
-and SMTP relay under `notifications.alerts` in `config.yaml`; leaving `to` empty disables
-alerts. On jarvis the relay is the Proton Bridge container, reached over the shared service
-network at the name registration brokers in as `CONSUMED_SMTP_HOST`/`CONSUMED_SMTP_PORT`
-(SDI, "Service-to-service endpoints"). `smtp_host` in `config.yaml` is a fallback for a run
-outside the estate; the brokered value wins. This used to go out to `host.docker.internal:1025`
-and back, and the `infra_mail` network it named no longer exists (devops-model#205).
+An alert is sent only on nights where at least one stock qualifies. **This service does not
+send mail.** It posts the subject and body to `tier-4-notify`, the estate's notification layer,
+which decides the channels, owns the Proton Bridge credential and composes the message
+(devops-model#264). There is nothing to configure: no recipient, no relay, no credential. The
+endpoint is brokered by registration from `consumesPorts: notify` and arrives as
+`CONSUMED_NOTIFY` (SDI, "Service-to-service endpoints"); outside the estate, with nothing
+brokered, the alert is reported undelivered rather than sent somewhere guessed at.
+
+Alerts carry `severity: warning` and `source: investment-reviews/portfolio-alerts`. They are
+content rather than faults — nothing acts on them automatically and they never become tickets —
+but they cannot use `severity: info`, which tier-4-notify deliberately routes to no channel.
+
+**Delivery failure stays separate from pipeline failure.** The spreadsheet is already updated by
+the time alerts are sent, so an undelivered alert exits 2 rather than 1: the nightly job stays
+green and `investment_reviews_alert_delivery_ok 0` is written. That contract is unchanged by the
+move — tier-4-notify's `502` ("every channel failed") is the same signal the old relay's error
+was. A `200` that delivered to nothing counts as a failure too, which is what a severity routing
+nowhere looks like.
 
 ### Checking New Notes (`check_notes.py`)
 

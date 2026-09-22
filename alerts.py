@@ -6,15 +6,15 @@ Identifies stocks that need attention between monthly reviews:
 - stocks approaching a doubling (profit-taking rule)
 - stocks whose price moved sharply today
 
-and emails them via the Proton Bridge SMTP relay.
+and hands them to `tier-4-notify`, which decides the channels and delivers.
 """
 
+import json
 import logging
 import os
-import smtplib
-import ssl
+import urllib.error
+import urllib.request
 from datetime import datetime
-from email.message import EmailMessage
 from typing import Dict, List
 
 logger = logging.getLogger(__name__)
@@ -117,97 +117,68 @@ def _describe(stock: Dict) -> str:
     return description
 
 
-def _read_smtp_password(alert_config: Dict) -> str:
-    """Return the SMTP password, preferring a secret file over an inline value.
+# These alerts are content, not faults: they say what the portfolio did, and nothing acts on them
+# automatically. They still carry a severity because that is what selects a channel in
+# tier-4-notify — and `info` deliberately reaches nobody there, so an alert that has to arrive
+# cannot use it (devops-model#264, detection-and-response-model.md, "Notification").
+PORTFOLIO_SEVERITY = 'warning'
+FAILURE_SEVERITY = 'critical'
+
+DELIVERY_TIMEOUT_SECONDS = 30
+
+
+def send_alert(subject: str, body: str, severity: str, source: str) -> None:
+    """Hand an alert to tier-4-notify, which owns delivery and the Proton credential.
+
+    This service composed its own SMTP before devops-model#264 — one of four independent
+    implementations in the estate, three of which got the bridge's details wrong first time. Every
+    one of those details is now somebody else's problem: the send-as address, the combined-address
+    username, the bridge-generated password, and the STARTTLS certificate. What is left here is the
+    part that is genuinely this service's own, which is deciding what to say.
+
+    The endpoint is brokered, never written down: `consumesPorts: notify` resolves to
+    CONSUMED_NOTIFY for this container's execution context (SDI, "Service-to-service endpoints").
+    An unregistered deploy has nowhere to send and says so — there is deliberately no fallback
+    address, because the previous one named `host.docker.internal` and sent a container out to the
+    host and back to reach a container beside it (devops-model#205).
 
     Args:
-        alert_config: 'notifications.alerts' section of config.yaml
-
-    Returns:
-        The password, or '' if neither a file nor an inline value is configured
-    """
-    password_file = alert_config.get('smtp_password_file')
-    if password_file:
-        try:
-            with open(password_file) as handle:
-                return handle.read().strip()
-        except OSError as e:
-            raise AlertDeliveryError(f"cannot read smtp_password_file {password_file}: {e}") from e
-    return (alert_config.get('smtp_password') or '').strip()
-
-
-def send_alert_email(alert_config: Dict, subject: str, body: str) -> None:
-    """Send an alert email via the local Proton Bridge SMTP relay.
-
-    Three details of the bridge are easy to get wrong, and each fails differently
-    (investment-reviews#20, and monitoring#66 which hit the same wall independently):
-
-    - `smtp_user` is the bridge account's PRIMARY address, not the send-as address.
-      The bridge runs in combined-address mode and issues one username/password pair
-      serving both SMTP and IMAP; authenticating as the send-as address fails.
-    - `from` may be any address ON that account. An address the account does not own
-      is accepted at MAIL FROM and then rejected at DATA with
-      `554 5.0.0 Error: no such user` — which is what silently broke this nightly job
-      from 2026-08-02 to 2026-08-12.
-    - the password is the BRIDGE-GENERATED one from the bridge's own UI. Neither the
-      Proton account password nor an SMTP-submission token (a different mechanism,
-      aimed at smtp.protonmail.ch:587) will authenticate here.
-
-    The bridge advertises STARTTLS with a self-signed certificate, hence the unverified
-    context — defensible only because this connection never leaves the host loopback.
-
-    Args:
-        alert_config: 'notifications.alerts' section of config.yaml
-        subject: Email subject
-        body: Plain text email body
+        subject: Subject line
+        body: Plain text body
+        severity: `critical`, `warning` or `info`; tier-4-notify routes on it
+        source: Who is speaking, as `<service>/<purpose>`
 
     Raises:
-        AlertDeliveryError: If the message cannot be delivered
+        AlertDeliveryError: If the message could not be delivered. The caller turns that into
+            exit 2 and `investment_reviews_alert_delivery_ok 0` — the spreadsheet has already
+            been updated by this point, and conflating the two is what made a broken mail relay
+            look like a broken portfolio pipeline for ten days (investment-reviews#20).
     """
-    to_addr = alert_config['to']
-    from_addr = alert_config.get('from', 'alerts@calumlabs.uk')
-    # SDI, "Service-to-service endpoints": the relay's address is brokered by registration, not
-    # written down here. `smtplib.SMTP` takes host and port as separate arguments, which is why
-    # the platform delivers the endpoint split as well as combined (devops-model#209).
-    #
-    # The brokered value WINS over config. Registration is the authority on where another service
-    # is; a config file that disagrees is stale by definition, and this one was — it said
-    # `host.docker.internal`, which sent a container out to the host and back to reach a container
-    # on the same host (devops-model#205). Config remains the fallback so an unregistered deploy
-    # still has somewhere to try, and if neither yields a host the existing AlertDeliveryError path
-    # reports it as undeliverable rather than failing the run.
-    smtp_host = os.environ.get('CONSUMED_SMTP_HOST') or alert_config.get('smtp_host', '')
-    smtp_port = int(os.environ.get('CONSUMED_SMTP_PORT') or alert_config.get('smtp_port', 1025))
-    if not smtp_host:
+    endpoint = os.environ.get('CONSUMED_NOTIFY', '').strip()
+    if not endpoint:
         raise AlertDeliveryError(
-            "no SMTP host: registration has not brokered CONSUMED_SMTP_HOST into this container "
-            "and no smtp_host is configured (declare `consumesPorts: smtp` and re-register)")
-    smtp_user = alert_config.get('smtp_user', '')
-    smtp_password = _read_smtp_password(alert_config)
+            'no notification endpoint: registration has not brokered CONSUMED_NOTIFY into this '
+            'container (declare `consumesPorts: notify` and re-register)')
 
-    message = EmailMessage()
-    message['Subject'] = subject
-    message['From'] = from_addr
-    message['To'] = to_addr
-    message.set_content(body)
+    url = f'http://{endpoint}/notify'
+    payload = json.dumps({'subject': subject, 'body': body,
+                          'severity': severity, 'source': source}).encode()
+    request = urllib.request.Request(
+        url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-            smtp.ehlo()
-            if smtp.has_extn('starttls'):
-                smtp.starttls(context=ssl._create_unverified_context())
-                smtp.ehlo()
-            if smtp_user:
-                if not smtp_password:
-                    raise AlertDeliveryError(
-                        f"smtp_user {smtp_user} is set but no password is available; "
-                        "seed the bridge-generated password into smtp_password_file"
-                    )
-                smtp.login(smtp_user, smtp_password)
-            smtp.send_message(message)
-    except AlertDeliveryError:
-        raise
-    except (OSError, smtplib.SMTPException) as e:
-        raise AlertDeliveryError(f"{type(e).__name__}: {e}") from e
+        with urllib.request.urlopen(request, timeout=DELIVERY_TIMEOUT_SECONDS) as response:
+            outcome = json.load(response)
+    except urllib.error.HTTPError as e:
+        # 502 is tier-4-notify saying every channel failed, which is precisely the condition the
+        # exit-code contract exists for; 400 is this service's own fault. Both are undeliverable.
+        raise AlertDeliveryError(f'POST {url} returned {e.code}: {e.read().decode(errors="replace")[:200]}') from e
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise AlertDeliveryError(f'POST {url}: {type(e).__name__}: {e}') from e
 
-    logger.info(f"Alert email sent to {to_addr} via {smtp_host}:{smtp_port}: {subject}")
+    # A 200 with nothing delivered is what a severity that routes nowhere looks like. Treating it
+    # as success would report a channel as healthy on the strength of a message nobody received.
+    if not outcome.get('delivered'):
+        raise AlertDeliveryError(f'{url} accepted the message and delivered it nowhere: {outcome}')
+
+    logger.info(f"Alert delivered via {outcome['delivered']} by {url}: {subject}")
