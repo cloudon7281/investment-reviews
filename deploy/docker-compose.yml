@@ -9,20 +9,16 @@ services:
     # NOTE: On macOS/Colima mounts, uid/gid mapping can be inconsistent (9p).
     # Run as root to ensure the runner can write to bind-mounted outputs dir.
     networks:
-      # SDI, "Service-to-service endpoints": the Proton Bridge relay is a container on this host,
-      # so this reaches it over the shared service network by the name tier-4-infra publishes it
-      # under. It used to go out to `host.docker.internal:1025` and back — a hop through the host
-      # between two containers on one host, which is what `extra_hosts` was here for and why it is
-      # now gone (devops-model#205).
-      #
-      # `infra_mail`, which the comment here used to name, no longer exists at all.
+      # SDI, "Service-to-service endpoints": tier-4-notify is a container on this host, reached
+      # over the shared service network by the name registration brokers. This service used to
+      # speak SMTP to the Proton Bridge from here; the relay, the credential and the addresses are
+      # all tier-4-notify's now (devops-model#264).
       estate_services:
     environment:
       - TZ=Europe/London
-      # SDI, "Service-to-service endpoints": the brokered endpoint, split because smtplib takes
-      # host and port separately.
-      - CONSUMED_SMTP_HOST=${CONSUMED_SMTP_HOST:-}
-      - CONSUMED_SMTP_PORT=${CONSUMED_SMTP_PORT:-}
+      # SDI, "Service-to-service endpoints": `host:port`, unsplit — this is a URL's authority, not
+      # two arguments to a client library.
+      - CONSUMED_NOTIFY=${CONSUMED_NOTIFY:-}
       - CONFIG_PATH=/run/config/config.yaml
       - LOG_FORMAT=json
       - METRICS_TEXTFILE_DIR=/textfile
@@ -33,8 +29,6 @@ services:
       - ${STATE_DIR}/outputs:/data/outputs
       # SDI, "Shared stores" (metrics-textfile); node_exporter scrapes *.prom here.
       - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
-    secrets:
-      - smtp_password
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
 
 networks:
@@ -42,12 +36,3 @@ networks:
   # referenced, never defined here.
   estate_services:
     external: true
-
-secrets:
-  smtp_password:
-    # Bridge-generated proton-bridge password for the nightly alert email
-    # (investment-reviews#20). NOT the Proton account password and NOT an
-    # SMTP-submission token — see alerts.send_alert_email. post-checkout creates an empty
-    # placeholder so a first deploy cannot fail on the missing file; seed the real value
-    # to enable delivery. Same credential monitoring uses for Grafana alerting.
-    file: ${STATE_DIR}/secrets/smtp_password
