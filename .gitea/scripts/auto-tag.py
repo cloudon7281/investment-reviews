@@ -96,12 +96,29 @@ if not SKIP_TAG:
         )
         try:
             with urllib.request.urlopen(req, timeout=600) as r:
-                print(f'registrard: {json.loads(r.read() or b"{}")}')
+                verdict = json.loads(r.read() or b'{}')
+            print(f'registrard: {verdict}')
         except urllib.error.HTTPError as e:
             detail = e.read().decode('utf-8', 'replace')
             raise SystemExit(f'registrard freshness gate FAILED (HTTP {e.code}): {detail} -- not tagging; deploy blocked')
         except Exception as e:
             raise SystemExit(f'registrard call failed: {e} -- not tagging; deploy blocked')
+
+        # 0a. A FIRST release of a service nothing has registered (tier2-project#378).
+        #     `register-service` is what creates the deploy webhook, and it cannot run until the
+        #     manifest is on `main` — the very merge that gets here. So this tag would be delivered
+        #     to nothing, silently, and a tag cannot be replayed: the next deploy needs a new
+        #     version. Failing here is the same shape as the freshness gate above — register, then
+        #     re-run this job.
+        #
+        #     Both conditions are load-bearing. Without the registrard verdict the re-run would fail
+        #     identically; without the no-tags test, a repository that is deliberately unregistered
+        #     and already tagging would start failing.
+        if verdict.get('outcome') == 'unregistered' and not all_tags():
+            raise SystemExit(
+                f'not tagging: {REPO} has no registry record, so it has no deploy webhook and this '
+                f'first tag would be consumed with nothing listening. Register it on jarvis '
+                f'(`tier2-project register-service <project> <host>`), then re-run this job.')
     else:
         _, files = gitea('GET', f'pulls/{PR_NUM}/files')
         changed = [f.get('filename') for f in (files if isinstance(files, list) else [])]
