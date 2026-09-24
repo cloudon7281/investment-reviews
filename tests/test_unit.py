@@ -4219,9 +4219,22 @@ class TestReviewInvariants(unittest.TestCase):
     def test_periodic_review_fires_when_benchmarks_are_lost(self):
         """During #28 every benchmark was skipped and the review still printed."""
         results = {'retained': self._holdings(), 'benchmarks': pd.DataFrame()}
-        violations = review_invariants.check_periodic_review(results, expected_benchmarks=8)
+        violations = review_invariants.check_periodic_review(results, expected_benchmarks=self.BENCHMARKS)
         self.assertEqual(len(violations), 1)
-        self.assertIn('0 of 8', violations[0])
+        self.assertIn('0 of 3', violations[0])
+
+    BENCHMARKS = ['^GSPC', '^FTSE', 'SWDA.L']
+
+    def test_periodic_review_names_the_benchmark_it_lost(self):
+        """2026-09-24: one benchmark's prices were missing and the sweep kept only '7 of 8'."""
+        results = {'benchmarks': pd.DataFrame({'ticker': ['^GSPC', 'SWDA.L']})}
+        violations = review_invariants.check_periodic_review(results, expected_benchmarks=self.BENCHMARKS)
+        self.assertEqual(violations, ['Benchmarks: 2 of 3 produced a row (missing: ^FTSE)'])
+
+    def test_periodic_review_is_silent_when_every_benchmark_has_a_row(self):
+        results = {'benchmarks': pd.DataFrame({'ticker': list(self.BENCHMARKS)})}
+        self.assertEqual(
+            review_invariants.check_periodic_review(results, expected_benchmarks=self.BENCHMARKS), [])
 
     def test_annual_review_uses_its_own_units_column(self):
         """Annual review names the column holdings_at_end, not units_held."""
