@@ -288,7 +288,8 @@ def main():
                 thesis_candidates_path=args.thesis_candidates
             )
             review_invariants.report(
-                review_invariants.check_periodic_review(periodic_results, expected_benchmarks=len(BENCHMARKS)),
+                review_invariants.check_periodic_review(
+                    periodic_results, expected_benchmarks=[ticker for _, ticker, _ in BENCHMARKS]),
                 'Periodic review'
             )
             reporter.display_periodic_review(periodic_results, start_date, end_date, eval_date)

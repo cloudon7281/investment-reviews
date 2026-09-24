@@ -176,12 +176,12 @@ def check_full_history(results: Dict[str, pd.DataFrame]) -> List[str]:
 
 
 def check_periodic_review(results: Dict[str, pd.DataFrame],
-                          expected_benchmarks: Optional[int] = None) -> List[str]:
+                          expected_benchmarks: Optional[List[str]] = None) -> List[str]:
     """Check a periodic-review result set.
 
     Args:
         results: The result set from process_periodic_review
-        expected_benchmarks: How many benchmarks were configured, if known
+        expected_benchmarks: The tickers of the configured benchmarks, if known
     """
     violations = []
     for category in ('new', 'retained', 'increased'):
@@ -190,11 +190,17 @@ def check_periodic_review(results: Dict[str, pd.DataFrame],
         violations += _high_ordering(df, f"{category.title()} Stocks")
 
     # Benchmarks are dropped silently when their prices are missing, so a review can
-    # lose all of them and still print.  During #28 every one was skipped.
+    # lose all of them and still print.  During #28 every one was skipped.  The missing
+    # tickers are named because the usual cause is one price feed missing on the day, and
+    # the nightly sweep keeps this line but not the run's own log of which one it was.
     if expected_benchmarks:
-        found = len(results.get('benchmarks', pd.DataFrame()))
-        if found < expected_benchmarks:
-            violations.append(f"Benchmarks: {found} of {expected_benchmarks} produced a row")
+        benchmarks = results.get('benchmarks', pd.DataFrame())
+        found = set(benchmarks['ticker']) if 'ticker' in benchmarks else set()
+        missing = [ticker for ticker in expected_benchmarks if ticker not in found]
+        if missing:
+            violations.append(f"Benchmarks: {len(expected_benchmarks) - len(missing)} of "
+                              f"{len(expected_benchmarks)} produced a row "
+                              f"(missing: {', '.join(missing)})")
 
     return violations
 
