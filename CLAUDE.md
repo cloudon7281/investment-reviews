@@ -2,7 +2,7 @@
 
 # Project specifications
 
-Read SPEC.md/README.md for the project specification.
+Read README.md and the repository's SPEC*.md files for the project specification.
 
 # .Development and production environment, processes and standards
 
