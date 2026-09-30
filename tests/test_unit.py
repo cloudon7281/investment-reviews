@@ -4396,6 +4396,175 @@ class TestDoublingMetricsAgainstCsvPrices(unittest.TestCase):
         self.assertEqual(progress, '6.5x')
 
 
+class TestPeriodicReviewClassifiesEachStockOnce(unittest.TestCase):
+    """A stock is classified once, across accounts, in split-adjusted units (investment-reviews#86).
+
+    The reported case: 134 Amphenol held in the ISA, a 2:1 subdivision on 2 Sep, and 166
+    bought in Taxable on 3 Sep, reviewed over 30 Aug to 3 Sep.  It came out as 166 New,
+    134 Retained, and 134 Increased at no cost.  It should be 268 Retained and 166
+    Increased.
+    """
+
+    START, END, EVAL = datetime(2026, 8, 30), datetime(2026, 9, 3), datetime(2026, 9, 29)
+    PRICE_AT_END, PRICE_AT_EVAL = 60.0, 64.0   # GBP, split-adjusted, as Yahoo's are
+
+    BOUGHT_IN_ISA = StockTransaction(datetime(2026, 2, 18), 'BUY', 134, 110.90, 14860.14)
+    SUBDIVIDED = StockTransaction(datetime(2026, 9, 2), 'STOCK_CONVERSION', 134, 0.0, 0.0, new_quantity=268)
+    BOUGHT_IN_TAXABLE = StockTransaction(datetime(2026, 9, 3), 'BUY', 166, 59.37, 9855.09)
+
+    def _review(self, holdings):
+        """A PortfolioReview holding `holdings`: {account: (tag, [transactions])}, all APH."""
+        review = PortfolioReview.__new__(PortfolioReview)
+        review.stock_notes = {
+            account: [portfolio_review.StockNote(
+                file_path=f'{account}/APH.pdf', category=account, subcategory=None,
+                review_date=None, stock_name='Amphenol Corp', ticker='APH', currency='GBP',
+                transactions=list(transactions), tag=tag)]
+            for account, (tag, transactions) in holdings.items()
+        }
+        return review
+
+    def _run(self, holdings):
+        dates = pd.date_range(datetime(2026, 6, 1), self.EVAL, freq='D')
+        prices = pd.DataFrame(
+            {'Close': [self.PRICE_AT_END if d <= self.END else self.PRICE_AT_EVAL for d in dates]},
+            index=dates)
+        fetcher = Mock()
+        fetcher.batch_get_stock_prices.side_effect = \
+            lambda tickers, start, end: {t: prices for t in tickers if t == 'APH'}
+        return periodic_review_processor.process_periodic_review(
+            self._review(holdings), self.START, self.END, self.EVAL, fetcher)
+
+    @staticmethod
+    def _only_row(results, category):
+        df = results[category]
+        if df.empty:
+            return None
+        rows = df[df['ticker'] == 'APH']
+        assert len(rows) == 1, f"expected one APH row in {category}, found {len(rows)}"
+        return rows.iloc[0]
+
+    def test_a_split_in_the_period_is_not_a_purchase(self):
+        results = self._run({'isa': ('Data centre', [self.BOUGHT_IN_ISA, self.SUBDIVIDED])})
+
+        self.assertIsNone(self._only_row(results, 'increased'))
+        retained = self._only_row(results, 'retained')
+        self.assertEqual(retained['units_held'], 268)
+        self.assertAlmostEqual(retained['start_value'][0], 268 * self.PRICE_AT_END)
+
+    def test_a_purchase_in_a_second_account_increases_the_holding(self):
+        results = self._run({
+            'isa': ('Data centre', [self.BOUGHT_IN_ISA, self.SUBDIVIDED]),
+            'taxable': ('Data centre', [self.BOUGHT_IN_TAXABLE]),
+        })
+
+        self.assertIsNone(self._only_row(results, 'new'))
+        retained = self._only_row(results, 'retained')
+        self.assertEqual(retained['units_held'], 268)
+        self.assertAlmostEqual(retained['start_value'][0], 268 * self.PRICE_AT_END)
+        self.assertAlmostEqual(retained['current_value'][0], 268 * self.PRICE_AT_EVAL)
+        increased = self._only_row(results, 'increased')
+        self.assertEqual(increased['units_held'], 166)
+        self.assertAlmostEqual(increased['start_value'][0], 9855.09)
+        self.assertAlmostEqual(increased['current_value'][0], 166 * self.PRICE_AT_EVAL)
+        self.assertEqual(increased['accounts'], 'ISA, Taxable')
+
+    def test_a_sale_after_a_split_is_not_an_increase(self):
+        """Unadjusted, 134 before the split and 168 after selling 100 read as 34 bought."""
+        sold = StockTransaction(datetime(2026, 9, 3), 'SELL', 100, 60.0, 6000.0)
+        results = self._run({'isa': ('Data centre', [self.BOUGHT_IN_ISA, self.SUBDIVIDED, sold])})
+
+        self.assertIsNone(self._only_row(results, 'increased'))
+        self.assertEqual(self._only_row(results, 'retained')['units_held'], 168)
+
+    def test_selling_out_of_one_account_is_a_partial_sale(self):
+        """The stock is still held, so it is retained, as a partial sale in one account is."""
+        bought = StockTransaction(datetime(2026, 1, 5), 'BUY', 50, 50.0, 2500.0)
+        sold = StockTransaction(datetime(2026, 9, 1), 'SELL', 50, 60.0, 3000.0)
+        results = self._run({
+            'isa': ('Data centre', [self.BOUGHT_IN_ISA]),
+            'taxable': ('Data centre', [bought, sold]),
+        })
+
+        self.assertIsNone(self._only_row(results, 'sold'))
+        retained = self._only_row(results, 'retained')
+        self.assertEqual(retained['units_held'], 134)
+        self.assertEqual(retained['accounts'], 'ISA, Taxable')
+
+    def test_a_stock_sold_from_every_account_is_sold_once(self):
+        sold_in_isa = StockTransaction(datetime(2026, 9, 1), 'SELL', 134, 60.0, 8040.0)
+        bought = StockTransaction(datetime(2026, 1, 5), 'BUY', 50, 50.0, 2500.0)
+        sold_in_taxable = StockTransaction(datetime(2026, 9, 2), 'SELL', 50, 60.0, 3000.0)
+        results = self._run({
+            'isa': ('Data centre', [self.BOUGHT_IN_ISA, sold_in_isa]),
+            'taxable': ('Data centre', [bought, sold_in_taxable]),
+        })
+
+        sold = self._only_row(results, 'sold')
+        self.assertEqual(sold['units_held'], 184)
+        self.assertAlmostEqual(sold['start_value'][0], 11040.0)
+
+    def test_an_increase_net_of_sales_elsewhere_costs_only_the_net_units(self):
+        """Bloom Energy, year to date: one account sold 57 while the other bought 69.
+
+        The stock grew by 12 units, so the Increased row is 12 units at the average price
+        of the 69 bought.  Costing 12 units at all 69 purchases reported a £9,359 loss.
+        """
+        held = StockTransaction(datetime(2025, 6, 2), 'BUY', 160, 50.0, 8000.0)
+        sold = StockTransaction(datetime(2026, 9, 1), 'SELL', 57, 60.0, 3420.0)
+        bought = StockTransaction(datetime(2026, 9, 2), 'BUY', 69, 173.86, 11996.0)
+        results = self._run({
+            'isa': ('Data centre', [held, sold]),
+            'taxable': ('Data centre', [bought]),
+        })
+
+        increased = self._only_row(results, 'increased')
+        self.assertEqual(increased['units_held'], 12)
+        self.assertAlmostEqual(increased['start_value'][0], 11996.0 * 12 / 69)
+
+    def test_units_bought_before_a_split_are_counted_after_it(self):
+        """134 bought and split are 268 bought; selling 100 leaves 168 of them, not all 134."""
+        bought = StockTransaction(datetime(2026, 8, 31), 'BUY', 134, 110.90, 14860.14)
+        sold = StockTransaction(datetime(2026, 9, 3), 'SELL', 100, 60.0, 6000.0)
+        results = self._run({'isa': ('Data centre', [bought, self.SUBDIVIDED, sold])})
+
+        new = self._only_row(results, 'new')
+        self.assertEqual(new['units_held'], 168)
+        self.assertAlmostEqual(new['start_value'][0], 14860.14 * 168 / 268)
+
+    def test_accounts_that_tag_a_stock_differently_show_every_tag(self):
+        with self.assertLogs(logger, 'WARNING') as logs:
+            results = self._run({
+                'isa': ('Data centre', [self.BOUGHT_IN_ISA]),
+                'taxable': ('AI hardware', [self.BOUGHT_IN_TAXABLE]),
+            })
+
+        self.assertEqual(self._only_row(results, 'retained')['tag'], 'Data centre / AI hardware')
+        self.assertTrue(any('APH is tagged differently' in line for line in logs.output), logs.output)
+
+
+class TestIncreaseHasACost(unittest.TestCase):
+    """An Increased row with no purchase cost reports its whole value as profit (#86)."""
+
+    @staticmethod
+    def _increased(start_value):
+        return pd.DataFrame([{'ticker': 'APH', 'units_held': 134,
+                              'start_value': (start_value, 'GBP'),
+                              'current_value': (8563.0, 'GBP')}])
+
+    def test_fires_on_an_increase_that_cost_nothing(self):
+        violations = review_invariants._increase_has_a_cost(self._increased(0.0), 'T')
+        self.assertEqual(len(violations), 1)
+        self.assertIn('APH', violations[0])
+
+    def test_passes_an_increase_that_was_paid_for(self):
+        self.assertEqual(review_invariants._increase_has_a_cost(self._increased(9855.09), 'T'), [])
+
+    def test_the_periodic_review_runs_it(self):
+        violations = review_invariants.check_periodic_review({'increased': self._increased(0.0)})
+        self.assertTrue(any('no purchase cost' in v for v in violations), violations)
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()

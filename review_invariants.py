@@ -157,6 +157,25 @@ def _doubling_matches_return(df: pd.DataFrame, table: str) -> List[str]:
     return violations
 
 
+def _increase_has_a_cost(df: pd.DataFrame, table: str) -> List[str]:
+    """Every Increased row must have cost something.
+
+    The shares in an Increased row are valued against what was paid for them during the
+    period.  Shares that arrive at no cost report their whole value as profit.  That is the
+    signature of a split counted as a purchase: an Amphenol subdivision reported 134 extra
+    shares at £0 and £8,563 of profit (investment-reviews#86).
+    """
+    if df.empty or 'start_value' not in df.columns:
+        return []
+    free = [str(row.get('ticker', '?')) for _, row in df.iterrows()
+            if (_value(row.get('units_held')) or 0) > 0 and not (_value(row.get('start_value')) or 0) > 0]
+    if not free:
+        return []
+    return [f"{table}: {len(free)} increase(s) with no purchase cost, so their whole value "
+            f"is reported as profit: {', '.join(sorted(free))} (a split counted as a "
+            f"purchase, or shares transferred in)"]
+
+
 def check_full_history(results: Dict[str, pd.DataFrame]) -> List[str]:
     """Check a full-history result set."""
     holdings = results.get('individual_stocks', pd.DataFrame())
@@ -188,6 +207,7 @@ def check_periodic_review(results: Dict[str, pd.DataFrame],
         df = results.get(category, pd.DataFrame())
         violations += _priced_holdings(df, f"{category.title()} Stocks")
         violations += _high_ordering(df, f"{category.title()} Stocks")
+    violations += _increase_has_a_cost(results.get('increased', pd.DataFrame()), "Increased Stocks")
 
     # Benchmarks are dropped silently when their prices are missing, so a review can
     # lose all of them and still print.  During #28 every one was skipped.  The missing
