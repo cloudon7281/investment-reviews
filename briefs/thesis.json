@@ -13,6 +13,7 @@
         {"ticker": "HO.PA", "name": "Thales"},
         {"ticker": "AVAV", "name": "AeroVironment"},
         {"ticker": "DRO.AX", "name": "DroneShield"},
+        {"ticker": "EOS.AX", "name": "EOS"},
         {"ticker": "RCAT", "name": "Red Cat Holdings"},
         {"ticker": "MILDEF.ST", "name": "MilDef Group"},
         {"ticker": "QQ.L", "name": "QinetiQ Group"}
