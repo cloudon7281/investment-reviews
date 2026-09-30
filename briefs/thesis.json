@@ -30,7 +30,19 @@
         {"ticker": "MRVL", "name": "Marvell Technology"},
         {"ticker": "BE", "name": "Bloom Energy"},
         {"ticker": "NVTS", "name": "Navitas Semiconductor"},
-        {"ticker": "JEN.DE", "name": "Jenoptik"}
+        {"ticker": "ALMU", "name": "Aeluma"},
+        {"ticker": "SIVE.ST", "name": "Sivers Semiconductors"}
+      ]
+    },
+    {
+      "name": "AI rack power architecture",
+      "candidates": [
+        {"ticker": "NVTS", "name": "Navitas Semiconductor"},
+        {"ticker": "VICR", "name": "Vicor"},
+        {"ticker": "MPWR", "name": "Monolithic Power Systems"},
+        {"ticker": "IFX.DE", "name": "Infineon Technologies"},
+        {"ticker": "VRT", "name": "Vertiv Holdings"},
+        {"ticker": "ETN", "name": "Eaton"}
       ]
     },
     {
@@ -66,7 +78,21 @@
         {"ticker": "IONQ", "name": "IonQ"},
         {"ticker": "QBTS", "name": "D-Wave Quantum"},
         {"ticker": "RGTI", "name": "Rigetti Computing"},
-        {"ticker": "QUBT", "name": "Quantum Computing"}
+        {"ticker": "QUBT", "name": "Quantum Computing"},
+        {"ticker": "PSQL", "name": "Pasqal"}
+      ]
+    },
+    {
+      "name": "AI application layer",
+      "candidates": [
+        {"ticker": "NOW", "name": "ServiceNow"},
+        {"ticker": "MSFT", "name": "Microsoft"},
+        {"ticker": "PLTR", "name": "Palantir Technologies"},
+        {"ticker": "CRM", "name": "Salesforce"},
+        {"ticker": "GOOGL", "name": "Alphabet"},
+        {"ticker": "ADBE", "name": "Adobe"},
+        {"ticker": "INTU", "name": "Intuit"},
+        {"ticker": "VEEV", "name": "Veeva Systems"}
       ]
     }
   ]
