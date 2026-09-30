@@ -4504,6 +4504,34 @@ class TestPeriodicReviewClassifiesEachStockOnce(unittest.TestCase):
         self.assertEqual(sold['units_held'], 184)
         self.assertAlmostEqual(sold['start_value'][0], 11040.0)
 
+    def test_an_increase_net_of_sales_elsewhere_costs_only_the_net_units(self):
+        """Bloom Energy, year to date: one account sold 57 while the other bought 69.
+
+        The stock grew by 12 units, so the Increased row is 12 units at the average price
+        of the 69 bought.  Costing 12 units at all 69 purchases reported a £9,359 loss.
+        """
+        held = StockTransaction(datetime(2025, 6, 2), 'BUY', 160, 50.0, 8000.0)
+        sold = StockTransaction(datetime(2026, 9, 1), 'SELL', 57, 60.0, 3420.0)
+        bought = StockTransaction(datetime(2026, 9, 2), 'BUY', 69, 173.86, 11996.0)
+        results = self._run({
+            'isa': ('Data centre', [held, sold]),
+            'taxable': ('Data centre', [bought]),
+        })
+
+        increased = self._only_row(results, 'increased')
+        self.assertEqual(increased['units_held'], 12)
+        self.assertAlmostEqual(increased['start_value'][0], 11996.0 * 12 / 69)
+
+    def test_units_bought_before_a_split_are_counted_after_it(self):
+        """134 bought and split are 268 bought; selling 100 leaves 168 of them, not all 134."""
+        bought = StockTransaction(datetime(2026, 8, 31), 'BUY', 134, 110.90, 14860.14)
+        sold = StockTransaction(datetime(2026, 9, 3), 'SELL', 100, 60.0, 6000.0)
+        results = self._run({'isa': ('Data centre', [bought, self.SUBDIVIDED, sold])})
+
+        new = self._only_row(results, 'new')
+        self.assertEqual(new['units_held'], 168)
+        self.assertAlmostEqual(new['start_value'][0], 14860.14 * 168 / 268)
+
     def test_accounts_that_tag_a_stock_differently_show_every_tag(self):
         with self.assertLogs(logger, 'WARNING') as logs:
             results = self._run({

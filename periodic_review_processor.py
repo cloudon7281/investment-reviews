@@ -510,19 +510,26 @@ def classify_stocks_by_review_period(portfolio_review: PortfolioReview, start_da
 
 
 def _traded_in_period(histories: List[List], start_date: datetime, end_date: datetime,
-                      transaction_type: str) -> Tuple[Optional[float], Optional[datetime]]:
-    """Total amount of one type of trade during [A,B], across accounts, and when it began.
+                      transaction_type: str) -> Tuple[Optional[float], float, Optional[datetime]]:
+    """One type of trade during [A,B], across accounts: amount, units, and when it began.
 
-    Returns (None, None) when nothing happened in the period.  The date is the first
-    trade of that type, or the first transaction of any type when there was none.
+    Units are split-adjusted per account, as the classification's are.  Returns
+    (None, 0.0, None) when nothing happened in the period.  The date is the first trade
+    of that type, or the first transaction of any type when there was none.
     """
-    in_period = [txn for transactions in histories for txn in transactions
-                 if start_date <= txn.date <= end_date]
+    amount, units, in_period, trades = 0.0, 0.0, [], []
+    for transactions in histories:
+        for txn in transactions:
+            if not start_date <= txn.date <= end_date:
+                continue
+            in_period.append(txn)
+            if txn.transaction_type == transaction_type:
+                trades.append(txn)
+                amount += txn.total_amount or 0.0
+                units += txn.quantity * holdings_calculator.get_subsequent_stock_splits(transactions, txn.date)
     if not in_period:
-        return None, None
-    trades = [txn for txn in in_period if txn.transaction_type == transaction_type]
-    amount = sum(txn.total_amount or 0.0 for txn in trades)
-    return amount, min(txn.date for txn in (trades or in_period))
+        return None, 0.0, None
+    return amount, units, min(txn.date for txn in (trades or in_period))
 
 
 def _account_label(category: str) -> str:
@@ -580,9 +587,16 @@ def calculate_periodic_performance(classified: List, portfolio_review: Portfolio
                 continue
 
             if category in ('new', 'increased'):
-                # New and increased stocks: purchases during [A,B] → value at C
-                start_value, first_date = _traded_in_period(histories, start_date, end_date, 'BUY')
+                # New and increased stocks: purchases during [A,B] → value at C.  The units
+                # are the net addition, so when the period also saw sales (in this account
+                # or another) they are costed at the period's average purchase price, not
+                # at every purchase.
+                bought, units_bought, first_date = _traded_in_period(histories, start_date, end_date, 'BUY')
                 units_held = units_at_end if category == 'new' else units_at_end - units_at_start
+                start_value = bought
+                if bought is not None and units_bought > units_held:
+                    start_value = bought * units_held / units_bought
+                    logger.debug(f"  Net {units_held} of {units_bought} units bought; cost {bought} -> {start_value}")
                 period_days = (eval_date - first_date).days if first_date else None
             elif category == 'retained':
                 # Retained stocks: value at B → value at C.  An increased stock is capped to
@@ -600,7 +614,7 @@ def calculate_periodic_performance(classified: List, portfolio_review: Portfolio
                 period_days = (eval_date - first_ever).days
             elif category == 'sold':
                 # Sold stocks: actual sales during [A,B] → value at C of what was sold (counterfactual)
-                start_value, _ = _traded_in_period(histories, start_date, end_date, 'SELL')
+                start_value, _, _ = _traded_in_period(histories, start_date, end_date, 'SELL')
                 units_held = units_at_start
                 period_days = None
             else:
