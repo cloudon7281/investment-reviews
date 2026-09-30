@@ -252,8 +252,9 @@ class NumbersTableWriter:
                 logger.debug("Skipping formatting for NaN value")
                 return
                 
-            # Apply formatting if specified
-            if format_config and isinstance(format_config, dict):
+            # Apply formatting if specified.  A missing value is written as empty text, and
+            # numbers_parser refuses a number format on a text cell, so it is left blank.
+            if format_config and isinstance(format_config, dict) and value != '':
                 logger.debug(f"Applying formatting with options: {format_config}")
                 
                 # Apply date formatting if specified

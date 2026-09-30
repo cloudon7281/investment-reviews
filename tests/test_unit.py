@@ -4565,6 +4565,38 @@ class TestIncreaseHasACost(unittest.TestCase):
         self.assertTrue(any('no purchase cost' in v for v in violations), violations)
 
 
+class TestNumbersWriterEmptyFormattedCells(unittest.TestCase):
+    """A missing value in a formatted column is left blank, not formatted.
+
+    numbers_parser refuses a number format on a text cell, and a missing value is written
+    as empty text.  A money market fund with too little price history for a 10-day
+    smoothed high crashed every periodic review written to Numbers that included it.
+    """
+
+    def _write(self, cells):
+        from numbers_parser import Document
+        from numbers_table_writer import NumbersTableWriter
+        from reporter_definitions import CURRENCY_FORMAT, PERCENTAGE_FORMAT
+        formats = {'currency': CURRENCY_FORMAT, 'percentage': PERCENTAGE_FORMAT}
+        config = {'headers': [f'Column {i}' for i in range(len(cells))],
+                  'column_formats': [formats[kind] for kind, _ in cells]}
+        row = [{'raw_value': value, 'format_config': formats[kind]} for kind, value in cells]
+        doc = Document()
+        NumbersTableWriter(doc, 'unused.numbers').write_table([row], config, 'Sheet', 'Table')
+        return doc.sheets['Sheet'].tables['Table']
+
+    def test_a_missing_value_is_left_blank(self):
+        for kind, value in [('currency', None), ('percentage', None)]:
+            with self.subTest(kind=kind, value=value):
+                table = self._write([(kind, value)])
+                self.assertIn(table.cell(1, 0).value, ('', None))
+
+    def test_a_present_value_is_still_formatted(self):
+        table = self._write([('currency', 126.111), ('percentage', 0.25)])
+        self.assertEqual(table.cell(1, 0).formatted_value, '£126.11')
+        self.assertEqual(table.cell(1, 1).formatted_value, '25.0%')
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()
