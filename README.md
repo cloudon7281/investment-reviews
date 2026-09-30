@@ -33,7 +33,9 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 
 **Periodic Review Mode**
 - Performance analysis since given date range
-- Stocks categorized as: new purchases (stocks bought within date range), retained holdings (stocks already owned before date range), sold positions (stocks completely sold during date range)
+- Stocks categorized as: new purchases (stocks bought within date range), retained holdings (stocks already owned before date range), increased holdings (retained stocks added to during the date range), sold positions (stocks completely sold during date range)
+- Each stock is classified once across all accounts, so buying more of a stock in a second account is an increase, not a new holding, and selling out of one account while another still holds it is a partial sale. An Accounts column shows which accounts hold it; where accounts tag it differently, every tag is shown
+- Holdings are compared in split-adjusted units, so a split during the date range is not reported as a purchase
 - Performance metrics for each category
 - Tag-based grouping for thematic investing
 - Recent highs and the current price against each of them (see below)

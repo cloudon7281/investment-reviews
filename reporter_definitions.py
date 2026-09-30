@@ -131,12 +131,13 @@ COLUMN_CONFIGS = {
         ]
     },
     'periodic_review_detail': {
-        'headers': ['Tag', 'Company', 'Ticker', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'Current Price', '90d High', '% of High', '10d Smoothed High', '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility', 'Days Held'],
-        'columns': ['tag', 'company_name', 'ticker', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'current_price', 'recent_high', 'current_price_pct_of_high', 'smoothed_high', 'current_price_pct_of_smoothed_high', 'percentile_high', 'current_price_pct_of_percentile_high', 'volatility', 'period_days'],
+        'headers': ['Tag', 'Company', 'Ticker', 'Accounts', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'Current Price', '90d High', '% of High', '10d Smoothed High', '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility', 'Days Held'],
+        'columns': ['tag', 'company_name', 'ticker', 'accounts', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'current_price', 'recent_high', 'current_price_pct_of_high', 'smoothed_high', 'current_price_pct_of_smoothed_high', 'percentile_high', 'current_price_pct_of_percentile_high', 'volatility', 'period_days'],
         'column_formats': [
             None,  # Tag - text
             None,  # Company - text
             None,  # Ticker - text
+            None,  # Accounts - text
             None,  # Units Held - integer (no special formatting)
             CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
             CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
@@ -156,6 +157,7 @@ COLUMN_CONFIGS = {
             None,  # Tag
             None,  # Company
             None,  # Ticker
+            None,  # Accounts
             None,  # Units Held
             None,  # Start Value
             None,  # Current Value
@@ -173,12 +175,13 @@ COLUMN_CONFIGS = {
         ]
     },
     'periodic_review_detail_holding': {
-        'headers': ['Tag', 'Company', 'Ticker', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'MWRR', 'Current Price', '90d High', '% of High', '10d Smoothed High', '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility', 'Days Held', 'Progress to 2x', '# Doublings'],
-        'columns': ['tag', 'company_name', 'ticker', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'smoothed_high', 'current_price_pct_of_smoothed_high', 'percentile_high', 'current_price_pct_of_percentile_high', 'volatility', 'period_days', 'progress_to_doubling', 'doubling_count'],
+        'headers': ['Tag', 'Company', 'Ticker', 'Accounts', 'Units Held', 'Start Value', 'Current Value', 'P&L', 'Simple ROI', 'MWRR', 'Current Price', '90d High', '% of High', '10d Smoothed High', '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility', 'Days Held', 'Progress to 2x', '# Doublings'],
+        'columns': ['tag', 'company_name', 'ticker', 'accounts', 'units_held', 'start_value', 'current_value', 'pnl', 'simple_roi', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'smoothed_high', 'current_price_pct_of_smoothed_high', 'percentile_high', 'current_price_pct_of_percentile_high', 'volatility', 'period_days', 'progress_to_doubling', 'doubling_count'],
         'column_formats': [
             None,  # Tag - text
             None,  # Company - text
             None,  # Ticker - text
+            None,  # Accounts - text
             None,  # Units Held - integer
             CURRENCY_FORMAT_NO_DECIMALS,  # Start Value
             CURRENCY_FORMAT_NO_DECIMALS,  # Current Value
@@ -201,6 +204,7 @@ COLUMN_CONFIGS = {
             None,  # Tag
             None,  # Company
             None,  # Ticker
+            None,  # Accounts
             None,  # Units Held
             None,  # Start Value
             None,  # Current Value
