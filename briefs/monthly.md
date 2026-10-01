@@ -30,6 +30,19 @@ The purpose of these reviews is to:
 
 - distinguish the **fresh-buy test** from the **incremental-allocation test**: a stock may be good enough to buy from scratch yet not merit an increase because of existing position size, a very recent purchase, valuation, portfolio overlap or a deliberately withheld proof point
 
+- for any stock operating under a dated proof-point framework, explicitly record and review:
+  - the **next evidence event**
+  - its expected or target **date**
+  - the specific **pass criteria**
+  - the specific **failure criteria**
+  - whether the event has occurred as expected, slipped, or needs a justified one-time extension
+  - do not allow proof-point dates to drift repeatedly without substantive new evidence
+
+- for any company that has undertaken a material acquisition, merger, capital raise or other major financing event, explicitly assess **capital efficiency and shareholder value creation**, not merely strategic logic:
+  - distinguish growth in revenue, assets or strategic breadth from growth in per-share economic value
+  - consider purchase price, dilution, leverage, integration cost, management bandwidth, cash conversion and return on invested capital
+  - where an acquisition is central to the investment thesis, identify the operating and financial evidence required to show that it is creating rather than destroying shareholder value
+
 - use the configured thesis candidate universes and their monthly performance to compare held stocks with plausible unheld alternatives, distinguish thesis-level performance from stock-selection performance, assess whether market performance is broad or concentrated, and inform the thesis review, individual stock review and reinvestment decision
 
 - based on that, make a hold/increase/profit take/exit decision on each stock
@@ -45,10 +58,11 @@ Unless varied in the prompt for a particular month, conduct the review in the fo
 1. Review the outcome of the previous month's decisions.
 2. Review each investment thesis, including fundamental evidence and the performance of its full candidate universe.
 3. Review each individual holding, including whether it remains a preferable expression of its thesis compared with available candidates.
-4. Agree any hold, increase, profit-take or exit decisions.
-5. Assess where to reinvest capital released by sales, drawing first on the maintained thesis candidate universes before conducting an open-ended search.
-6. Review process and thesis watchpoints.
-7. Produce the final written report only after discussion and agreement in the chat session.
+4. Review any active proof points, dated checkpoints, major acquisitions and material financing events.
+5. Agree any hold, increase, profit-take or exit decisions.
+6. Assess where to reinvest capital released by sales, drawing first on the maintained thesis candidate universes before conducting an open-ended search.
+7. Review process and thesis watchpoints.
+8. Produce the final written report only after discussion and agreement in the chat session.
 
 # Research and evidence standards
 
@@ -61,6 +75,16 @@ When the investment case depends on a transformative technical or commercial cla
 
 Do not treat customer deployment alone as proof of technical or economic superiority. For unusually important claims, actively seek independent corroboration and contrary evidence.
 
+For major acquisitions or financings, apply a similar distinction between **strategic narrative** and **shareholder economics**. A transaction may make industrial or strategic sense without creating value for existing shareholders. Where material, seek evidence on:
+- acquisition price relative to the acquired economics
+- organic versus acquired revenue growth
+- integration progress
+- realised versus promised synergies
+- margin and cash-flow conversion
+- leverage and financing cost
+- dilution
+- return on invested capital or another appropriate per-share value measure.
+
 # Attached documents
 
 You should find attached the following documents.
@@ -69,8 +93,8 @@ You should find attached the following documents.
 
 - A Word document titled 'Investment Decisions - <month> <year>.docx', which documents the decisions we took at our previous monthly review.
 
-- A spreadsheet (in Excel form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review.  This has the following tabs.
-  -  Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>).  This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review).  This shows performance bucketed as follows:
+- A spreadsheet (in Excel form) titled 'Portfolio Report <month> 2026 Periodic Review.xlsx' showing performance since the previous review. This has the following tabs.
+  - Periodic Review Summary (<start date> to <end date>, evaluated on <evaluation date>). This shows the outcome of all the buy and sell decisions taken during the previous review period of [start date, end date], with current prices evaluated as of the evaluation date (typically today or yesterday at the point we hold this review). This shows performance bucketed as follows:
     - New = stocks bought for the first time as a result of the previous investment review.
     - Retained = stocks we decided to retain.
     - Increased = stocks where we decided to increase our holding.
@@ -79,7 +103,7 @@ You should find attached the following documents.
     - Each of these categories is then further broken down by tags corresponding to the investment thesis that drove the decision to invest.
   - The New|Retained|Increase|Sold tabs have the per-stock breakdowns.
   - The Benchmark tab shows specific market benchmarks e.g. the Nasdaq.
-  - In each of these tables, Start Value refers to the value of the relevant investment *at the point of the last investment review* (i.e. since last month), *not* the original purchase value.  Similarly, P&L and ROI show the performance *since the last review*, not since purchase.
+  - In each of these tables, Start Value refers to the value of the relevant investment *at the point of the last investment review* (i.e. since last month), *not* the original purchase value. Similarly, P&L and ROI show the performance *since the last review*, not since purchase.
   - The spreadsheet also includes columns providing data to assess the other criteria:
     - profit-taking: "progress to 2x" records the ratio of the stock *since purchase or the last profit taking*, and '# doublings' shows how many doublings there have been *since purchase*
     - stop-loss: current price, 90d high and '% of high' provide the absolute trigger; '10d Smoothed High' / '% of Smoothed High' and 'P90 High' / '% of P90 High' provide robust context. The absolute 90-calendar-day high remains authoritative for whether a review/default-exit threshold has been triggered; the smoothed/P90 fields help distinguish a transient spike from a sustained drawdown. Profit-taking continues to use actual traded prices rather than smoothed references.
@@ -103,7 +127,7 @@ You should find attached the following documents.
 
 # Desired output
 
-The final output will be a downloadable document in Word format, with the sections detailed below.  Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
+The final output will be a downloadable document in Word format, with the sections detailed below. Do not attempt to produce this final version after the initial prompt: produce a draft reply in the chat session, which we will discuss and iterate before I ask you to produce the final output document.
 
 - Executive Summary
   - 3 paragraphs summarising the full report, covering headline results, thesis validity, and actions (key stock entry/exit decisions).
@@ -131,6 +155,13 @@ The final output will be a downloadable document in Word format, with the sectio
     - justification with reference to the criteria above, fundamentals, thesis validity, valuation and comparative quality as an expression of the thesis.
   - For each held stock, explicitly consider: would we buy this stock today rather than the best credible alternative expression of the same thesis?
   - Separately answer whether the stock merits **additional capital now**. Do not infer “increase” automatically from a positive fresh-buy answer; take account of current position size, recent purchases, valuation, correlated factor exposure and any defined proof point.
+  - Where the holding is governed by a dated proof point, include in the commentary:
+    - next evidence event
+    - expected date
+    - pass criteria
+    - failure criteria
+    - whether the proof point remains on schedule.
+  - Where the company has completed or announced a material acquisition or financing, explicitly state whether the evidence currently supports **per-share value creation**, remains unproven, or indicates value destruction; do not use strategic fit alone as the justification for holding.
 
 - Summary of required actions
   - A table showing for each existing stock we decide to buy (decision = increase) or sell (decision = profit-take or exit) with columns as follows:
@@ -159,9 +190,29 @@ The final output will be a downloadable document in Word format, with the sectio
   - Columns:
     - stock
     - why capital is being withheld now
+    - next evidence event
+    - expected date
     - specific evidence that would unlock an increase
+    - failure evidence that would weaken or end the holding case
+    - current status
   - The purpose is to make future additions evidence-triggered rather than price-triggered and to preserve deployable capital for known proof points.
   - Review this table each month: increase only when the stated evidence arrives, revise the trigger only for substantive new information, or remove the item if the opportunity is no longer attractive.
+  - A proof-point date should not be repeatedly extended. One short extension may be justified where tangible new evidence has emerged and the decisive evidence event is imminent; any further extension should require explicit discussion and unusually strong justification.
+
+- Material acquisitions and financing events
+  - Maintain a short table for any holding where a major acquisition, merger or financing materially affects the investment case.
+  - Columns:
+    - stock
+    - transaction/event
+    - strategic rationale
+    - purchase price / financing / dilution or leverage implications
+    - evidence required for per-share value creation
+    - next evidence event / date
+    - current assessment
+  - This section should distinguish **industrial or strategic logic** from **shareholder economics**.
+  - Revenue growth created through acquisition should not be treated as equivalent to organic growth.
+  - An acquisition should be judged progressively against integration, margins, cash conversion, synergies, return on capital and per-share value creation.
+  - A capital raise should be judged by whether the funded opportunity grows contracted or expected economics sufficiently to compensate existing shareholders for dilution.
 
 - Process watchpoints
   - A short section capturing any tentative lessons or emerging patterns that are worth monitoring across reviews, but which do not yet justify a change to the Investment Strategy.
@@ -177,3 +228,7 @@ The final output will be a downloadable document in Word format, with the sectio
     - keep monitoring
     - close as noise / resolved
     - recommend explicit amendment to the Investment Strategy document
+  - Specifically monitor for:
+    - **exception creep**: repeated stop-loss or proof-point extensions gradually weakening rules that were intended to be binding
+    - **M&A / capital-allocation drift**: companies using acquisitions or financings to create strategic breadth or headline growth without demonstrating per-share value creation
+    - **candidate-basket interpretation risk**: small baskets, transient spikes or extreme outliers producing misleading aggregate thesis statistics; always check breadth, individual constituents and robust price references before drawing conclusions
