@@ -7,6 +7,7 @@ from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
 from pdf_parser import NoteParseError
 from portfolio_review import PortfolioReview
+from note_cache import NoteCache
 import review_invariants
 from periodic_review_processor import BENCHMARKS
 import pandas as pd
@@ -23,6 +24,8 @@ def parse_args():
                       help='Set the logging level')
     parser.add_argument('--base-dir', default='stocks',
                       help='Base directory containing stock notes')
+    parser.add_argument('--rebuild-cache', action='store_true',
+                      help='Ignore the cache of parsed notes, read every note again and write a fresh cache')
     parser.add_argument('--output-file', default=None,
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
@@ -181,7 +184,8 @@ def main():
             include_categories=include_categories,
             include_tags=include_tags,
             exclude_tags=exclude_tags,
-            include_years=include_years
+            include_years=include_years,
+            note_cache=NoteCache(base_dir, rebuild=args.rebuild_cache)
         )
         
         # Initialize portfolio analysis and reporter

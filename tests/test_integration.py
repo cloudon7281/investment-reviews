@@ -19,6 +19,7 @@ must not wait on Yahoo.
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -29,17 +30,22 @@ TEST_DATA = "anonymised_test_data"
 REFERENCES = ROOT / TEST_DATA / "reference_outputs"
 
 
-def run_cli(*args):
+def run_cli(*args, home=None, log_level="WARNING"):
     """Run portfolio.py over the anonymised corpus and return stdout and stderr together.
 
     `cwd` is the repository root explicitly, not the caller's. The harness these came from used
     `cwd='.'` and was only ever launched from the root; under pytest the working directory is
     wherever pytest was invoked, so inheriting it would make the scenario pass or fail according to
     where somebody typed the command.
+
+    HOME is a fresh directory unless `home` is given, so the note cache under ~/.cache starts empty
+    and every note is parsed (investment-reviews#91). Passing the same `home` to two runs makes the
+    second one read from the cache the first one wrote.
     """
-    result = subprocess.run(
-        [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", "WARNING", *args],
-        capture_output=True, text=True, cwd=str(ROOT))
+    with tempfile.TemporaryDirectory() as fresh_home:
+        result = subprocess.run(
+            [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", log_level, *args],
+            capture_output=True, text=True, cwd=str(ROOT), env={**os.environ, "HOME": home or fresh_home})
     return result.stdout + result.stderr
 
 
@@ -61,6 +67,18 @@ class DeterministicScenarios(unittest.TestCase):
         self.assertTrue(
             review_harness.compare_list_trades_outputs(output, self.reference("list_trades_reference.txt")),
             "list-trades output differs from its reference -- see the logged line-by-line diff")
+
+    def test_list_trades_from_the_note_cache_matches_its_reference(self):
+        """A second run reads every note from the cache the first wrote, and reports the same (#91)."""
+        with tempfile.TemporaryDirectory() as home:
+            cold = run_cli("--mode", "list-trades", "--start-date", "2024-01-01", home=home, log_level="INFO")
+            warm = run_cli("--mode", "list-trades", "--start-date", "2024-01-01", home=home, log_level="INFO")
+        self.assertRegex(cold, r"Notes: 0 from the cache, [1-9]\d* parsed")
+        self.assertRegex(warm, r"Notes: [1-9]\d* from the cache, 0 parsed")
+        for output in (cold, warm):
+            self.assertTrue(
+                review_harness.compare_list_trades_outputs(output, self.reference("list_trades_reference.txt")),
+                "list-trades output differs from its reference -- see the logged line-by-line diff")
 
     def test_list_trades_for_stocks_needs_no_dates(self):
         """With --stocks the dates are optional, and only the matching stocks are listed (#89)."""

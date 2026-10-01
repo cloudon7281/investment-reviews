@@ -11,6 +11,7 @@ from pdf_parser import (parse_stock_transaction_pdf, parse_subdivision_pdf, pars
 from mhtml_parser import parse_stock_transaction_mhtml
 from csv_parser import parse_stock_transaction_csv
 from yaml_parser import parse_stock_transaction_yaml
+from note_cache import NoteCache
 
 # Corporate actions are recognised by a word in the note's filename.  Matched as whole
 # words, not substrings: 'merger' is a substring of 'demerger', which is the opposite
@@ -134,7 +135,8 @@ class PortfolioReview:
                  include_tags: List[str] = None,
                  exclude_tags: List[str] = None,
                  include_years: List[int] = None,
-                 include_raw_pdf_info: bool = False):
+                 include_raw_pdf_info: bool = False,
+                 note_cache: Optional[NoteCache] = None):
         """Initialize the portfolio review processor.
 
         Args:
@@ -145,10 +147,13 @@ class PortfolioReview:
             exclude_tags: List of tag phrases to exclude (mutually exclusive with include_tags)
             include_years: List of years to include
             include_raw_pdf_info: If True, include raw PDF info (e.g., stock_code_in_pdf) in StockNote
+            note_cache: If given, parsed PDF and MHTML notes are reused from it while unchanged
+                and it is saved after the scan; otherwise every note is parsed
         """
         self.base_dir = Path(base_dir)
         self.mode = mode
         self.include_raw_pdf_info = include_raw_pdf_info
+        self.note_cache = note_cache
         
         # Store filter parameters
         self.include_categories = include_categories
@@ -354,6 +359,16 @@ class PortfolioReview:
         # If we get here, the new transaction is the latest
         transactions.append(new_transaction)
 
+    def _parse(self, parser, file_path: str):
+        """Parse one note, through the note cache when there is one (investment-reviews#91).
+
+        Only PDF and MHTML notes go through here: they are nearly all of the parsing time.
+        CSV and YAML notes are cheap to read and are always parsed.
+        """
+        if self.note_cache:
+            return self.note_cache.parse(parser, file_path)
+        return parser(file_path)
+
     def scan_directory(self, directory: str) -> None:
         """Scan directory for full history mode - single pass collecting all transactions chronologically."""
         if not os.path.exists(directory):
@@ -418,7 +433,7 @@ class PortfolioReview:
                     action = corporate_action_in(file)
                     if 'BOUGHT' in file.upper() or 'SOLD' in file.upper():
                         # Parse stock transaction PDF
-                        data = parse_stock_transaction_pdf(file_path)
+                        data = self._parse(parse_stock_transaction_pdf, file_path)
                         if data:
                             self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
                     elif action in MANUALLY_ENTERED_ACTIONS:
@@ -427,26 +442,26 @@ class PortfolioReview:
                                     f"this document")
                     elif action == 'subdivision':
                         # Parse subdivision PDF
-                        data = parse_subdivision_pdf(file_path)
+                        data = self._parse(parse_subdivision_pdf, file_path)
                         if data:
                             self._process_stock_split(data, file_path, account_type, year,
                                                       stocks_by_ticker, scope_to_account=True)
                     elif action == 'conversion':
                         # Parse conversion PDF
-                        data = parse_conversion_pdf(file_path)
+                        data = self._parse(parse_conversion_pdf, file_path)
                         if data:
                             self._process_stock_split(data, file_path, account_type, year,
                                                       stocks_by_ticker, scope_to_account=True)
                     elif action == 'merger':
                         # Parse merger PDF
-                        data = parse_merger_pdf(file_path)
+                        data = self._parse(parse_merger_pdf, file_path)
                         if data:
                             self._process_stock_merger(data, file_path, account_type, year,
                                                        stocks_by_ticker, scope_to_account=True)
                 elif file.endswith('.mhtml'):
                     # Parse MHTML file
                     try:
-                        transactions = parse_stock_transaction_mhtml(file_path)
+                        transactions = self._parse(parse_stock_transaction_mhtml, file_path)
                         for data in transactions:
                             self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
                     except Exception as e:
@@ -485,6 +500,9 @@ class PortfolioReview:
                         self._process_stock_transaction(data, file_path, account_type, year, tag, stocks_by_ticker)
             except Exception as e:
                 logger.error(f"Error processing {file}: {str(e)}")
+
+        if self.note_cache:
+            self.note_cache.save()
 
         if unreadable_notes:
             raise NoteParseError(

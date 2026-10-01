@@ -25,7 +25,8 @@ TEST_DATA = "anonymised_test_data"
 
 def run_cli(*args):
     result = subprocess.run(
-        [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", "WARNING", *args],
+        # Every note read from scratch, as the production nightly run does (investment-reviews#91).
+        [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", "WARNING", "--rebuild-cache", *args],
         capture_output=True, text=True, cwd=str(ROOT))
     return result.stdout + result.stderr
 
