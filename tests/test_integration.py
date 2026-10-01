@@ -62,6 +62,13 @@ class DeterministicScenarios(unittest.TestCase):
             review_harness.compare_list_trades_outputs(output, self.reference("list_trades_reference.txt")),
             "list-trades output differs from its reference -- see the logged line-by-line diff")
 
+    def test_list_trades_for_stocks_needs_no_dates(self):
+        """With --stocks the dates are optional, and only the matching stocks are listed (#89)."""
+        output = review_harness.strip_log_lines(run_cli("--mode", "list-trades", "--stocks", "nvda"))
+        tickers = {line.split("|")[2].strip() for line in output.splitlines()
+                   if line.startswith("|") and "Company" not in line}
+        self.assertEqual(tickers, {"NVDA"})
+
     def test_tax_report_matches_its_reference(self):
         """Realised gains for FY24: parsed notes and Section 104 pooling, no market data."""
         output = run_cli("--mode", "tax-report", "--tax-year", "FY24")

@@ -4597,6 +4597,70 @@ class TestNumbersWriterEmptyFormattedCells(unittest.TestCase):
         self.assertEqual(table.cell(1, 1).formatted_value, '25.0%')
 
 
+import list_trades_processor
+
+
+class TestListTradesForStocks(unittest.TestCase):
+    """list-trades for a set of stocks, with or without a date range (investment-reviews#89)."""
+
+    def _review(self, holdings):
+        """A PortfolioReview holding `holdings`: {account: [(stock_name, ticker, [dates of buys])]}."""
+        review = PortfolioReview.__new__(PortfolioReview)
+        review.stock_notes = {
+            account: [portfolio_review.StockNote(
+                file_path=f'{account}/{ticker}.pdf', category=account, subcategory=None,
+                review_date=None, stock_name=name, ticker=ticker, currency='GBP',
+                transactions=[StockTransaction(d, 'BUY', 10, 1.0, 10.0) for d in dates], tag=None)
+                for name, ticker, dates in stocks]
+            for account, stocks in holdings.items()
+        }
+        return review
+
+    def _rows(self, review, **kwargs):
+        df = list_trades_processor.process_list_trades(review, **kwargs)
+        return [(r.stock_name, r.account, r.date) for r in df.itertuples()]
+
+    def test_a_term_matches_a_name_or_a_ticker_ignoring_case(self):
+        review = self._review({'isa': [
+            ('Microsoft Corporation', 'MSFT', [datetime(2024, 1, 1)]),
+            ('BlackRock World Mining', 'BRWM.L', [datetime(2024, 1, 2)]),
+            ('Bloom Energy', 'BE', [datetime(2024, 1, 3)]),
+            ('Apple Inc', 'AAPL', [datetime(2024, 1, 4)]),
+        ]})
+        names = {name for name, _, _ in self._rows(review, stocks=['msft', 'BL'])}
+        self.assertEqual(names, {'Microsoft Corporation', 'BlackRock World Mining', 'Bloom Energy'})
+
+    def test_trades_are_grouped_by_stock_name_then_chronological_across_accounts(self):
+        review = self._review({
+            'isa': [('Microsoft Corporation', 'MSFT', [datetime(2024, 6, 1), datetime(2023, 1, 1)]),
+                    ('Bloom Energy', 'BE', [datetime(2025, 1, 1)])],
+            'taxable': [('Microsoft Corporation', 'MSFT', [datetime(2024, 1, 1)])],
+        })
+        self.assertEqual(self._rows(review, stocks=['msft', 'bloom']), [
+            ('Bloom Energy', 'ISA', datetime(2025, 1, 1)),
+            ('Microsoft Corporation', 'ISA', datetime(2023, 1, 1)),
+            ('Microsoft Corporation', 'Taxable', datetime(2024, 1, 1)),
+            ('Microsoft Corporation', 'ISA', datetime(2024, 6, 1)),
+        ])
+
+    def test_dates_are_honoured_inclusively_when_given_with_stocks(self):
+        review = self._review({'pension': [('Microsoft Corporation', 'MSFT', [
+            datetime(2023, 12, 31), datetime(2024, 1, 1), datetime(2024, 12, 31), datetime(2025, 1, 1)])]})
+        rows = self._rows(review, stocks=['MSFT'],
+                          start_date=datetime(2024, 1, 1), end_date=datetime(2024, 12, 31))
+        self.assertEqual([d for _, _, d in rows], [datetime(2024, 1, 1), datetime(2024, 12, 31)])
+        self.assertEqual({a for _, a, _ in rows}, {'Pension'})
+
+    def test_without_stocks_trades_stay_in_date_order(self):
+        review = self._review({'isa': [
+            ('Microsoft Corporation', 'MSFT', [datetime(2024, 3, 1)]),
+            ('Apple Inc', 'AAPL', [datetime(2024, 2, 1)]),
+            ('Bloom Energy', 'BE', [datetime(2024, 1, 1)]),
+        ]})
+        self.assertEqual([n for n, _, _ in self._rows(review, start_date=datetime(2024, 1, 1))],
+                         ['Bloom Energy', 'Apple Inc', 'Microsoft Corporation'])
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()
