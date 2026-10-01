@@ -54,6 +54,10 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Optional price-over-time CSV with daily prices for all stocks held during period
 - Transaction history alongside prices (BOUGHT/SOLD/SPLIT/CONVERTED) for counterfactual analysis
 
+**List Trades Mode**
+- Every trade in a date range, or for a set of stocks, with the account it was made in
+- Computed from parsed broker notes alone, with no market data
+
 **Test Mode**
 - Automated regression testing
 - Deterministic modes (tax report, list trades) are compared against reference outputs
@@ -290,6 +294,25 @@ The price-over-time CSV includes:
 - Daily closing prices (in GBP) for all stocks held at any point during the period
 - Transaction columns showing BOUGHT/SOLD quantities, stock splits, and conversions
 - Useful for counterfactual analysis ("what if I hadn't sold?")
+
+### List Trades
+
+All trades in a date range, in date order:
+```bash
+python3 portfolio.py --mode list-trades --base-dir ~/path/to/data --start-date 2025-01-01
+```
+
+All trades for a set of stocks, grouped alphabetically by company and in date order within each:
+```bash
+python3 portfolio.py --mode list-trades --base-dir ~/path/to/data --stocks MSFT,Bl
+```
+
+**Parameters:**
+- `--start-date`: First day to include (required unless `--stocks` is given)
+- `--end-date`: Last day to include (optional)
+- `--stocks`: Comma-separated terms; includes every stock whose name or ticker contains any of
+  them, ignoring case. `MSFT,Bl` includes Microsoft, Bloom Energy and the BlackRock funds — and
+  anything else containing "bl", such as First Republic Bank
 
 ### Filtering Options
 

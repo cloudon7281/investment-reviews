@@ -382,11 +382,12 @@ COLUMN_CONFIGS = {
         ]
     },
     'list_trades': {
-        'headers': ['Company', 'Ticker', 'Date', 'Type', 'Units', 'Value (£)'],
-        'columns': ['stock_name', 'ticker', 'date', 'transaction_type', 'quantity', 'value_gbp'],
+        'headers': ['Company', 'Ticker', 'Account', 'Date', 'Type', 'Units', 'Value (£)'],
+        'columns': ['stock_name', 'ticker', 'account', 'date', 'transaction_type', 'quantity', 'value_gbp'],
         'column_formats': [
             None,          # Company - text
             None,          # Ticker - text
+            None,          # Account - text
             DATE_FORMAT,   # Date
             None,          # Type - text
             None,          # Units - pre-formatted string
@@ -395,6 +396,7 @@ COLUMN_CONFIGS = {
         'column_thresholds': [
             None,  # Company
             None,  # Ticker
+            None,  # Account
             None,  # Date
             None,  # Type
             None,  # Units

@@ -43,9 +43,10 @@ class PortfolioAnalysis:
         """Process tax report for a specific tax year."""
         return tax_report_processor.process_tax_report(portfolio_review, tax_year_start, tax_year_end)
 
-    def process_list_trades(self, portfolio_review: PortfolioReview, start_date: datetime) -> pd.DataFrame:
-        """Return all transactions on or after start_date as a sorted DataFrame."""
-        return list_trades_processor.process_list_trades(portfolio_review, start_date)
+    def process_list_trades(self, portfolio_review: PortfolioReview, start_date: Optional[datetime] = None,
+                            end_date: Optional[datetime] = None, stocks: Optional[List[str]] = None) -> pd.DataFrame:
+        """Return the transactions in the date range, optionally for a set of stocks, as a sorted DataFrame."""
+        return list_trades_processor.process_list_trades(portfolio_review, start_date, end_date, stocks)
 
     def process_annual_review(self, portfolio_review: PortfolioReview, start_date: datetime, price_over_time: bool = False) -> Dict[str, pd.DataFrame]:
         """Process annual review analysis.

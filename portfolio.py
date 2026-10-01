@@ -27,7 +27,7 @@ def parse_args():
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
                       choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (chronological trade list from a start date), or tax-report (tax reporting for a specific tax year)')
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), or tax-report (tax reporting for a specific tax year)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -35,11 +35,14 @@ def parse_args():
     
     # Periodic review specific arguments
     parser.add_argument('--start-date', type=str,
-                      help='Start date for periodic review (YYYY-MM-DD format)')
+                      help='Start date for periodic review, annual review or list-trades (YYYY-MM-DD format)')
     parser.add_argument('--end-date', type=str,
-                      help='End date for periodic review (YYYY-MM-DD format)')
+                      help='End date for periodic review or list-trades, inclusive (YYYY-MM-DD format)')
     parser.add_argument('--eval-date', type=str,
                       help='Evaluation date for periodic review (YYYY-MM-DD format, defaults to today)')
+    parser.add_argument('--stocks', type=str,
+                      help='Comma-separated list of terms; includes every stock whose name or ticker contains any of them, '
+                           'ignoring case (list-trades mode only)')
     parser.add_argument('--thesis-candidates', type=str, metavar='FILENAME',
                       help='JSON file defining a universe of candidate stocks per investment thesis; '
                            'adds thesis performance analysis to the review (periodic-review mode only)')
@@ -141,6 +144,10 @@ def main():
 
     if args.thesis_candidates and args.mode != 'periodic-review':
         logger.error("--thesis-candidates is only supported in periodic-review mode")
+        sys.exit(1)
+
+    if args.stocks is not None and args.mode != 'list-trades':
+        logger.error("--stocks is only supported in list-trades mode")
         sys.exit(1)
     
     try:
@@ -258,15 +265,23 @@ def main():
             if args.price_over_time and annual_results.get('price_over_time') is not None:
                 reporter.write_price_over_time_csv(annual_results['price_over_time'], start_date)
         elif args.mode == 'list-trades':
-            # List-trades mode: chronological trade list from start date
-            if not args.start_date:
-                logger.error("List-trades mode requires --start-date argument")
+            # List-trades mode: trades in a date range, optionally for a set of stocks.
+            # With --stocks the dates are optional; without it --start-date is required.
+            stocks = None
+            if args.stocks is not None:
+                stocks = [s.strip() for s in args.stocks.split(',') if s.strip()]
+                if not stocks:
+                    logger.error("--stocks requires at least one non-empty term")
+                    sys.exit(1)
+            if not args.start_date and not stocks:
+                logger.error("List-trades mode requires --start-date or --stocks argument")
                 sys.exit(1)
 
             from datetime import datetime
-            start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
-            trades_df = portfolio_analysis.process_list_trades(portfolio_review, start_date)
-            reporter.display_list_trades(trades_df, start_date)
+            start_date = datetime.strptime(args.start_date, '%Y-%m-%d') if args.start_date else None
+            end_date = datetime.strptime(args.end_date, '%Y-%m-%d') if args.end_date else None
+            trades_df = portfolio_analysis.process_list_trades(portfolio_review, start_date, end_date, stocks)
+            reporter.display_list_trades(trades_df, start_date, end_date, stocks)
 
         else:  # periodic-review
             # Periodic review mode: Performance analysis for specific period
