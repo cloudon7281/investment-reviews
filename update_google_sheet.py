@@ -486,7 +486,10 @@ class PortfolioUpdater:
             '-m', 'portfolio',
             '--mode', 'full-history',
             '--base-dir', base_dir,
-            '--output-file', output_file
+            '--output-file', output_file,
+            # The nightly figures never depend on the note cache: every note is read
+            # from scratch (investment-reviews#91).
+            '--rebuild-cache',
         ]
         
         self.logger.info(f"Running: {' '.join(cmd)}")

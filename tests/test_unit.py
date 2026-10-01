@@ -4661,6 +4661,138 @@ class TestListTradesForStocks(unittest.TestCase):
                          ['Bloom Energy', 'Apple Inc', 'Microsoft Corporation'])
 
 
+import note_cache
+
+
+class TestNoteCache(unittest.TestCase):
+    """Parsed notes are reused while unchanged, and never otherwise (investment-reviews#91)."""
+
+    PARSED = {'stock_name': 'Microsoft Corporation', 'transaction_date': datetime(2024, 3, 15),
+              'num_shares': 10.0, 'fx_charge': None, 'stock_code_in_pdf': True, 'rows': [1, 'a']}
+
+    def setUp(self):
+        self.home = tempfile.TemporaryDirectory()
+        self.base = tempfile.TemporaryDirectory()
+        self.addCleanup(self.home.cleanup)
+        self.addCleanup(self.base.cleanup)
+        home_patch = patch.dict(os.environ, {'HOME': self.home.name})
+        home_patch.start()
+        self.addCleanup(home_patch.stop)
+        self.note = self._write('ISA/2024/MSFT_BOUGHT.pdf', b'note')
+        self.calls = []
+
+    def _write(self, rel, content):
+        path = os.path.join(self.base.name, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as fh:
+            fh.write(content)
+        return path
+
+    def parse_stock_transaction_pdf(self, path):
+        self.calls.append(path)
+        return self.PARSED
+
+    def _run(self, *paths, rebuild=False):
+        """One run: parse `paths` through a fresh cache over the base directory, then save it."""
+        cache = note_cache.NoteCache(self.base.name, rebuild=rebuild)
+        results = [cache.parse(self.parse_stock_transaction_pdf, p) for p in paths]
+        cache.save()
+        return results
+
+    def test_an_unchanged_note_is_reused_exactly(self):
+        self._run(self.note)
+        [result] = self._run(self.note)
+        self.assertEqual(self.calls, [self.note])
+        self.assertEqual(result, self.PARSED)
+        self.assertIsInstance(result['transaction_date'], datetime)
+
+    def test_a_resized_note_is_parsed_again_even_with_its_old_time(self):
+        self._run(self.note)
+        stat = os.stat(self.note)
+        with open(self.note, 'ab') as fh:
+            fh.write(b' corrected')
+        os.utime(self.note, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        self._run(self.note)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_a_touched_note_is_parsed_again(self):
+        self._run(self.note)
+        stat = os.stat(self.note)
+        os.utime(self.note, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+        self._run(self.note)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_an_added_note_is_the_only_one_parsed(self):
+        self._run(self.note)
+        added = self._write('Taxable/2025/NVDA_SOLD.pdf', b'new')
+        self._run(self.note, added)
+        self.assertEqual(self.calls, [self.note, added])
+
+    def test_a_changed_parser_fingerprint_discards_the_cache(self):
+        self._run(self.note)
+        with patch.object(note_cache, '_fingerprint', return_value='another parser'):
+            self._run(self.note)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_rebuild_ignores_the_cache(self):
+        self._run(self.note)
+        self._run(self.note, rebuild=True)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_a_note_that_fails_to_parse_is_not_cached(self):
+        def failing(path):
+            self.calls.append(path)
+            raise pdf_parser.ContractNoteParseError('unreadable')
+        for _ in range(2):
+            cache = note_cache.NoteCache(self.base.name)
+            with self.assertRaises(pdf_parser.ContractNoteParseError):
+                cache.parse(failing, self.note)
+            cache.save()
+        self.assertEqual(len(self.calls), 2)
+
+    def test_a_deleted_note_is_dropped_and_an_unread_one_kept(self):
+        other = self._write('Pension/2025/CMOD_BOUGHT.pdf', b'other')
+        self._run(self.note, other)
+        os.remove(self.note)
+        self._run()  # reads nothing, as a run filtered to another account would
+        self.assertEqual(set(note_cache.NoteCache(self.base.name).entries),
+                         {os.path.relpath(other, self.base.name)})
+
+    def test_an_unreadable_cache_file_is_ignored(self):
+        self._run(self.note)
+        cache_path = note_cache.NoteCache(self.base.name).path
+        with open(cache_path, 'w') as fh:
+            fh.write('{not json')
+        [result] = self._run(self.note)
+        self.assertEqual(result, self.PARSED)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_every_module_the_parsers_import_is_fingerprinted(self):
+        """A parser change must discard the cache, including a change in a module a parser imports."""
+        import ast
+        root = pathlib.Path(note_cache.__file__).parent
+        seen, pending = set(), ['pdf_parser', 'mhtml_parser']
+        while pending:
+            module = pending.pop()
+            if module in seen or not (root / f'{module}.py').exists():
+                continue
+            seen.add(module)
+            for node in ast.walk(ast.parse((root / f'{module}.py').read_text())):
+                if isinstance(node, ast.Import):
+                    pending += [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    pending.append(node.module)
+        seen.discard('logger')  # logging does not change what a note parses to
+        self.assertLessEqual({f'{m}.py' for m in seen}, set(note_cache._FINGERPRINTED_FILES))
+        self.assertIn('ticker_mappings.yaml', note_cache._FINGERPRINTED_FILES)
+
+    def test_the_cache_is_not_in_the_base_directory(self):
+        self._run(self.note)
+        cache_path = note_cache.NoteCache(self.base.name).path
+        self.assertTrue(os.path.exists(cache_path))
+        self.assertTrue(cache_path.startswith(os.path.join(self.home.name, '.cache', 'investment-reviews')))
+
+
 if __name__ == '__main__':
     import sys
     success = run_unit_tests()

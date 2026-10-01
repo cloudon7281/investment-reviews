@@ -314,6 +314,20 @@ python3 portfolio.py --mode list-trades --base-dir ~/path/to/data --stocks MSFT,
   them, ignoring case. `MSFT,Bl` includes Microsoft, Bloom Energy and the BlackRock funds — and
   anything else containing "bl", such as First Republic Bank
 
+### Note Cache
+
+Reading the notes is nearly all of a run's time. Each note's parsed result is cached, so a run
+re-reads only notes that are new or changed since the last run. Over the full history a run that
+reads every note takes 20 seconds to over a minute; one served from the cache takes about a second.
+
+- The cache is per base directory, in `~/.cache/investment-reviews/`, never in the notes tree.
+- A note is re-read when its size or modification time changes. A note that fails to read is never
+  cached, so it is reported on every run.
+- The whole cache is discarded when the parsers, `ticker_mappings.yaml`, the PDF/HTML libraries or
+  the Python version change.
+- `--rebuild-cache` ignores the cache, reads every note and writes a fresh cache. The nightly
+  Google Sheet update always uses it, so its figures never depend on the cache.
+
 ### Filtering Options
 
 Filter by account category:
