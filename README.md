@@ -1,6 +1,6 @@
 # Investment Portfolio Analyzer
 
-A command-line tool for analyzing investment portfolios across multiple brokers, generating tax reports, and tracking performance over time.
+A tier 3 service andcommand-line tool for analyzing investment portfolios across multiple brokers, generating tax reports, and tracking performance over time.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
