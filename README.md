@@ -383,8 +383,15 @@ monthly review, so brief price spikes are not missed:
 python3 update_google_sheet.py --daily-change-threshold 5
 ```
 
+Holdings worth under £100 are left out of both: a few stocks could not be sold in full and are
+effectively worthless, but keep a fractional price whose daily swings are large and meaningless
+(investment-reviews#93). Each category is a table of name, ticker, tag and current value, with
+`Progress to 2x` for doublings, and the change in £ and % for movers, listed best first and worst
+last.
+
 An alert is sent only on nights where at least one stock qualifies. **This service does not
-send mail.** It posts the subject and body to `tier-4-notify`, the estate's notification layer,
+send mail.** It posts the subject, a plain-text body and an HTML rendering of it to
+`tier-4-notify`, the estate's notification layer,
 which decides the channels, owns the Proton Bridge credential and composes the message
 (devops-model#264). There is nothing to configure: no recipient, no relay, no credential. The
 endpoint is brokered by registration from `consumesPorts: notify` and arrives as

@@ -9,13 +9,14 @@ Identifies stocks that need attention between monthly reviews:
 and hands them to `tier-4-notify`, which decides the channels and delivers.
 """
 
+import html
 import json
 import logging
 import os
 import urllib.error
 import urllib.request
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ class AlertDeliveryError(Exception):
 # 'Progress to 2x' above which a stock is treated as being in doubling territory
 DOUBLING_THRESHOLD = 1.95
 
+# Holdings worth less than this are left out of the alerts. A few stocks could not be sold in full
+# and are effectively worthless, but still carry a fractional price whose daily swings are large and
+# meaningless (investment-reviews#93: First Republic, worth £0, reported as -75%).
+MIN_ALERT_VALUE = 100.0
+
 
 def find_alerts(stocks: List[Dict], change_threshold_pct: float) -> Dict[str, List[Dict]]:
     """Select the stocks that warrant an alert.
@@ -41,9 +47,14 @@ def find_alerts(stocks: List[Dict], change_threshold_pct: float) -> Dict[str, Li
 
     Returns:
         Dictionary with keys 'approaching_doubling' and 'big_movers', each a list
-        of stock dictionaries sorted with the most notable first
+        of stock dictionaries: doublings by progress, highest first; movers by
+        daily change, best first. Holdings worth under MIN_ALERT_VALUE (or with
+        no value) are excluded from both.
     """
     change_threshold = change_threshold_pct / 100
+
+    stocks = [s for s in stocks
+              if s['current_value'] is not None and s['current_value'] >= MIN_ALERT_VALUE]
 
     approaching_doubling = [
         s for s in stocks
@@ -55,7 +66,8 @@ def find_alerts(stocks: List[Dict], change_threshold_pct: float) -> Dict[str, Li
         s for s in stocks
         if s['daily_change'] is not None and abs(s['daily_change']) >= change_threshold
     ]
-    big_movers.sort(key=lambda s: abs(s['daily_change']), reverse=True)
+    # Best performer first, worst last
+    big_movers.sort(key=lambda s: s['daily_change'], reverse=True)
 
     logger.info(
         f"Alert scan: {len(approaching_doubling)} stock(s) above {DOUBLING_THRESHOLD}x, "
@@ -71,12 +83,15 @@ def find_alerts(stocks: List[Dict], change_threshold_pct: float) -> Dict[str, Li
 def format_alert_email(alerts: Dict[str, List[Dict]], change_threshold_pct: float) -> tuple:
     """Build the subject and body for an alert email.
 
+    Each section is a headed table, in plain text and in HTML. The HTML is what a mail
+    reader shows; the plain text is the same content for one that prefers it.
+
     Args:
         alerts: Output of find_alerts (must contain at least one stock)
         change_threshold_pct: Daily change threshold in percent, quoted in the body
 
     Returns:
-        Tuple of (subject, body)
+        Tuple of (subject, body, html)
     """
     approaching = alerts['approaching_doubling']
     movers = alerts['big_movers']
@@ -88,33 +103,70 @@ def format_alert_email(alerts: Dict[str, List[Dict]], change_threshold_pct: floa
         parts.append(f"{len(movers)} big mover{'s' if len(movers) != 1 else ''}")
     subject = f"Portfolio alerts {datetime.now().strftime('%Y-%m-%d')}: {', '.join(parts)}"
 
-    lines = []
+    sections = []
 
     if approaching:
-        lines.append(f"Approaching a doubling (above {DOUBLING_THRESHOLD}x):")
-        lines.append("")
-        for stock in approaching:
-            lines.append(f"  {_describe(stock)} — {stock['progress_to_2x']:.2f}x")
-        lines.append("")
+        sections.append((
+            f"Approaching a doubling (above {DOUBLING_THRESHOLD}x):",
+            ['Name', 'Ticker', 'Tag', 'Current value', 'Progress to 2x'],
+            [_identity(s) + [f"{s['progress_to_2x']:.2f}x"] for s in approaching],
+        ))
 
     if movers:
-        lines.append(f"Moved at least {change_threshold_pct}% today:")
-        lines.append("")
-        for stock in movers:
-            lines.append(f"  {_describe(stock)} — {stock['daily_change']*100:+.1f}%")
-        lines.append("")
+        sections.append((
+            f"Moved at least {change_threshold_pct}% today:",
+            ['Name', 'Ticker', 'Tag', 'Current value', 'Change', 'Change %'],
+            [_identity(s) + [_pounds(_absolute_change(s), signed=True),
+                             f"{s['daily_change']*100:+.1f}%"] for s in movers],
+        ))
 
-    return subject, '\n'.join(lines)
+    body = '\n\n'.join(f"{title}\n\n{_text_table(headers, rows)}" for title, headers, rows in sections)
+    html_body = '\n'.join(f"<p>{html.escape(title)}</p>\n{_html_table(headers, rows)}"
+                           for title, headers, rows in sections)
+
+    return subject, body, html_body
 
 
-def _describe(stock: Dict) -> str:
-    """Format a stock's identity and current value for an alert line."""
-    description = f"{stock['company']} ({stock['ticker']})"
-    if stock['tag']:
-        description += f" [{stock['tag']}]"
-    if stock['current_value'] is not None:
-        description += f", £{stock['current_value']:,.0f}"
-    return description
+# The first three columns of every table are text; the rest are figures, aligned right.
+_TEXT_COLUMNS = 3
+
+
+def _identity(stock: Dict) -> List[str]:
+    """The cells that identify a stock and its current value."""
+    return [stock['company'], stock['ticker'], stock['tag'], _pounds(stock['current_value'])]
+
+
+def _absolute_change(stock: Dict) -> float:
+    """Today's change in the holding's value, from its current value and percentage change."""
+    return stock['current_value'] * stock['daily_change'] / (1 + stock['daily_change'])
+
+
+def _pounds(value: float, signed: bool = False) -> str:
+    sign = ('+' if value >= 0 else '-') if signed else ''
+    return f"{sign}£{abs(value):,.0f}"
+
+
+def _text_table(headers: List[str], rows: List[List[str]]) -> str:
+    """A table with space-padded columns, for the plain-text part."""
+    widths = [max(len(str(cell)) for cell in column) for column in zip(headers, *rows)]
+
+    def line(cells):
+        return '  '.join(str(cell).ljust(width) if i < _TEXT_COLUMNS else str(cell).rjust(width)
+                         for i, (cell, width) in enumerate(zip(cells, widths))).rstrip()
+
+    return '\n'.join([line(headers), line(['-' * width for width in widths])] + [line(r) for r in rows])
+
+
+def _html_table(headers: List[str], rows: List[List[str]]) -> str:
+    """The same table in HTML, for the part a mail reader shows."""
+    def cell(tag, value, i):
+        align = 'left' if i < _TEXT_COLUMNS else 'right'
+        return (f'<{tag} style="text-align:{align};padding:2px 10px;border-bottom:1px solid #ddd">'
+                f'{html.escape(str(value))}</{tag}>')
+
+    head = '<tr>' + ''.join(cell('th', h, i) for i, h in enumerate(headers)) + '</tr>'
+    body = ''.join('<tr>' + ''.join(cell('td', v, i) for i, v in enumerate(r)) + '</tr>' for r in rows)
+    return f'<table style="border-collapse:collapse">{head}{body}</table>'
 
 
 # These alerts are content, not faults: they say what the portfolio did, and nothing acts on them
@@ -127,7 +179,8 @@ FAILURE_SEVERITY = 'critical'
 DELIVERY_TIMEOUT_SECONDS = 30
 
 
-def send_alert(subject: str, body: str, severity: str, source: str) -> None:
+def send_alert(subject: str, body: str, severity: str, source: str,
+               html_body: Optional[str] = None) -> None:
     """Hand an alert to tier-4-notify, which owns delivery and the Proton credential.
 
     This service composed its own SMTP before devops-model#264 — one of four independent
@@ -147,6 +200,8 @@ def send_alert(subject: str, body: str, severity: str, source: str) -> None:
         body: Plain text body
         severity: `critical`, `warning` or `info`; tier-4-notify routes on it
         source: Who is speaking, as `<service>/<purpose>`
+        html_body: Optional HTML rendering of `body`, which tier-4-notify mails as an
+            alternative part beside it
 
     Raises:
         AlertDeliveryError: If the message could not be delivered. The caller turns that into
@@ -161,8 +216,10 @@ def send_alert(subject: str, body: str, severity: str, source: str) -> None:
             'container (declare `consumesPorts: notify` and re-register)')
 
     url = f'http://{endpoint}/notify'
-    payload = json.dumps({'subject': subject, 'body': body,
-                          'severity': severity, 'source': source}).encode()
+    message = {'subject': subject, 'body': body, 'severity': severity, 'source': source}
+    if html_body:
+        message['html'] = html_body
+    payload = json.dumps(message).encode()
     request = urllib.request.Request(
         url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
 
