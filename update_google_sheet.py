@@ -410,7 +410,7 @@ class PortfolioUpdater:
             self.logger.info("No alerts to report")
             return
 
-        subject, body = alerts.format_alert_email(found, self.daily_change_threshold)
+        subject, body, html_body = alerts.format_alert_email(found, self.daily_change_threshold)
 
         if self.dry_run:
             self.logger.info(f"[DRY RUN] Would notify: {subject}\n{body}")
@@ -418,7 +418,7 @@ class PortfolioUpdater:
 
         try:
             alerts.send_alert(subject, body, alerts.PORTFOLIO_SEVERITY,
-                              'investment-reviews/portfolio-alerts')
+                              'investment-reviews/portfolio-alerts', html_body)
         except alerts.AlertDeliveryError as e:
             # Record, do not raise. The spreadsheet is already updated and correct;
             # failing the whole run here is what made a broken mail relay look like a

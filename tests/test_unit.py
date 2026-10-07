@@ -2013,37 +2013,107 @@ class TestAlertSelection(unittest.TestCase):
         self.assertEqual(found['approaching_doubling'], [])
         self.assertEqual(found['big_movers'], [])
 
-    def test_sorted_most_notable_first(self):
-        """Doublings sort by progress, movers by size of move regardless of sign."""
+    def test_sort_order(self):
+        """Doublings sort by progress; movers by change, best first and worst last (#93) —
+        not by size of move, which interleaved rises and falls."""
         stocks = [
-            self._stock('A', progress=1.98, change=0.04),
-            self._stock('B', progress=2.40, change=-0.09),
+            self._stock('A', progress=1.98, change=0.055),
+            self._stock('B', progress=2.40, change=-0.054),
+            self._stock('C', change=-0.033),
+            self._stock('D', change=0.032),
         ]
         found = alerts.find_alerts(stocks, 3.0)
         self.assertEqual([s['ticker'] for s in found['approaching_doubling']], ['B', 'A'])
-        self.assertEqual([s['ticker'] for s in found['big_movers']], ['B', 'A'])
+        self.assertEqual([s['ticker'] for s in found['big_movers']], ['A', 'D', 'C', 'B'])
 
-    def test_email_reports_both_sections(self):
-        """The email names both categories and the stocks in them."""
+    def test_micro_value_holdings_never_alert(self):
+        """A holding worth under £100 is left out of both sections (#93): First Republic, worth
+        £0 at a fractional price, was reported as having moved -75%."""
+        stocks = [
+            self._stock('FRCB', change=-0.75, progress=2.5, value=0.02),
+            self._stock('UNDER', change=0.10, progress=2.5, value=99.99),
+            self._stock('EXACT', change=0.10, progress=2.5, value=100.0),
+            self._stock('NOVALUE', change=0.10, progress=2.5, value=None),
+        ]
+        found = alerts.find_alerts(stocks, 3.0)
+        self.assertEqual([s['ticker'] for s in found['approaching_doubling']], ['EXACT'])
+        self.assertEqual([s['ticker'] for s in found['big_movers']], ['EXACT'])
+
+    @staticmethod
+    def _html_tables(html_body):
+        """Each <table> in the HTML as a list of rows of cell text, header row first."""
+        from html.parser import HTMLParser
+
+        class Tables(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.tables, self.cell = [], None
+
+            def handle_starttag(self, tag, attrs):
+                if tag == 'table':
+                    self.tables.append([])
+                elif tag == 'tr':
+                    self.tables[-1].append([])
+                elif tag in ('th', 'td'):
+                    self.cell = ''
+
+            def handle_endtag(self, tag):
+                if tag in ('th', 'td'):
+                    self.tables[-1][-1].append(self.cell)
+                    self.cell = None
+
+            def handle_data(self, data):
+                if self.cell is not None:
+                    self.cell += data
+
+        parser = Tables()
+        parser.feed(html_body)
+        return parser.tables
+
+    def test_email_reports_both_sections_as_headed_tables(self):
+        """Each section is a table with a header row and one row per stock (#93)."""
         found = alerts.find_alerts(
             [self._stock('PLTR', progress=2.1, company='Palantir'),
-             self._stock('NVDA', change=-0.08, company='Nvidia')],
+             self._stock('NVDA', change=-0.08, company='Nvidia', value=920.0)],
             3.0
         )
-        subject, body = alerts.format_alert_email(found, 3.0)
+        subject, body, html_body = alerts.format_alert_email(found, 3.0)
 
         self.assertIn('1 near 2x', subject)
         self.assertIn('1 big mover', subject)
-        self.assertIn('Palantir (PLTR) [AI], £1,000 — 2.10x', body)
-        self.assertIn('Nvidia (NVDA) [AI], £1,000 — -8.0%', body)
+        self.assertEqual(self._html_tables(html_body), [
+            [['Name', 'Ticker', 'Tag', 'Current value', 'Progress to 2x'],
+             ['Palantir', 'PLTR', 'AI', '£1,000', '2.10x']],
+            [['Name', 'Ticker', 'Tag', 'Current value', 'Change', 'Change %'],
+             ['Nvidia', 'NVDA', 'AI', '£920', '-£80', '-8.0%']],
+        ])
+        self.assertIn('3.0%', html_body)
+
+        # The plain-text part carries the same rows, one line each, columns in the same order
+        mover = next(line for line in body.splitlines() if line.startswith('Nvidia'))
+        self.assertEqual(mover.split(), ['Nvidia', 'NVDA', 'AI', '£920', '-£80', '-8.0%'])
         self.assertIn('3.0%', body)
+
+    def test_absolute_change_is_todays_change_in_value(self):
+        """£1,050 after a 5% rise was £1,000 yesterday: a £50 change, not 5% of £1,050."""
+        found = alerts.find_alerts([self._stock('UP', change=0.05, value=1050.0)], 3.0)
+        _, _, html_body = alerts.format_alert_email(found, 3.0)
+        self.assertEqual(self._html_tables(html_body)[0][1][4], '+£50')
+
+    def test_html_escapes_stock_text(self):
+        found = alerts.find_alerts([self._stock('AT&T', change=0.05, company='<b>AT&T</b>')], 3.0)
+        _, _, html_body = alerts.format_alert_email(found, 3.0)
+        self.assertNotIn('<b>', html_body)
+        self.assertEqual(self._html_tables(html_body)[0][1][:2], ['<b>AT&T</b>', 'AT&T'])
 
     def test_email_omits_empty_section(self):
         """A quiet category is left out of the email entirely."""
         found = alerts.find_alerts([self._stock('PLTR', progress=2.1)], 3.0)
-        subject, body = alerts.format_alert_email(found, 3.0)
+        subject, body, html_body = alerts.format_alert_email(found, 3.0)
         self.assertNotIn('big mover', subject)
         self.assertNotIn('Moved at least', body)
+        self.assertNotIn('Moved at least', html_body)
+        self.assertEqual(len(self._html_tables(html_body)), 1)
 
 
 class _FakeResponse:
@@ -2117,6 +2187,14 @@ class TestAlertDelivery(unittest.TestCase):
         self.assertEqual(self._sent(), {'subject': 'subject', 'body': 'body',
                                         'severity': 'warning',
                                         'source': 'investment-reviews/portfolio-alerts'})
+
+    def test_sends_the_html_rendering_when_there_is_one(self):
+        """tier-4-notify mails `html` as an alternative part beside the plain-text body (#93)."""
+        self._patch()
+        alerts.send_alert('subject', 'body', 'warning', 'investment-reviews/portfolio-alerts',
+                          '<table></table>')
+        self.assertEqual(self._sent()['html'], '<table></table>')
+        self.assertEqual(self._sent()['body'], 'body')
 
     def test_no_brokered_endpoint_is_reported_as_undeliverable(self):
         """The service already separates "the run failed" from "the alert could not be sent" — an
@@ -2239,6 +2317,15 @@ class TestAlertFailureIsNonFatal(unittest.TestCase):
     def test_successful_delivery_leaves_the_channel_healthy(self):
         """The happy path must not flip the alert-delivery flag."""
         self.assertTrue(self._run().alert_delivery_ok)
+
+    def test_the_html_rendering_is_sent(self):
+        updater = self._updater()
+        with patch.object(ConsoleOutputParser, 'extract_stocks_from_output',
+                          return_value=[self.STOCK]), \
+             patch.object(alerts, 'send_alert') as send:
+            updater._send_alerts('irrelevant')
+        html_body = send.call_args.args[4]
+        self.assertTrue(html_body.startswith('<p>') and '<table' in html_body)
 
     def test_an_unregistered_deploy_reports_the_channel_broken_not_healthy(self):
         """This is a deliberate change from the recipient-in-config gate it replaces.
