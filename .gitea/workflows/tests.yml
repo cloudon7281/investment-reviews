@@ -34,9 +34,12 @@ jobs:
           REPO: ${{ github.repository }}
           # For a pull_request event the PR head is what must be tested, not the merge ref.
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        # The server URL's own scheme, not a forced `http://`: once Gitea is served over https behind
+        # the edge proxy, an http clone meets the proxy's redirect and loses the credentials on the
+        # way (devops-model#356).
         run: |
-          HOST="${SERVER#http://}"; HOST="${HOST#https://}"
-          git clone -q "http://token:${TOKEN}@${HOST}/${REPO}.git" repo
+          SCHEME="${SERVER%%://*}"; HOST="${SERVER#*://}"; HOST="${HOST%/}"
+          git clone -q "${SCHEME}://token:${TOKEN}@${HOST}/${REPO}.git" repo
           cd repo
           git checkout -q "$SHA"
           echo "testing $(git rev-parse --short HEAD) on $(git log -1 --pretty=%s)"
