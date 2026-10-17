@@ -22,14 +22,25 @@ services:
       - CONFIG_PATH=/run/config/config.yaml
       - LOG_FORMAT=json
       - METRICS_TEXTFILE_DIR=/textfile
+    # SDI, "Secrets": the Google service-account key, read by google_sheets_client.py at
+    # /run/secrets/google_sheets_service_account.json. Read once per run, so a rotation reaches the
+    # next nightly run with nothing restarted (SDI, "Rotation").
+    secrets:
+      - source: google_sheets_sa
+        target: google_sheets_service_account.json
     volumes:
       - ${STATE_DIR}/config:/run/config:ro
-      - ${STATE_DIR}/credentials:/run/credentials:ro
       - ${STATE_DIR}/history:/data/history:ro
       - ${STATE_DIR}/outputs:/data/outputs
       # SDI, "Shared stores" (metrics-textfile); node_exporter scrapes *.prom here.
       - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]
+
+secrets:
+  # Seeded by `tier2-project register-service --seed-secret-file`, replaced in place by
+  # `tier2-project rotate-secret` (docs/operations.md, "The Google service-account key").
+  google_sheets_sa:
+    file: ${STATE_DIR}/secrets/google_sheets_service_account.json
 
 networks:
   # networking-model.md, "Shared service network": created by the platform on every host;

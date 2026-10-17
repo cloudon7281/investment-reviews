@@ -363,8 +363,10 @@ python3 portfolio.py --mode test --test-data ~/path/to/test/data
 
 **Setup:**
 1. Copy `config.yaml.template` to `config.yaml`
-2. Add Google Sheets credentials (see Google Sheets API documentation)
-3. Configure spreadsheet ID in config.yaml
+2. Configure spreadsheet ID in config.yaml
+3. Point `GOOGLE_SHEETS_CREDENTIALS_FILE` at the service-account key. The deployed service reads it
+   from `/run/secrets/google_sheets_service_account.json` instead, a secret seeded by tier2-project
+   ([docs/operations.md](docs/operations.md), "The Google service-account key")
 
 **Upload to Google Sheets:**
 ```bash
@@ -693,7 +695,9 @@ For corporate actions not captured in broker notes (stock splits, conversions, m
 
 1. Set up Google Cloud project with Sheets API enabled
 2. Download service account credentials
-3. Configure in `config.yaml` (copy from `config.yaml.template`)
+3. Configure in `config.yaml` (copy from `config.yaml.template`), and name the key file in
+   `GOOGLE_SHEETS_CREDENTIALS_FILE` for a local run. The deployed service holds the key as a secret
+   ([docs/security.md](docs/security.md))
 
 ## Contributing
 
