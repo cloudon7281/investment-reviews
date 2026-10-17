@@ -2,9 +2,10 @@
 # Edit this file with your specific values
 
 google_sheets:
-  # Path to Google service account credentials JSON file
-  credentials_path: ~/investment_reviews/credentials/google_sheets_service_account.json
-  
+  # The service-account key is not configured here. It is a secret, read from
+  # /run/secrets/google_sheets_service_account.json, or from the file named by
+  # GOOGLE_SHEETS_CREDENTIALS_FILE for a run outside the container (docs/operations.md).
+
   # Spreadsheet ID from Google Sheets URL
   # Example URL: https://docs.google.com/spreadsheets/d/ABC123xyz.../edit
   # ID is: ABC123xyz...
@@ -41,32 +42,6 @@ notifications:
   # Optional: Email address to notify on errors
   # Leave empty to disable email notifications
   email_on_error: ""
-
-  # Nightly alerts for stocks approaching a doubling (Progress to 2x above 1.95)
-  # or moving sharply today (see --daily-change-threshold, default 3%).
-  # An email is only sent on nights where at least one stock qualifies.
-  alerts:
-    # Recipient address; leave empty to disable alerts
-    to: ""
-    # Sender. MUST be an address on the Proton Bridge account below — any other address
-    # is accepted at MAIL FROM and then rejected at DATA with "no such user".
-    from: alerts@calumlabs.uk
-    # SMTP relay (Proton Bridge). From inside the container it is reached over the shared service
-    # network by its declared name; use localhost for a local run outside the estate.
-    # Fallback only. Registration brokers the relay's address into the container as
-    # CONSUMED_SMTP_HOST / CONSUMED_SMTP_PORT (SDI, "Service-to-service endpoints") and that
-    # value WINS over this one — the platform is the authority on where another service is. Left
-    # as a fallback so an unregistered deploy has somewhere to try. It said
-    # `host.docker.internal`, which sent a container out to the host and back to reach a
-    # container on the same host.
-    smtp_host: ""
-    smtp_port: 1025
-    # The bridge account's PRIMARY address, not the send-as address above: the bridge runs
-    # in combined-address mode and issues one username/password pair for SMTP and IMAP.
-    smtp_user: cloudon7281@proton.me
-    # Bridge-generated password, mounted as a compose secret. Not the Proton account
-    # password and not an SMTP-submission token (those target smtp.protonmail.ch:587).
-    smtp_password_file: /run/secrets/smtp_password
 
 calculated_columns:
   # Columns that should auto-generate SUM formulas

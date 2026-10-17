@@ -4093,6 +4093,74 @@ class TestInsertColumnAtTheEnd(unittest.TestCase):
         self.assertEqual(self._insert_request(client)['range']['sheetId'], 7)
 
 
+class TestServiceAccountKeyIsASecret(unittest.TestCase):
+    """The Google service-account key is a declared secret, read from /run/secrets
+    (devops-model#333 phase 4).
+
+    It used to be under ${STATE_DIR}/credentials, named by `credentials_path` in the hand-edited
+    config.yaml, where tier2-project could neither seed nor rotate it. The live config.yaml still
+    names the old path, so the client must not honour that setting, or the run would look for the
+    key where nothing is mounted any more.
+    """
+
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
+    NAME = 'google_sheets_service_account.json'
+
+    def _client(self, google_sheets, env=None):
+        """Construct the client with the Google libraries patched out; return (path read, logs)."""
+        import google_sheets_client
+        with tempfile.NamedTemporaryFile('w', suffix='.yaml', delete=False) as f:
+            yaml.safe_dump({'google_sheets': google_sheets}, f)
+        self.addCleanup(os.unlink, f.name)
+        environ = {k: v for k, v in os.environ.items() if k != 'GOOGLE_SHEETS_CREDENTIALS_FILE'}
+        environ.update(env or {})
+        with patch.dict(os.environ, environ, clear=True), \
+                patch.object(google_sheets_client.service_account.Credentials,
+                             'from_service_account_file') as load, \
+                patch.object(google_sheets_client, 'build'), \
+                self.assertLogs('google_sheets_client', level='WARNING') as logs:
+            logging.getLogger('google_sheets_client').warning('sentinel')
+            GoogleSheetsClient(f.name)
+        return load.call_args.args[0], [r.getMessage() for r in logs.records][1:]
+
+    def test_the_key_is_read_from_the_mounted_secret(self):
+        path, logs = self._client({'spreadsheet_id': 's', 'worksheet_name': 'w'})
+        self.assertEqual(path, f'/run/secrets/{self.NAME}')
+        self.assertEqual(logs, [])
+
+    def test_a_stale_credentials_path_is_ignored_and_named(self):
+        """The live config.yaml's setting, exactly as it is on jarvis."""
+        path, logs = self._client({'spreadsheet_id': 's', 'worksheet_name': 'w',
+                                   'credentials_path': f'/run/credentials/{self.NAME}'})
+        self.assertEqual(path, f'/run/secrets/{self.NAME}')
+        self.assertEqual(len(logs), 1)
+        self.assertIn('credentials_path', logs[0])
+
+    def test_a_run_outside_the_container_names_its_own_key(self):
+        path, _ = self._client({'spreadsheet_id': 's', 'worksheet_name': 'w'},
+                               env={'GOOGLE_SHEETS_CREDENTIALS_FILE': '~/keys/sa.json'})
+        self.assertEqual(path, os.path.expanduser('~/keys/sa.json'))
+
+    def test_the_manifest_declares_the_key_as_a_copy_of_its_credential(self):
+        """service-manifest-reference.md, "Secrets": declared, so registration seeds it and
+        `rotate-secret --credential google-sheets-sa` finds it."""
+        manifest = yaml.safe_load((self.ROOT / 'deploy' / 'service.yaml').read_text())
+        self.assertEqual(manifest.get('secrets'),
+                         [{'name': self.NAME, 'credential': 'google-sheets-sa'}])
+
+    def test_compose_mounts_the_declared_secret_where_the_client_reads_it(self):
+        import google_sheets_client
+        compose = yaml.safe_load((self.ROOT / 'deploy' / 'docker-compose.yml').read_text())
+        runner = compose['services']['runner']
+        [mount] = runner['secrets']
+        self.assertEqual(compose['secrets'][mount['source']],
+                         {'file': f'${{STATE_DIR}}/secrets/{self.NAME}'})
+        self.assertEqual(f"/run/secrets/{mount['target']}",
+                         google_sheets_client.DEFAULT_CREDENTIALS_FILE)
+        self.assertFalse([v for v in runner['volumes'] if 'credentials' in v],
+                         'the old state/credentials mount is back')
+
+
 class TestCheckNotesCandidates(unittest.TestCase):
     """Proposing an identifier and recording the choice (investment-reviews#59)."""
 

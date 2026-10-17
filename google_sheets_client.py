@@ -5,6 +5,7 @@ Google Sheets API client for portfolio updates.
 Handles authentication, reading, writing, and chart updates.
 """
 
+import logging
 import os
 import yaml
 from typing import List, Dict, Optional, Any
@@ -12,6 +13,19 @@ from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+
+# SDI, "Secrets": the service-account key is a secret, seeded and rotated by tier2-project into
+# ${STATE_DIR}/secrets and mounted by compose here (devops-model#333). It is read once per run, so a
+# rotated key reaches the next nightly run. GOOGLE_SHEETS_CREDENTIALS_FILE names the key for a run
+# outside the container, where there is no /run/secrets.
+DEFAULT_CREDENTIALS_FILE = '/run/secrets/google_sheets_service_account.json'
+
+
+def credentials_file() -> str:
+    """The service-account key file this run reads."""
+    return os.path.expanduser(
+        os.environ.get('GOOGLE_SHEETS_CREDENTIALS_FILE') or DEFAULT_CREDENTIALS_FILE)
 
 
 class GoogleSheetsClient:
@@ -33,11 +47,14 @@ class GoogleSheetsClient:
         gs_config = self.config['google_sheets']
         self.spreadsheet_id = gs_config['spreadsheet_id']
         self.worksheet_name = gs_config['worksheet_name']
-        credentials_path = os.path.expanduser(gs_config['credentials_path'])
-        
+        if 'credentials_path' in gs_config:
+            logging.getLogger(__name__).warning(
+                "google_sheets.credentials_path in %s is no longer read: the key is read from %s. "
+                "Remove the setting (docs/operations.md)", config_path, credentials_file())
+
         # Authenticate
         credentials = service_account.Credentials.from_service_account_file(
-            credentials_path, scopes=self.SCOPES)
+            credentials_file(), scopes=self.SCOPES)
         
         # Build service
         self.service = build('sheets', 'v4', credentials=credentials)

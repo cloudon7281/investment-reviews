@@ -30,6 +30,14 @@ ports: []
 consumesPorts:
   - name: notify
 
+# service-manifest-reference.md, "Secrets": the one secret this service reads, the Google
+# service-account key it writes the spreadsheet with (`registers/identities.md`, credential
+# `google-sheets-sa`). Seeded and rotated by tier2-project into ${STATE_DIR}/secrets and mounted by
+# compose at /run/secrets. It used to live in ${STATE_DIR}/credentials, outside secrets/, where
+# neither registration nor `rotate-secret` could reach it (devops-model#333).
+secrets:
+  - {name: google_sheets_service_account.json, credential: google-sheets-sa}
+
 # Explicitly mark this stack as jobs-only.
 # Back-compat default is always-on for stacks that omit this.
 lifecycle: jobs-only
