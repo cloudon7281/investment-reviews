@@ -2,13 +2,15 @@ name: enable-auto-merge
 
 on:
   pull_request:
-    types: [opened, reopened]
+    # Each push too (tier2-project#466): a PR opened while it conflicts with its base cannot be armed (Gitea answers
+    # 405), and the push that resolves the conflict is what can arm it. Re-arming one already armed answers 409.
+    types: [opened, reopened, synchronize]
 
 jobs:
   manage-auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Arm auto-merge on open and on reopen
+      - name: Arm auto-merge on open, on reopen and on each push
         env:
           TOKEN: ${{ secrets.AUTO_TAG_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -37,8 +39,17 @@ jobs:
           else
             echo "mergeability unresolved after polling; arming auto-merge anyway (fail-open) for PR ${PR_NUMBER}"
           fi
-          curl -fsSL -X POST \
+          # A refusal fails the job, so an unarmed PR shows a red check rather than a green one (tier2-project#466).
+          STATUS=$(curl -sS -o arm-reply.json -w '%{http_code}' -X POST \
             -H "Authorization: token ${TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{"Do":"merge","merge_when_checks_succeed":true}' \
-            "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || true
+            "${API_BASE}/repos/${REPO}/pulls/${PR_NUMBER}/merge" || echo 000)
+          case "${STATUS}" in
+            2??) echo "auto-merge armed for PR ${PR_NUMBER}" ;;
+            409) echo "auto-merge already armed for PR ${PR_NUMBER}" ;;
+            *)
+              echo "auto-merge NOT armed for PR ${PR_NUMBER}: HTTP ${STATUS}: $(cat arm-reply.json 2>/dev/null)"
+              echo "A PR that conflicts with its base cannot be armed: resolving the conflict with a push arms it."
+              exit 1 ;;
+          esac
