@@ -33,6 +33,10 @@ As these documents make clear, you may be developing in one of two locations.
 
 In both cases the canonical clone path is /Users/cl/dev/<project>.
 
+Which host you are on is decided by where the session was started, not by the project. Either host is fine for development, but some steps happen only on jarvis whichever host you are on: see software-development-standards.md, "Development hosts".
+
+Put any git worktree at /Users/cl/dev/.worktrees/<project>-<topic>, on either host, and remove it with `git worktree remove` once its branch has merged. The dev sweep reports a worktree anywhere else, and one whose work is already on main (software-development-standards.md, "Worktrees").
+
 Start by determining which environment you are in, and when relevant to a decision, command or explanation mention it to the user.  To determine the environment, run hostname:
 - hostname=jarvis -> you are running on jarvis
 - hostname=Macbook -> you are running on Calum's Macbook.
