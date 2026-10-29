@@ -535,6 +535,58 @@ class PortfolioReporter:
         if self.numbers_writer:
             self._save_numbers_document()
 
+    # Columns where a blank means "could not be calculated", shown as N/A (investment-reviews#96).
+    _UNAVAILABLE_COLUMNS = {'held_value', 'total_value', 'pnl', 'total_return', 'annualised', 'value_added',
+                            'invested', 'aggregate_return', 'mean_annualised', 'cohort_annualised'}
+
+    def display_decision_outcomes(self, results: Dict[str, object]) -> None:
+        """Display the decision outcomes report: cohorts, fixed horizons, and decision-level detail.
+
+        Args:
+            results: from decision_outcomes.process_decision_outcomes().
+        """
+        summary = results['summary']
+        print(f"\nDecision outcomes for decisions dated {summary['start_date']:%d/%m/%y} to "
+              f"{summary['end_date']:%d/%m/%y}, valued at {summary['eval_date']:%d/%m/%y}.")
+        print(f"{summary['decisions']} decisions, {summary['not_executed']} not executed. "
+              f"{summary['left_out_trades']} trades in the period are not in the decision log and are left out "
+              f"as decisions, but still count when sales are matched to purchases (check-decisions lists them).")
+        if summary['delisted']:
+            print(f"Treated as delisted (worth nothing at the as-of date, N/A at horizons): "
+                  f"{', '.join(summary['delisted'])}.")
+        if summary['unpriced']:
+            print(f"{summary['unpriced']} measurements have a missing price and are shown as N/A.")
+        print("Returns are over the whole holding period; (ann.) marks annualised money-weighted returns, "
+              "N/A until 3 months have passed. Sale figures are hypothetical: what the shares sold would "
+              "have been worth had they been kept.")
+
+        tables = (
+            ('purchase_cohorts', 'decision_purchase_cohorts', 'Purchase decisions by month (actual)'),
+            ('sale_cohorts', 'decision_sale_cohorts', 'Sale decisions by month (hypothetical, had the shares been kept)'),
+            ('purchase_horizons', 'decision_purchase_horizons', 'Purchase decisions at fixed horizons (actual)'),
+            ('sale_horizons', 'decision_sale_horizons', 'Sale decisions at fixed horizons (hypothetical)'),
+            ('decisions', 'decision_outcome_decisions', 'Decisions'),
+            ('purchase_outcomes', 'decision_purchase_outcomes', 'Purchase decision outcomes (actual)'),
+            ('sale_outcomes', 'decision_sale_outcomes', 'Sale decision outcomes (hypothetical)'),
+            ('movements', 'decision_movements', 'Trades and share movements behind each decision'),
+        )
+        for key, config_key, title in tables:
+            df = results[key]
+            if df.empty:
+                continue
+            config = rd.COLUMN_CONFIGS[config_key]
+            table_data = self.data_builder.build_table(df, config, title=title)
+            for row in table_data['data']:
+                for column, cell in zip(config['columns'], row['cells']):
+                    if column in self._UNAVAILABLE_COLUMNS and cell['raw_value'] == '':
+                        cell.update(raw_value='N/A', format_config=None)
+            self.console_writer.write_table(table_data, config)
+            if self.numbers_writer:
+                self.numbers_writer.write_table(table_data, config, title, title)
+
+        if self.numbers_writer:
+            self._save_numbers_document()
+
     def write_value_over_time_csv(self, value_df: pd.DataFrame, n_days: int) -> None:
         """Write value-over-time CSV file.
 

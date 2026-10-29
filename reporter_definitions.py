@@ -51,6 +51,38 @@ TIME_HELD_THRESHOLD = [
 ]
 
 # Define column configurations for each report type
+
+_COHORT_COUNT_HEADERS = ['Profitable', '2x', '5x', '10x', 'Loss 0–20%', 'Loss 20–50%', 'Loss >50%', 'Flat', 'Unpriced']
+_COHORT_COUNT_COLUMNS = ['profitable', 'x2', 'x5', 'x10', 'loss_under_20', 'loss_20_to_50', 'loss_over_50', 'flat', 'unpriced']
+
+
+def _purchase_cohort_config(lead_headers, lead_columns):
+    """Columns of a purchase-cohort table, after its leading columns (investment-reviews#96)."""
+    headers = lead_headers + ['Still Held'] + _COHORT_COUNT_HEADERS + [
+        'Cost', 'P&L', 'Return', 'Mean MWRR (ann.)', 'MWRRs in Mean', 'Cohort MWRR (ann.)']
+    columns = lead_columns + ['still_held'] + _COHORT_COUNT_COLUMNS + [
+        'invested', 'pnl', 'aggregate_return', 'mean_annualised', 'annualised_count', 'cohort_annualised']
+    formats = [None] * (len(lead_columns) + 1 + len(_COHORT_COUNT_COLUMNS)) + [
+        CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS, PERCENTAGE_FORMAT, PERCENTAGE_FORMAT,
+        None, PERCENTAGE_FORMAT]
+    return {'headers': headers, 'columns': columns, 'column_formats': formats,
+            'column_thresholds': [None] * len(columns)}
+
+
+def _sale_cohort_config(lead_headers, lead_columns):
+    """Columns of a sale-cohort table: hypothetical figures, had the shares sold been kept."""
+    headers = lead_headers + ['Hypo. ' + h if h != 'Unpriced' else h for h in _COHORT_COUNT_HEADERS] + [
+        'Proceeds', 'Value if Kept', 'Value Added by Selling', 'Hypo. Return', 'Mean Hypo. Return (ann.)',
+        'Returns in Mean', 'Hypo. MWRR (ann.)']
+    columns = lead_columns + _COHORT_COUNT_COLUMNS + [
+        'invested', 'total_value', 'value_added', 'aggregate_return', 'mean_annualised', 'annualised_count',
+        'cohort_annualised']
+    formats = [None] * (len(lead_columns) + len(_COHORT_COUNT_COLUMNS)) + [
+        CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS,
+        PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None, PERCENTAGE_FORMAT]
+    return {'headers': headers, 'columns': columns, 'column_formats': formats,
+            'column_thresholds': [None] * len(columns)}
+
 COLUMN_CONFIGS = {
     'full_history': {
         'headers': ['Tag', 'Company', 'Ticker', 'Category', 'Total Invested', 'Total Received', 'Units Held', 'Current Value', 'P&L', 'Unrealized Profit', 'Simple ROI', 'MWRR', 'Current price', '1d Change', '90d High', '% of High', '10d Smoothed High', '% of Smoothed High', 'P90 High', '% of P90 High', 'Volatility', 'Progress to 2x', '# Doublings', 'First Transaction', 'Last Transaction'],
@@ -421,6 +453,46 @@ COLUMN_CONFIGS = {
         'headers': ['Company', 'Ticker', 'Account', 'Date', 'Type', 'Units', 'Value (£)', 'Note'],
         'columns': ['stock_name', 'ticker', 'account', 'date', 'action', 'quantity', 'value_gbp', 'note'],
         'column_formats': [None, None, None, DATE_FORMAT, None, None, CURRENCY_FORMAT_NO_DECIMALS, None],
+        'column_thresholds': [None] * 8,
+    },
+    'decision_purchase_cohorts': _purchase_cohort_config(['Month', 'Purchases'], ['month', 'decisions']),
+    'decision_sale_cohorts': _sale_cohort_config(['Month', 'Sales'], ['month', 'decisions']),
+    'decision_purchase_horizons': _purchase_cohort_config(['Month', 'Horizon', 'Eligible'],
+                                                          ['month', 'horizon', 'decisions']),
+    'decision_sale_horizons': _sale_cohort_config(['Month', 'Horizon', 'Eligible'],
+                                                  ['month', 'horizon', 'decisions']),
+    'decision_outcome_decisions': {
+        'headers': ['Decision', 'Ticker', 'Action', 'Decision Date', 'First Trade', 'Last Trade', 'Accounts',
+                    'Status', 'Primary Reason', 'Secondary Reasons', 'Type', 'Version', 'Linked To',
+                    'Linked From', 'Horizons (months)', 'Commentary'],
+        'columns': ['decision_id', 'ticker', 'action', 'decision_date', 'first_trade', 'last_trade', 'accounts',
+                    'status', 'primary_reason', 'secondary_reasons', 'investment_type', 'classification_version',
+                    'linked_to', 'linked_from', 'horizons', 'commentary'],
+        'column_formats': [None, None, None, DATE_FORMAT, DATE_FORMAT, DATE_FORMAT] + [None] * 10,
+        'column_thresholds': [None] * 16,
+    },
+    'decision_purchase_outcomes': {
+        'headers': ['Decision', 'Ticker', 'Measured', 'Date', 'Cost', 'Realised', 'Held Value', 'Total Value',
+                    'P&L', 'Return', 'MWRR (ann.)', 'Still Held', 'Flag'],
+        'columns': ['decision_id', 'ticker', 'measured_at', 'date', 'invested', 'realised', 'held_value',
+                    'total_value', 'pnl', 'total_return', 'annualised', 'still_held', 'flag'],
+        'column_formats': [None, None, None, DATE_FORMAT] + [CURRENCY_FORMAT_NO_DECIMALS] * 5 + [
+            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None, None],
+        'column_thresholds': [None] * 13,
+    },
+    'decision_sale_outcomes': {
+        'headers': ['Decision', 'Ticker', 'Measured', 'Date', 'Proceeds', 'Value if Kept', 'Hypo. P&L',
+                    'Value Added by Selling', 'Hypo. Return', 'Hypo. Return (ann.)', 'Flag'],
+        'columns': ['decision_id', 'ticker', 'measured_at', 'date', 'invested', 'total_value', 'pnl',
+                    'value_added', 'total_return', 'annualised', 'flag'],
+        'column_formats': [None, None, None, DATE_FORMAT] + [CURRENCY_FORMAT_NO_DECIMALS] * 4 + [
+            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None],
+        'column_thresholds': [None] * 11,
+    },
+    'decision_movements': {
+        'headers': ['Decision', 'Date', 'Event', 'Ticker', 'Account', 'Units (split-adjusted)', 'Cash (£)', 'Note'],
+        'columns': ['decision_id', 'date', 'event', 'ticker', 'account', 'units', 'cash', 'note'],
+        'column_formats': [None, DATE_FORMAT, None, None, None, None, CURRENCY_FORMAT_NO_DECIMALS, None],
         'column_thresholds': [None] * 8,
     },
     'annual_review_detail': {

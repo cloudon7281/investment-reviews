@@ -22,6 +22,10 @@ class MarketDataFetcher:
         """Initialize the market data fetcher with empty caches."""
         self.price_cache: Dict[str, pd.DataFrame] = {}
         self.exchange_rate_cache: Dict[str, float] = {}
+        # Tickers whose fetch failed, as distinct from tickers Yahoo returned no data for.
+        # Both leave an empty frame in the cache; only the decision-outcomes report tells
+        # them apart, because it values a ticker with no data as delisted (#96).
+        self.fetch_errors: set = set()
 
     def get_current_exchange_rate(self, from_currency: str, to_currency: str = 'GBP') -> float:
         """Get the current live exchange rate between two currencies.
@@ -439,6 +443,7 @@ class MarketDataFetcher:
                         logger.error(f"Error processing {ticker}, no price data will be available for it: {str(e)}")
                         logger.exception("Full traceback:")
                         self.price_cache[ticker] = pd.DataFrame()
+                        self.fetch_errors.add(ticker)
 
             except RuntimeError as e:
                 # Re-raise RuntimeError from ticker info failures - these are fatal
@@ -450,6 +455,7 @@ class MarketDataFetcher:
                 # Initialize empty DataFrames for failed tickers
                 for ticker in uncached_tickers:
                     self.price_cache[ticker] = pd.DataFrame()
+                    self.fetch_errors.add(ticker)
 
         return {ticker: self.price_cache[ticker] for ticker in tickers}
 

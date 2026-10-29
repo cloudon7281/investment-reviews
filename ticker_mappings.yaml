@@ -36,6 +36,11 @@ exchange_suffixes:
   IT:
     note: Borsa Italiana
     suffix: .MI
+  'NO':
+    note: Oslo Børs. Quoted, or YAML reads it as false. Without it a Norwegian note's ticker has no
+      suffix, so the Kongsberg Maritime sale (KMAR) never met the KMAR.OL holding the demerger
+      created (investment-reviews#96)
+    suffix: .OL
   US:
     note: US stocks have no suffix
     suffix: ''

@@ -364,22 +364,35 @@ def trades_from(portfolio_review) -> List[Trade]:
     return sorted(trades, key=lambda t: t.date)
 
 
-def link_decisions(decisions: List[Decision], trades: List[Trade]) -> DecisionLinks:
-    """Attach each trade to the decision whose stock, action and execution window it falls in.
-
-    The log's validation guarantees no trade can fall in two decisions' windows.
-    """
-    trades_by_decision: Dict[str, List[Trade]] = {d.decision_id: [] for d in decisions}
+def decisions_by_stock(decisions: List[Decision]) -> Dict[Tuple[str, str], List[Decision]]:
+    """The decisions keyed by (ticker, action), for matching_decision()."""
     by_stock: Dict[Tuple[str, str], List[Decision]] = {}
     for decision in decisions:
         by_stock.setdefault((decision.ticker, decision.action), []).append(decision)
+    return by_stock
+
+
+def matching_decision(by_stock: Dict[Tuple[str, str], List[Decision]], ticker: str, action: str,
+                      date: datetime) -> Optional[Decision]:
+    """The decision a trade of this stock, action and date belongs to, or None.
+
+    The log's validation guarantees no trade can fall in two decisions' windows.
+    """
+    day = datetime(date.year, date.month, date.day)
+    return next((d for d in by_stock.get((ticker, action), [])
+                 if d.window_start <= day <= d.window_end), None)
+
+
+def link_decisions(decisions: List[Decision], trades: List[Trade]) -> DecisionLinks:
+    """Attach each trade to the decision whose stock, action and execution window it falls in."""
+    trades_by_decision: Dict[str, List[Trade]] = {d.decision_id: [] for d in decisions}
+    by_stock = decisions_by_stock(decisions)
 
     log_start = min((d.window_start for d in decisions), default=None)
     unlogged = []
     for trade in trades:
         day = datetime(trade.date.year, trade.date.month, trade.date.day)
-        match = next((d for d in by_stock.get((trade.ticker, trade.action), [])
-                      if d.window_start <= day <= d.window_end), None)
+        match = matching_decision(by_stock, trade.ticker, trade.action, trade.date)
         if match:
             trades_by_decision[match.decision_id].append(trade)
         elif log_start and day >= log_start:

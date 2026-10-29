@@ -17,6 +17,7 @@ import periodic_review_processor
 import annual_review_processor
 import list_trades_processor
 import decision_log
+import decision_outcomes
 
 class PortfolioAnalysis:
     def __init__(self):
@@ -58,6 +59,17 @@ class PortfolioAnalysis:
         decisions = decision_log.load_decision_log(log_dir)
         links = decision_log.link_decisions(decisions, decision_log.trades_from(portfolio_review))
         return decision_log.check_tables(decisions, links)
+
+    def process_decision_outcomes(self, portfolio_review: PortfolioReview, log_dir: str, start_date: datetime,
+                                  end_date: Optional[datetime], eval_date: Optional[datetime]) -> Dict[str, object]:
+        """The outcomes of the logged decisions dated from start_date to end_date, valued at eval_date.
+
+        Raises:
+            decision_log.DecisionLogError: if the log is invalid.
+            decision_outcomes.PriceFetchError: if prices could not be fetched for a ticker it values.
+        """
+        return decision_outcomes.process_decision_outcomes(
+            portfolio_review, log_dir, start_date, end_date, eval_date, self.market_data_fetcher)
 
     def process_annual_review(self, portfolio_review: PortfolioReview, start_date: datetime, price_over_time: bool = False) -> Dict[str, pd.DataFrame]:
         """Process annual review analysis.

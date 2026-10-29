@@ -142,7 +142,7 @@ class Amendment6(LogTestCase):
         self.assertEqual(links.trades_by_decision[november.decision_id], [second])
 
     def test_historical_transaction_without_classification_stays_reportable(self):
-        """A trade before the log starts is neither linked nor flagged: it is left unclassified."""
+        """A trade before the log starts is neither linked nor flagged as unlogged."""
         self.write('r.yaml', log_file('2026-11-02', '2026-11-02', '2026-11-13', entry('RHM.DE', 'buy', 'thesis')))
         old = trade('MSFT', 'buy', '2024-03-15')
         links = link_decisions(self.load(), [old])

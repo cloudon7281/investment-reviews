@@ -4024,7 +4024,7 @@ class TestTickerMappingsFile(unittest.TestCase):
         leveraged ARM fund.
         """
         self.assertEqual(len(ticker_mapping.TICKER_MAPPING), 45)
-        self.assertEqual(len(ticker_mapping.EXCHANGE_SUFFIX_MAP), 6)
+        self.assertEqual(len(ticker_mapping.EXCHANGE_SUFFIX_MAP), 7)  # 6, plus Oslo (#96)
         self.assertEqual(len(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP), 33)
 
     def test_the_entries_that_earlier_issues_turned_on_are_still_there(self):
@@ -4034,6 +4034,8 @@ class TestTickerMappingsFile(unittest.TestCase):
             with self.subTest(ticker=ticker):
                 self.assertEqual(ticker_mapping.SPECIAL_EXCHANGE_SUFFIX_MAP[ticker], suffix)
         self.assertEqual(ticker_mapping.TICKER_MAPPING['Jupiter India'], '0P00018LFD.L')
+        # Unquoted, YAML reads the key NO as false, and Norwegian notes lose their suffix (#96)
+        self.assertEqual(ticker_mapping.EXCHANGE_SUFFIX_MAP['NO'], '.OL')
 
     def test_an_entry_may_carry_a_note_or_not(self):
         """Most mappings need no explanation; the ones that do need it badly."""
