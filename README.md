@@ -63,7 +63,7 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Computed from the log and parsed broker notes alone, with no market data
 
 **Decision Outcomes Mode**
-- How the logged purchases and sales have turned out, grouped by the month of the decision
+- How the logged purchases and sales have turned out, grouped by the month and by the primary reason of the decision, beside a US equities benchmark
 - Purchases: actual realised and unrealised return; sales: what the shares sold would be worth had they been kept
 - Measured at the as-of date and 3, 6, 12 and 24 months after each decision's first trade
 
@@ -494,6 +494,23 @@ return combines its decisions' cash flows, and is N/A until all of them have bee
 months. A P&L under half a penny is flat. The loss bands are under 20%, 20–50% inclusive,
 and over 50%; the 2x, 5x and 10x counts are cumulative.
 
+#### Benchmark
+
+Every purchase and sale figure, from a single decision to a cohort, has a US equities
+benchmark beside it (**US Eq.**): the same cash in periodic-review's "Benchmarks - US
+Equities", an equal-weight basket of the Dow (`^DJI`), the S&P 500 (`^GSPC`) and the Nasdaq
+Composite (`^IXIC`), in GBP. Each amount invested is split equally across the three that day.
+
+- For a purchase, its cost goes into the basket on its purchase dates, and each sale of its
+  shares sells the same fraction of the basket: by units, or by value once a demerger has
+  made the holding two stocks.
+- For a sale, its proceeds go into the basket on its sale dates, so the hypothetical
+  "kept the shares" sits beside "put the proceeds into US equities".
+
+The benchmark has a return and an annualised return, on the same rules as the decision's.
+A cohort's benchmark covers the same decisions as its own figures, and is N/A if any of them
+lacks one. A missing index price is N/A, never zero; a failed index fetch fails the run.
+
 #### Missing prices and delisting
 
 A decision needing a price that is not there is shown as N/A with a flag saying why, counted
@@ -505,8 +522,9 @@ fails, as distinct from returning no data, fails the run.
 
 #### Output
 
-Eight tables, on the console and in the Numbers file: purchase and sale cohorts by month
-at the as-of date, the same at each horizon, then the decisions with their classification,
+Ten tables, on the console and in the Numbers file: purchase and sale cohorts by month
+at the as-of date, the same grouped by decision type (the primary reason) instead of month,
+the same by month at each horizon, then the decisions with their classification,
 each decision's outcome at every measurement, and the trades and share movements behind each
 decision, with the notes they came from. A cohort row is the sum of its decisions' rows.
 
@@ -797,7 +815,7 @@ Organized as a **facade pattern** with specialized modules:
 - `market_data_fetcher.py` - Yahoo Finance API integration, including data cleaning to deal with missing data, spikes, pence<->pound changes mid-stream etc.
 - `holdings_calculator.py` - Holdings and valuations at specific dates
 - `decision_log.py` - The decision log: taxonomy, validation, and linking decisions to trades
-- `decision_outcomes.py` - Decision outcomes: FIFO lots per decision, measurement at the as-of date and horizons, cohorts
+- `decision_outcomes.py` - Decision outcomes: FIFO lots per decision, measurement at the as-of date and horizons, the US equities benchmark, cohorts
 
 **Mode processors:**
 - `full_history_processor.py` - Complete portfolio history analysis

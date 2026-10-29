@@ -21,6 +21,9 @@ How shares are followed from the trades to the decisions that own them:
 - A demerger's new shares, and the shares of a share grant, are given to the lots held in
   that account, in proportion to their units.
 
+Each outcome is set beside a benchmark: the same cash put into US equities on the same dates
+(see Benchmark).
+
 Prices are Yahoo closes in GBP, looked up with the existing 14-day lookback.  A ticker Yahoo
 has no data for is treated as delisted: worth nothing at the as-of date, and N/A at a fixed
 horizon, since Yahoo drops a delisted stock's whole history.  Distributions are not included.
@@ -40,6 +43,7 @@ import transaction_processor
 from decision_log import Decision
 from list_trades_processor import _ACCOUNT_DISPLAY
 from logger import logger
+from periodic_review_processor import BENCHMARKS
 
 HORIZON_MONTHS = (3, 6, 12, 24)
 
@@ -47,6 +51,11 @@ HORIZON_MONTHS = (3, 6, 12, 24)
 ANNUALISE_AFTER_MONTHS = 3
 
 AS_OF = 'As of'
+
+# The benchmark every outcome is compared with: periodic-review's "Benchmarks - US Equities",
+# an equal-weight basket of the indices it lists under that tag (#96).
+BENCHMARK_TAG = 'Benchmarks - US Equities'
+BENCHMARK_TICKERS = [ticker for tag, ticker, _ in BENCHMARKS if tag == BENCHMARK_TAG]
 
 # Units below this are rounding left by proportional allocation, not a holding.
 _UNIT_EPSILON = 1e-6
@@ -102,6 +111,10 @@ class Outcome:
     still_held: bool
     cash_flows: List[Tuple[datetime, float]] = field(default_factory=list)
     flag: Optional[str] = None
+    benchmark_value: Optional[float] = None
+    benchmark_return: Optional[float] = None
+    benchmark_annualised: Optional[float] = None
+    benchmark_flows: List[Tuple[datetime, float]] = field(default_factory=list)
 
 
 # A lot is [owner decision ID or None, units, date acquired].  A holding's lots are kept in
@@ -256,6 +269,100 @@ class Prices:
         return holdings_calculator.get_stock_price_from_data(self.ticker(key), date, self.price_data)
 
 
+class Benchmark:
+    """An equal-weight basket of indices, in GBP.
+
+    Each amount invested is split equally across the indices on the day it goes in, and
+    held as units of each.  The basket's value is then what that mix would be worth.
+    """
+
+    def __init__(self, price_data: Dict[str, pd.DataFrame], tickers: List[str]):
+        self.price_data = price_data
+        self.tickers = tickers
+
+    def prices(self, date: datetime) -> Optional[Dict[str, float]]:
+        """Every index's GBP close at `date`, or None if any is missing."""
+        found = {t: holdings_calculator.get_stock_price_from_data(t, date, self.price_data) for t in self.tickers}
+        return None if any(p is None for p in found.values()) else found
+
+
+def _sold_fraction(held: Dict[NoteKey, float], movement: Movement, prices: Prices) -> Optional[float]:
+    """The fraction of a purchase's holding that a sale movement disposes of.
+
+    Measured in units when the holding is one stock, however many accounts it is in.  After
+    a demerger it is two stocks, and units of one are not units of the other, so the fraction
+    is of the holding's value that day; None if a price is missing.
+    """
+    by_ticker: Dict[str, float] = {}
+    for key, units in held.items():
+        if units > _UNIT_EPSILON:
+            by_ticker[prices.ticker(key)] = by_ticker.get(prices.ticker(key), 0.0) + units
+    sold = -movement.units
+    if len(by_ticker) <= 1:
+        total = sum(by_ticker.values())
+        return min(sold / total, 1.0) if total > _UNIT_EPSILON else 1.0
+    values = {}
+    for ticker, units in by_ticker.items():
+        key = next(k for k in held if prices.ticker(k) == ticker)
+        price = prices.price(key, movement.date)
+        if price is None:
+            return None
+        values[ticker] = units * price
+    total = sum(values.values())
+    price = prices.price(movement.note, movement.date)
+    return min(sold * price / total, 1.0) if total > 0 else None
+
+
+def benchmark_outcome(decision: Decision, upto: List[Movement], date: datetime, prices: Prices,
+                      benchmark: Benchmark) -> Tuple[Optional[float], List[Tuple[datetime, float]]]:
+    """What the decision's cash would have made in the benchmark: its value at `date`, and its flows.
+
+    A purchase's cost goes into the basket on its purchase dates, and each sale of its shares
+    sells the same fraction of the basket.  A sale's proceeds go into the basket on its sale
+    dates.  The value is the basket's proceeds plus what is left in it; None if a price is missing.
+    """
+    units = {t: 0.0 for t in benchmark.tickers}
+    held: Dict[NoteKey, float] = {}
+    realised = 0.0
+    flows = []
+
+    def invest(amount, when):
+        closes = benchmark.prices(when)
+        if closes is None:
+            return False
+        for ticker in benchmark.tickers:
+            units[ticker] += amount / len(benchmark.tickers) / closes[ticker]
+        return True
+
+    for m in upto:
+        if decision.action == 'sell':
+            if not invest(m.cash, m.date):
+                return None, []
+            flows.append((m.date, -m.cash))
+            continue
+        if m.event == 'Bought':
+            if not invest(-m.cash, m.date):
+                return None, []
+            flows.append((m.date, m.cash))
+        elif m.event == 'Sold':
+            fraction = _sold_fraction(held, m, prices)
+            closes = benchmark.prices(m.date)
+            if fraction is None or closes is None:
+                return None, []
+            proceeds = fraction * sum(units[t] * closes[t] for t in benchmark.tickers)
+            for ticker in benchmark.tickers:
+                units[ticker] *= 1 - fraction
+            realised += proceeds
+            flows.append((m.date, proceeds))
+        held[m.note] = held.get(m.note, 0.0) + m.units
+
+    closes = benchmark.prices(date)
+    if closes is None:
+        return None, []
+    remaining = sum(units[t] * closes[t] for t in benchmark.tickers)
+    return realised + remaining, flows + [(date, remaining)]
+
+
 def _own_event(decision: Decision) -> str:
     """The movement that is the decision's own trade, rather than a later effect on its shares."""
     return 'Bought' if decision.action == 'buy' else 'Sold'
@@ -267,7 +374,7 @@ def first_trade(decision: Decision, movements: List[Movement]) -> Optional[datet
 
 
 def measure(decision: Decision, movements: List[Movement], date: datetime, measured_at: str,
-            prices: Prices, at_as_of: bool) -> Optional[Outcome]:
+            prices: Prices, at_as_of: bool, benchmark: Optional[Benchmark] = None) -> Optional[Outcome]:
     """The decision's outcome at `date`, from its movements up to and including that date.
 
     Returns None if the decision had no trade by then.  Later movements cannot affect it.
@@ -319,6 +426,16 @@ def measure(decision: Decision, movements: List[Movement], date: datetime, measu
         if date >= min(m.date for m in own) + relativedelta(months=ANNUALISE_AFTER_MONTHS):
             annualised = financial_metrics.calculate_mwrr([d for d, _ in flows], [v for _, v in flows])
 
+    benchmark_value, benchmark_flows = (None, [])
+    if benchmark is not None:
+        benchmark_value, benchmark_flows = benchmark_outcome(decision, upto, date, prices, benchmark)
+    benchmark_return = benchmark_annualised = None
+    if benchmark_value is not None and invested:
+        benchmark_return = benchmark_value / invested - 1
+        if date >= min(m.date for m in own) + relativedelta(months=ANNUALISE_AFTER_MONTHS):
+            benchmark_annualised = financial_metrics.calculate_mwrr(
+                [d for d, _ in benchmark_flows], [v for _, v in benchmark_flows])
+
     return Outcome(
         decision_id=decision.decision_id, measured_at=measured_at, date=date,
         invested=invested, realised=realised, held_value=held_value, total_value=total_value,
@@ -326,6 +443,8 @@ def measure(decision: Decision, movements: List[Movement], date: datetime, measu
         still_held=decision.action == 'buy' and bool(exposure),
         cash_flows=flows if held_value is not None else [],
         flag="; ".join(flags) or None,
+        benchmark_value=benchmark_value, benchmark_return=benchmark_return,
+        benchmark_annualised=benchmark_annualised, benchmark_flows=benchmark_flows,
     )
 
 
@@ -334,7 +453,7 @@ def horizon_label(months: int) -> str:
 
 
 def measure_all(decisions: List[Decision], movements: Dict[str, List[Movement]], prices: Prices,
-                eval_date: datetime) -> Dict[str, List[Outcome]]:
+                eval_date: datetime, benchmark: Optional[Benchmark] = None) -> Dict[str, List[Outcome]]:
     """Each decision's outcome at the as-of date and at every horizon that has passed by then."""
     outcomes: Dict[str, List[Outcome]] = {}
     for decision in decisions:
@@ -342,11 +461,12 @@ def measure_all(decisions: List[Decision], movements: Dict[str, List[Movement]],
         start = first_trade(decision, moves)
         if start is None or start > eval_date:
             continue
-        results = [measure(decision, moves, eval_date, AS_OF, prices, at_as_of=True)]
+        results = [measure(decision, moves, eval_date, AS_OF, prices, at_as_of=True, benchmark=benchmark)]
         for months in HORIZON_MONTHS:
             horizon = start + relativedelta(months=months)
             if horizon <= eval_date:
-                results.append(measure(decision, moves, horizon, horizon_label(months), prices, at_as_of=False))
+                results.append(measure(decision, moves, horizon, horizon_label(months), prices,
+                                       at_as_of=False, benchmark=benchmark))
         outcomes[decision.decision_id] = results
     return outcomes
 
@@ -372,10 +492,19 @@ def cohort_stats(outcomes: List[Outcome]) -> dict:
     annualised = [o.annualised for o in priced if o.annualised is not None]
 
     # Annualised only once every decision in it has been held long enough to be.
+    held_long_enough = bool(priced) and len(annualised) == len(priced)
     cohort_annualised = None
-    if priced and len(annualised) == len(priced):
+    if held_long_enough:
         flows = [flow for o in priced for flow in o.cash_flows]
         cohort_annualised = financial_metrics.calculate_mwrr([d for d, _ in flows], [v for _, v in flows])
+
+    # The benchmark over the same decisions, so it is comparable; N/A if any lacks one.
+    benchmark_return = benchmark_annualised = None
+    if priced and invested and all(o.benchmark_value is not None for o in priced):
+        benchmark_return = sum(o.benchmark_value for o in priced) / invested - 1
+        if held_long_enough:
+            flows = [flow for o in priced for flow in o.benchmark_flows]
+            benchmark_annualised = financial_metrics.calculate_mwrr([d for d, _ in flows], [v for _, v in flows])
 
     return {
         'decisions': len(outcomes),
@@ -397,6 +526,8 @@ def cohort_stats(outcomes: List[Outcome]) -> dict:
         'mean_annualised': sum(annualised) / len(annualised) if annualised else None,
         'annualised_count': len(annualised),
         'cohort_annualised': cohort_annualised,
+        'benchmark_return': benchmark_return,
+        'benchmark_annualised': benchmark_annualised,
     }
 
 
@@ -404,21 +535,29 @@ def _month(decision: Decision) -> str:
     return decision.decision_date.strftime('%Y-%m')
 
 
-def cohort_table(decisions: List[Decision], outcomes: Dict[str, List[Outcome]],
-                 measured_at: str) -> pd.DataFrame:
-    """One row per decision month with the cohort's statistics at `measured_at`, and a total row."""
+def _primary_reason(decision: Decision) -> str:
+    return decision.primary_reason
+
+
+def cohort_table(decisions: List[Decision], outcomes: Dict[str, List[Outcome]], measured_at: str,
+                 group_by=_month, column: str = 'month') -> pd.DataFrame:
+    """One row per cohort with its statistics at `measured_at`, and a total row.
+
+    Cohorts are decision months unless `group_by` says otherwise; `column` names the column
+    holding each cohort's name.
+    """
     cohorts: Dict[str, List[Outcome]] = {}
     for decision in decisions:
         outcome = next((o for o in outcomes.get(decision.decision_id, []) if o.measured_at == measured_at), None)
         if outcome:
-            cohorts.setdefault(_month(decision), []).append(outcome)
+            cohorts.setdefault(group_by(decision), []).append(outcome)
     if not cohorts:
         return pd.DataFrame()
-    # Every row has a type, so the writers rule off the total from the months above it.
-    rows = [{'month': month, 'horizon': measured_at, '_row_type': 'cohort', **cohort_stats(cohorts[month])}
-            for month in sorted(cohorts)]
-    rows.append({'month': 'Total', 'horizon': measured_at, '_row_type': 'total',
-                 **cohort_stats([o for month in cohorts for o in cohorts[month]])})
+    # Every row has a type, so the writers rule off the total from the cohorts above it.
+    rows = [{column: name, 'horizon': measured_at, '_row_type': 'cohort', **cohort_stats(cohorts[name])}
+            for name in sorted(cohorts)]
+    rows.append({column: 'Total', 'horizon': measured_at, '_row_type': 'total',
+                 **cohort_stats([o for name in cohorts for o in cohorts[name]])})
     return pd.DataFrame(rows)
 
 
@@ -479,6 +618,9 @@ def outcome_table(decisions: List[Decision], outcomes: Dict[str, List[Outcome]])
                 'total_return': o.total_return,
                 'annualised': o.annualised,
                 'value_added': -o.pnl if o.pnl is not None else None,
+                'benchmark_value': o.benchmark_value,
+                'benchmark_return': o.benchmark_return,
+                'benchmark_annualised': o.benchmark_annualised,
                 'still_held': 'Yes' if o.still_held else 'No',
                 'flag': o.flag,
             })
@@ -543,13 +685,17 @@ def process_decision_outcomes(portfolio_review, log_dir: str, start_date: dateti
     if tickers and starts:
         logger.info(f"Fetching prices for {len(tickers)} tickers from {min(starts):%Y-%m-%d} to {eval_date:%Y-%m-%d}")
         price_data = market_data_fetcher.batch_get_stock_prices(tickers, min(starts), eval_date)
-        failed = sorted(t for t in tickers if t in market_data_fetcher.fetch_errors)
+        # Fetched apart from the holdings, so an index never shares a holding's ticker map.
+        benchmark_data = market_data_fetcher.batch_get_stock_prices(BENCHMARK_TICKERS, min(starts), eval_date)
+        failed = sorted(t for t in tickers + BENCHMARK_TICKERS if t in market_data_fetcher.fetch_errors)
         if failed:
             raise PriceFetchError(f"Prices could not be fetched for {', '.join(failed)}; "
                                   f"the report would value them as delisted")
+    else:
+        benchmark_data = {}
 
     prices = Prices(price_data, tickers_by_key)
-    outcomes = measure_all(decisions, movements, prices, eval_date)
+    outcomes = measure_all(decisions, movements, prices, eval_date, Benchmark(benchmark_data, BENCHMARK_TICKERS))
 
     purchases = [d for d in decisions if d.action == 'buy']
     sales = [d for d in decisions if d.action == 'sell']
@@ -561,6 +707,8 @@ def process_decision_outcomes(portfolio_review, log_dir: str, start_date: dateti
     return {
         'purchase_cohorts': cohort_table(purchases, outcomes, AS_OF),
         'sale_cohorts': cohort_table(sales, outcomes, AS_OF),
+        'purchase_reasons': cohort_table(purchases, outcomes, AS_OF, _primary_reason, 'primary_reason'),
+        'sale_reasons': cohort_table(sales, outcomes, AS_OF, _primary_reason, 'primary_reason'),
         'purchase_horizons': horizon_table(purchases, outcomes),
         'sale_horizons': horizon_table(sales, outcomes),
         'decisions': decision_table(decisions, movements, outcomes, links.linked_from),

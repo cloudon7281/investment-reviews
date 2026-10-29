@@ -8,6 +8,7 @@ Every case replays synthetic trades against synthetic GBP prices, and its expect
 are worked out by hand in the test, not by the code under test.
 """
 
+import dataclasses
 import os
 import tempfile
 import textwrap
@@ -60,14 +61,18 @@ def closes(**by_date):
     return pd.DataFrame({'Close': list(by_date.values())}, index=index)
 
 
-def run(holdings, decisions, price_data, eval_date):
-    """Each decision's outcomes, keyed by decision ID and then by when it was measured."""
+def run(holdings, decisions, price_data, eval_date, benchmark=None):
+    """Each decision's outcomes, keyed by decision ID and then by when it was measured.
+
+    `benchmark`, if given, maps each index ticker to its GBP closes.
+    """
     stock_notes = {'isa': [], 'taxable': [], 'pension': []}
     for note in holdings:
         stock_notes[note.category].append(note)
     movements = do.follow_decisions(stock_notes, decisions)
     prices = do.Prices(price_data, do.current_tickers(stock_notes))
-    outcomes = do.measure_all(decisions, movements, prices, day(eval_date))
+    basket = do.Benchmark(benchmark, sorted(benchmark)) if benchmark else None
+    outcomes = do.measure_all(decisions, movements, prices, day(eval_date), basket)
     return {d_id: {o.measured_at: o for o in results} for d_id, results in outcomes.items()}, outcomes
 
 
@@ -396,6 +401,162 @@ class AgreedTreatments(unittest.TestCase):
                          buy('2025-08-01', 300, 3000.0))
         by_id, _ = run([trades], [d], {'AAA': closes(d2026_01_10=12.0)}, '2026-01-10')
         self.assertAlmostEqual(by_id[d.decision_id][do.AS_OF].total_value, 1200.0)
+
+
+def indices(**by_date):
+    """Three index series moving as given: by_date maps a date key to each index's close."""
+    return {ticker: closes(**{when: levels[i] for when, levels in by_date.items()})
+            for i, ticker in enumerate(('IDX1', 'IDX2', 'IDX3'))}
+
+
+class Benchmarks(unittest.TestCase):
+    """Each outcome beside the same cash in an equal-weight basket of indices (agreed 29 Oct)."""
+
+    def test_the_basket_splits_each_amount_equally(self):
+        """£1,000 is a third in each; one index doubling makes it worth £1,333."""
+        d = decision('2025-01-10', 'buy', 'AAA')
+        by_id, _ = run([holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0))], [d],
+                       {'AAA': closes(d2026_01_10=12.0)}, '2026-01-10',
+                       indices(d2025_01_10=(100, 50, 10), d2026_01_10=(200, 50, 10)))
+        o = by_id[d.decision_id][do.AS_OF]
+        self.assertAlmostEqual(o.benchmark_value, 1000 / 3 * 2 + 1000 / 3 * 2)
+        self.assertAlmostEqual(o.benchmark_return, 4 / 3 - 1)
+
+    def test_a_partial_sale_sells_the_same_fraction_of_the_basket(self):
+        """40% of the shares sold when the basket is up 50%, the rest held until it has doubled."""
+        d = decision('2025-01-10', 'buy', 'AAA')
+        by_id, _ = run([holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0), sell('2025-06-02', 40, 600.0))],
+                       [d], {'AAA': closes(d2026_01_10=12.0)}, '2026-01-10',
+                       indices(d2025_01_10=(100, 100, 100), d2025_06_02=(150, 150, 150),
+                               d2026_01_10=(200, 200, 200)))
+        o = by_id[d.decision_id][do.AS_OF]
+        self.assertAlmostEqual(o.benchmark_value, 0.4 * 1500 + 0.6 * 2000)
+        expected = pyxirr.xirr([day('2025-01-10'), day('2025-06-02'), day('2026-01-10')], [-1000.0, 600.0, 1200.0])
+        self.assertAlmostEqual(o.benchmark_annualised, expected)
+
+    def test_a_sale_compares_with_its_proceeds_in_the_basket(self):
+        d = decision('2025-06-02', 'sell', 'AAA')
+        by_id, _ = run([holding('AAA', 'isa', buy('2024-01-10', 100, 800.0), sell('2025-06-02', 100, 1000.0))],
+                       [d], {'AAA': closes(d2026_01_10=5.0)}, '2026-01-10',
+                       indices(d2025_06_02=(100, 100, 100), d2026_01_10=(110, 110, 110)))
+        o = by_id[d.decision_id][do.AS_OF]
+        self.assertAlmostEqual(o.benchmark_value, 1100.0)
+        self.assertAlmostEqual(o.benchmark_return, 0.1)
+
+    def test_each_purchase_date_buys_at_that_days_levels(self):
+        d = decision('2025-01-10', 'buy', 'AAA', '2025-01-10', '2025-01-24')
+        trades = holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0), buy('2025-01-24', 100, 1000.0))
+        by_id, _ = run([trades], [d], {'AAA': closes(d2026_01_10=12.0)}, '2026-01-10',
+                       indices(d2025_01_10=(100, 100, 100), d2025_01_24=(200, 200, 200),
+                               d2026_01_10=(200, 200, 200)))
+        self.assertAlmostEqual(by_id[d.decision_id][do.AS_OF].benchmark_value, 2000.0 + 1000.0)
+
+    def test_after_a_demerger_the_fraction_sold_is_by_value(self):
+        """Selling all the child's shares, worth £300 of a £1,300 holding, sells 3/13 of the basket."""
+        d = decision('2025-01-10', 'buy', 'PAR')
+        parent = holding('PAR', 'isa', buy('2025-01-10', 100, 1000.0), txn('TRANSFER', '2025-04-23', 0, -200.0))
+        child = holding('KID', 'isa', txn('TRANSFER', '2025-04-23', 100, 200.0), sell('2025-06-02', 100, 300.0))
+        by_id, _ = run([parent, child], [d],
+                       {'PAR': closes(d2025_06_02=10.0, d2026_01_10=10.0), 'KID': closes(d2025_06_02=3.0)},
+                       '2026-01-10', indices(d2025_01_10=(100, 100, 100), d2025_06_02=(130, 130, 130),
+                                             d2026_01_10=(130, 130, 130)))
+        self.assertAlmostEqual(by_id[d.decision_id][do.AS_OF].benchmark_value, 1300.0)
+        o = by_id[d.decision_id][do.AS_OF]
+        self.assertAlmostEqual(o.benchmark_flows[1][1], 1300.0 * 3 / 13)
+
+    def test_a_missing_index_price_is_na_not_zero(self):
+        d = decision('2025-01-10', 'buy', 'AAA')
+        by_id, _ = run([holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0))], [d],
+                       {'AAA': closes(d2025_04_10=11.0, d2026_01_10=12.0)}, '2026-01-10',
+                       indices(d2025_01_10=(100, 100, 100), d2026_01_10=(120, 120, 120)))
+        three = by_id[d.decision_id]['3 months']
+        self.assertIsNotNone(three.total_value)
+        self.assertIsNone(three.benchmark_value)
+        self.assertIsNone(do.cohort_stats([three])['benchmark_return'])
+
+    def test_a_cohorts_benchmark_is_na_if_any_decision_lacks_one(self):
+        """Otherwise the benchmark would cover fewer decisions than the return beside it."""
+        first, second = decision('2025-01-10', 'buy', 'AAA'), decision('2025-01-10', 'buy', 'BBB', '2025-02-20')
+        _, outcomes = run([holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0)),
+                           holding('BBB', 'isa', buy('2025-02-20', 100, 1000.0))],
+                          [first, second], {'AAA': closes(d2026_01_10=15.0), 'BBB': closes(d2026_01_10=15.0)},
+                          '2026-01-10', indices(d2025_01_10=(100, 100, 100), d2026_01_10=(125, 125, 125)))
+        self.assertIsNone(outcomes[second.decision_id][0].benchmark_value)
+        self.assertIsNone(do.cohort_table([first, second], outcomes, do.AS_OF).iloc[0]['benchmark_return'])
+
+    def test_the_benchmarks_annualised_return_also_waits_three_months(self):
+        d = decision('2025-11-01', 'buy', 'AAA')
+        by_id, _ = run([holding('AAA', 'isa', buy('2025-11-01', 100, 1000.0))], [d],
+                       {'AAA': closes(d2026_01_10=12.0)}, '2026-01-10',
+                       indices(d2025_11_01=(100, 100, 100), d2026_01_10=(110, 110, 110)))
+        o = by_id[d.decision_id][do.AS_OF]
+        self.assertAlmostEqual(o.benchmark_return, 0.1)
+        self.assertIsNone(o.benchmark_annualised)
+
+    def test_a_cohorts_benchmark_covers_the_same_decisions(self):
+        first, second = decision('2025-01-10', 'buy', 'AAA'), decision('2025-01-10', 'buy', 'BBB')
+        by_id, outcomes = run([holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0)),
+                               holding('BBB', 'isa', buy('2025-01-10', 50, 3000.0))],
+                              [first, second], {'AAA': closes(d2026_01_10=15.0), 'BBB': closes(d2026_01_10=30.0)},
+                              '2026-01-10', indices(d2025_01_10=(100, 100, 100), d2026_01_10=(125, 125, 125)))
+        month = do.cohort_table([first, second], outcomes, do.AS_OF).iloc[0]
+        self.assertAlmostEqual(month['benchmark_return'], 0.25)
+        flows = sorted(f for d in (first, second) for f in by_id[d.decision_id][do.AS_OF].benchmark_flows)
+        self.assertAlmostEqual(month['benchmark_annualised'],
+                               pyxirr.xirr([d for d, _ in flows], [v for _, v in flows]))
+
+    def test_the_basket_is_periodic_reviews_us_equities(self):
+        self.assertEqual(do.BENCHMARK_TICKERS, ['^DJI', '^GSPC', '^IXIC'])
+
+    def test_the_report_fetches_the_indices_and_fails_if_they_fail(self):
+        trades = holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0))
+        with tempfile.TemporaryDirectory() as log_dir:
+            with open(os.path.join(log_dir, 'r.yaml'), 'w') as fh:
+                fh.write("classification_version: 1\ndecision_date: 2025-01-10\n"
+                         "execution_window: {start: 2025-01-10, end: 2025-01-10}\ndecisions:\n"
+                         "  - {ticker: AAA, action: buy, primary_reason: thesis, investment_type: growth}\n")
+            prices = {'AAA': closes(d2026_01_10=12.0)}
+            prices.update({t: closes(d2025_01_10=100.0, d2026_01_10=150.0) for t in do.BENCHMARK_TICKERS})
+            results = do.process_decision_outcomes(FakeReview([trades]), log_dir, day('2025-01-01'), None,
+                                                   day('2026-01-10'), FakeFetcher(prices))
+            self.assertAlmostEqual(results['purchase_outcomes'].iloc[0]['benchmark_return'], 0.5)
+            with self.assertRaises(do.PriceFetchError):
+                do.process_decision_outcomes(FakeReview([trades]), log_dir, day('2025-01-01'), None,
+                                             day('2026-01-10'), FakeFetcher(prices, errors=['^GSPC']))
+
+
+class OutcomeByDecisionType(unittest.TestCase):
+    """The by-month figures again, one row per primary reason (agreed 29 Oct)."""
+
+    def test_one_row_per_primary_reason_and_a_total(self):
+        thesis = decision('2025-01-10', 'buy', 'AAA')
+        valuation = dataclasses.replace(decision('2025-02-10', 'buy', 'BBB'), primary_reason='valuation')
+        also_thesis = decision('2025-03-10', 'buy', 'CCC')
+        holdings = [holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0)),
+                    holding('BBB', 'isa', buy('2025-02-10', 100, 1000.0)),
+                    holding('CCC', 'isa', buy('2025-03-10', 100, 1000.0))]
+        prices = {t: closes(d2026_01_10=p) for t, p in (('AAA', 20.0), ('BBB', 5.0), ('CCC', 12.0))}
+        _, outcomes = run(holdings, [thesis, valuation, also_thesis], prices, '2026-01-10')
+        table = do.cohort_table([thesis, valuation, also_thesis], outcomes, do.AS_OF,
+                                do._primary_reason, 'primary_reason').set_index('primary_reason')
+        self.assertEqual(list(table.index), ['thesis', 'valuation', 'Total'])
+        self.assertEqual(table.loc['thesis', 'decisions'], 2)
+        self.assertAlmostEqual(table.loc['thesis', 'pnl'], 1000.0 + 200.0)
+        self.assertAlmostEqual(table.loc['valuation', 'aggregate_return'], -0.5)
+        self.assertAlmostEqual(table.loc['Total', 'pnl'], 1200.0 - 500.0)
+
+    def test_the_report_includes_the_decision_type_tables(self):
+        trades = holding('AAA', 'isa', buy('2025-01-10', 100, 1000.0), sell('2025-06-02', 100, 1500.0))
+        with tempfile.TemporaryDirectory() as log_dir:
+            with open(os.path.join(log_dir, 'r.yaml'), 'w') as fh:
+                fh.write("classification_version: 1\ndecision_date: 2025-01-10\n"
+                         "execution_window: {start: 2025-01-10, end: 2025-06-30}\ndecisions:\n"
+                         "  - {ticker: AAA, action: buy, primary_reason: moonshot, investment_type: moonshot}\n"
+                         "  - {ticker: AAA, action: sell, primary_reason: profit-take, investment_type: moonshot}\n")
+            results = do.process_decision_outcomes(FakeReview([trades]), log_dir, day('2025-01-01'), None,
+                                                   day('2026-01-10'), FakeFetcher({'AAA': closes(d2026_01_10=12.0)}))
+        self.assertEqual(list(results['purchase_reasons']['primary_reason']), ['moonshot', 'Total'])
+        self.assertEqual(list(results['sale_reasons']['primary_reason']), ['profit-take', 'Total'])
 
 
 if __name__ == "__main__":

@@ -59,12 +59,14 @@ _COHORT_COUNT_COLUMNS = ['profitable', 'x2', 'x5', 'x10', 'loss_under_20', 'loss
 def _purchase_cohort_config(lead_headers, lead_columns):
     """Columns of a purchase-cohort table, after its leading columns (investment-reviews#96)."""
     headers = lead_headers + ['Still Held'] + _COHORT_COUNT_HEADERS + [
-        'Cost', 'P&L', 'Return', 'Mean MWRR (ann.)', 'MWRRs in Mean', 'Cohort MWRR (ann.)']
+        'Cost', 'P&L', 'Return', 'US Eq. Return', 'Mean MWRR (ann.)', 'MWRRs in Mean', 'Cohort MWRR (ann.)',
+        'US Eq. MWRR (ann.)']
     columns = lead_columns + ['still_held'] + _COHORT_COUNT_COLUMNS + [
-        'invested', 'pnl', 'aggregate_return', 'mean_annualised', 'annualised_count', 'cohort_annualised']
+        'invested', 'pnl', 'aggregate_return', 'benchmark_return', 'mean_annualised', 'annualised_count',
+        'cohort_annualised', 'benchmark_annualised']
     formats = [None] * (len(lead_columns) + 1 + len(_COHORT_COUNT_COLUMNS)) + [
         CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS, PERCENTAGE_FORMAT, PERCENTAGE_FORMAT,
-        None, PERCENTAGE_FORMAT]
+        PERCENTAGE_FORMAT, None, PERCENTAGE_FORMAT, PERCENTAGE_FORMAT]
     return {'headers': headers, 'columns': columns, 'column_formats': formats,
             'column_thresholds': [None] * len(columns)}
 
@@ -72,14 +74,14 @@ def _purchase_cohort_config(lead_headers, lead_columns):
 def _sale_cohort_config(lead_headers, lead_columns):
     """Columns of a sale-cohort table: hypothetical figures, had the shares sold been kept."""
     headers = lead_headers + ['Hypo. ' + h if h != 'Unpriced' else h for h in _COHORT_COUNT_HEADERS] + [
-        'Proceeds', 'Value if Kept', 'Value Added by Selling', 'Hypo. Return', 'Mean Hypo. Return (ann.)',
-        'Returns in Mean', 'Hypo. MWRR (ann.)']
+        'Proceeds', 'Value if Kept', 'Value Added by Selling', 'Hypo. Return', 'US Eq. Return',
+        'Mean Hypo. Return (ann.)', 'Returns in Mean', 'Hypo. MWRR (ann.)', 'US Eq. MWRR (ann.)']
     columns = lead_columns + _COHORT_COUNT_COLUMNS + [
-        'invested', 'total_value', 'value_added', 'aggregate_return', 'mean_annualised', 'annualised_count',
-        'cohort_annualised']
+        'invested', 'total_value', 'value_added', 'aggregate_return', 'benchmark_return', 'mean_annualised',
+        'annualised_count', 'cohort_annualised', 'benchmark_annualised']
     formats = [None] * (len(lead_columns) + len(_COHORT_COUNT_COLUMNS)) + [
         CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS, CURRENCY_FORMAT_NO_DECIMALS,
-        PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None, PERCENTAGE_FORMAT]
+        PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None, PERCENTAGE_FORMAT, PERCENTAGE_FORMAT]
     return {'headers': headers, 'columns': columns, 'column_formats': formats,
             'column_thresholds': [None] * len(columns)}
 
@@ -457,6 +459,9 @@ COLUMN_CONFIGS = {
     },
     'decision_purchase_cohorts': _purchase_cohort_config(['Month', 'Purchases'], ['month', 'decisions']),
     'decision_sale_cohorts': _sale_cohort_config(['Month', 'Sales'], ['month', 'decisions']),
+    'decision_purchase_reasons': _purchase_cohort_config(['Primary Reason', 'Purchases'],
+                                                         ['primary_reason', 'decisions']),
+    'decision_sale_reasons': _sale_cohort_config(['Primary Reason', 'Sales'], ['primary_reason', 'decisions']),
     'decision_purchase_horizons': _purchase_cohort_config(['Month', 'Horizon', 'Eligible'],
                                                           ['month', 'horizon', 'decisions']),
     'decision_sale_horizons': _sale_cohort_config(['Month', 'Horizon', 'Eligible'],
@@ -473,21 +478,27 @@ COLUMN_CONFIGS = {
     },
     'decision_purchase_outcomes': {
         'headers': ['Decision', 'Ticker', 'Measured', 'Date', 'Cost', 'Realised', 'Held Value', 'Total Value',
-                    'P&L', 'Return', 'MWRR (ann.)', 'Still Held', 'Flag'],
+                    'P&L', 'Return', 'MWRR (ann.)', 'US Eq. Value', 'US Eq. Return', 'US Eq. MWRR (ann.)',
+                    'Still Held', 'Flag'],
         'columns': ['decision_id', 'ticker', 'measured_at', 'date', 'invested', 'realised', 'held_value',
-                    'total_value', 'pnl', 'total_return', 'annualised', 'still_held', 'flag'],
+                    'total_value', 'pnl', 'total_return', 'annualised', 'benchmark_value', 'benchmark_return',
+                    'benchmark_annualised', 'still_held', 'flag'],
         'column_formats': [None, None, None, DATE_FORMAT] + [CURRENCY_FORMAT_NO_DECIMALS] * 5 + [
-            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None, None],
-        'column_thresholds': [None] * 13,
+            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, CURRENCY_FORMAT_NO_DECIMALS, PERCENTAGE_FORMAT,
+            PERCENTAGE_FORMAT, None, None],
+        'column_thresholds': [None] * 16,
     },
     'decision_sale_outcomes': {
         'headers': ['Decision', 'Ticker', 'Measured', 'Date', 'Proceeds', 'Value if Kept', 'Hypo. P&L',
-                    'Value Added by Selling', 'Hypo. Return', 'Hypo. Return (ann.)', 'Flag'],
+                    'Value Added by Selling', 'Hypo. Return', 'Hypo. Return (ann.)', 'US Eq. Value',
+                    'US Eq. Return', 'US Eq. Return (ann.)', 'Flag'],
         'columns': ['decision_id', 'ticker', 'measured_at', 'date', 'invested', 'total_value', 'pnl',
-                    'value_added', 'total_return', 'annualised', 'flag'],
+                    'value_added', 'total_return', 'annualised', 'benchmark_value', 'benchmark_return',
+                    'benchmark_annualised', 'flag'],
         'column_formats': [None, None, None, DATE_FORMAT] + [CURRENCY_FORMAT_NO_DECIMALS] * 4 + [
-            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, None],
-        'column_thresholds': [None] * 11,
+            PERCENTAGE_FORMAT, PERCENTAGE_FORMAT, CURRENCY_FORMAT_NO_DECIMALS, PERCENTAGE_FORMAT,
+            PERCENTAGE_FORMAT, None],
+        'column_thresholds': [None] * 14,
     },
     'decision_movements': {
         'headers': ['Decision', 'Date', 'Event', 'Ticker', 'Account', 'Units (split-adjusted)', 'Cash (£)', 'Note'],

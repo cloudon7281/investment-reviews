@@ -537,7 +537,8 @@ class PortfolioReporter:
 
     # Columns where a blank means "could not be calculated", shown as N/A (investment-reviews#96).
     _UNAVAILABLE_COLUMNS = {'held_value', 'total_value', 'pnl', 'total_return', 'annualised', 'value_added',
-                            'invested', 'aggregate_return', 'mean_annualised', 'cohort_annualised'}
+                            'invested', 'aggregate_return', 'mean_annualised', 'cohort_annualised',
+                            'benchmark_value', 'benchmark_return', 'benchmark_annualised'}
 
     def display_decision_outcomes(self, results: Dict[str, object]) -> None:
         """Display the decision outcomes report: cohorts, fixed horizons, and decision-level detail.
@@ -559,10 +560,15 @@ class PortfolioReporter:
         print("Returns are over the whole holding period; (ann.) marks annualised money-weighted returns, "
               "N/A until 3 months have passed. Sale figures are hypothetical: what the shares sold would "
               "have been worth had they been kept.")
+        print("US Eq. is the same cash in an equal-weight basket of the Dow, S&P 500 and Nasdaq Composite, "
+              "in GBP: a purchase's cost goes in on its purchase dates and is sold down in step with its "
+              "shares; a sale's proceeds go in on its sale dates.")
 
         tables = (
             ('purchase_cohorts', 'decision_purchase_cohorts', 'Purchase decisions by month (actual)'),
             ('sale_cohorts', 'decision_sale_cohorts', 'Sale decisions by month (hypothetical, had the shares been kept)'),
+            ('purchase_reasons', 'decision_purchase_reasons', 'Outcome by decision type (purchases)'),
+            ('sale_reasons', 'decision_sale_reasons', 'Outcome by decision type (sales, hypothetical)'),
             ('purchase_horizons', 'decision_purchase_horizons', 'Purchase decisions at fixed horizons (actual)'),
             ('sale_horizons', 'decision_sale_horizons', 'Sale decisions at fixed horizons (hypothetical)'),
             ('decisions', 'decision_outcome_decisions', 'Decisions'),
