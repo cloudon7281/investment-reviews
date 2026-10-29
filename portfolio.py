@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import decision_log
+import decision_outcomes
 from logger import setup_logger, logger
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
@@ -37,8 +38,8 @@ def parse_args():
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
                       choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades',
-                               'check-decisions'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), or check-decisions (the decision log and the trades linked to each decision)')
+                               'check-decisions', 'decision-outcomes'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), check-decisions (the decision log and the trades linked to each decision), or decision-outcomes (how the logged purchase and sale decisions have turned out)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -46,11 +47,14 @@ def parse_args():
     
     # Periodic review specific arguments
     parser.add_argument('--start-date', type=str,
-                      help='Start date for periodic review, annual review or list-trades (YYYY-MM-DD format)')
+                      help='Start date for periodic review, annual review or list-trades, or the earliest '
+                           'decision date for decision-outcomes (YYYY-MM-DD format)')
     parser.add_argument('--end-date', type=str,
-                      help='End date for periodic review or list-trades, inclusive (YYYY-MM-DD format)')
+                      help='End date for periodic review or list-trades, inclusive, or the latest decision date '
+                           'for decision-outcomes, defaulting to the evaluation date (YYYY-MM-DD format)')
     parser.add_argument('--eval-date', type=str,
-                      help='Evaluation date for periodic review (YYYY-MM-DD format, defaults to today)')
+                      help='Evaluation date for periodic review, or the as-of date for decision-outcomes '
+                           '(YYYY-MM-DD format, defaults to today)')
     parser.add_argument('--stocks', type=str,
                       help='Comma-separated list of terms; includes every stock whose name or ticker contains any of them, '
                            'ignoring case (list-trades mode only)')
@@ -59,7 +63,7 @@ def parse_args():
                            'adds thesis performance analysis to the review (periodic-review mode only)')
     
     parser.add_argument('--decision-log', type=str, metavar='DIR',
-                      help='Directory of decision-log files (check-decisions mode only, '
+                      help='Directory of decision-log files (check-decisions and decision-outcomes modes only, '
                            'defaults to decisions/ in the base directory)')
 
     # Tax reporting specific arguments
@@ -199,8 +203,8 @@ def main():
         logger.error("--thesis-candidates is only supported in periodic-review mode")
         sys.exit(1)
 
-    if args.decision_log and args.mode != 'check-decisions':
-        logger.error("--decision-log is only supported in check-decisions mode")
+    if args.decision_log and args.mode not in ('check-decisions', 'decision-outcomes'):
+        logger.error("--decision-log is only supported in check-decisions and decision-outcomes modes")
         sys.exit(1)
 
     if args.stocks is not None and args.mode != 'list-trades':
@@ -345,6 +349,30 @@ def main():
                     print(f"  - {problem}", file=sys.stderr)
                 sys.exit(1)
             reporter.display_decision_log(tables, log_dir)
+
+        elif args.mode == 'decision-outcomes':
+            # Decision-outcomes mode: how the logged decisions dated in the range have turned
+            # out, at the as-of date and at fixed horizons (investment-reviews#96).
+            if not args.start_date:
+                logger.error("Decision-outcomes mode requires --start-date argument")
+                sys.exit(1)
+            from datetime import datetime
+            start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(args.end_date, '%Y-%m-%d') if args.end_date else None
+            eval_date = datetime.strptime(args.eval_date, '%Y-%m-%d') if args.eval_date else None
+            log_dir = args.decision_log or os.path.join(base_dir, 'decisions')
+            try:
+                results = portfolio_analysis.process_decision_outcomes(
+                    portfolio_review, log_dir, start_date, end_date, eval_date)
+            except decision_log.DecisionLogError as e:
+                print(f"\nThe decision log in {log_dir} is invalid:", file=sys.stderr)
+                for problem in e.problems:
+                    print(f"  - {problem}", file=sys.stderr)
+                sys.exit(1)
+            except decision_outcomes.PriceFetchError as e:
+                logger.error(str(e))
+                sys.exit(1)
+            reporter.display_decision_outcomes(results)
 
         else:  # periodic-review
             # Periodic review mode: Performance analysis for specific period

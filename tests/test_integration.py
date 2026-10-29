@@ -149,6 +149,26 @@ class DeterministicScenarios(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("primary_reason 'thesis' is not a sell reason", result.stderr)
 
+    def test_decision_outcomes_needs_a_start_date(self):
+        output = run_cli("--mode", "decision-outcomes")
+        self.assertIn("Decision-outcomes mode requires --start-date argument", output)
+
+    def test_decision_outcomes_fails_on_an_invalid_log_before_fetching_prices(self):
+        """The log is validated first, so a bad log costs no network round trip (#96)."""
+        with tempfile.TemporaryDirectory() as log_dir:
+            with open(Path(log_dir) / "bad.yaml", "w") as fh:
+                fh.write("classification_version: 1\n"
+                         "decision_date: 2025-03-10\n"
+                         "execution_window: {start: 2025-03-10, end: 2025-03-20}\n"
+                         "decisions:\n"
+                         "  - {ticker: TECK, action: sell, primary_reason: thesis, investment_type: growth}\n")
+            result = subprocess.run(
+                [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", "WARNING",
+                 "--mode", "decision-outcomes", "--start-date", "2025-01-01", "--decision-log", log_dir],
+                capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("primary_reason 'thesis' is not a sell reason", result.stderr)
+
     def test_tax_report_matches_its_reference(self):
         """Realised gains for FY24: parsed notes and Section 104 pooling, no market data."""
         output = run_cli("--mode", "tax-report", "--tax-year", "FY24")

@@ -62,6 +62,11 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Validates the decision log, links each recorded decision to the trades that carried it out, and lists trades no decision covers
 - Computed from the log and parsed broker notes alone, with no market data
 
+**Decision Outcomes Mode**
+- How the logged purchases and sales have turned out, grouped by the month of the decision
+- Purchases: actual realised and unrealised return; sales: what the shares sold would be worth had they been kept
+- Measured at the as-of date and 3, 6, 12 and 24 months after each decision's first trade
+
 **Test Mode**
 - Automated regression testing
 - Deterministic modes (tax report, list trades) are compared against reference outputs
@@ -429,12 +434,89 @@ valid log it lists:
   matched is **not executed**.
 - **Trades linked to decisions**, each with the contract note it came from.
 - **Unlogged trades**: buys and sells from the start of the first execution window onwards
-  that no decision covers. Trades before the log starts are not flagged; they are
-  historical and stay unclassified.
+  that no decision covers. Trades before the log starts are not flagged. Neither kind is a
+  decision in the outcomes report below.
 
 `--decision-log DIR` reads a log somewhere other than `decisions/` in the base directory.
 The filtering options apply as in any mode, and `--exclude-non-monthly-scope` keeps fund and
 pension trades out of the unlogged list.
+
+### Decision Outcomes
+
+How the logged decisions have turned out (investment-reviews#96). Purchase figures are
+actual; sale figures are hypothetical, measuring what the shares sold would have been worth
+had they been kept, which isolates the sale from whatever the proceeds were used for.
+
+```bash
+python3 portfolio.py --mode decision-outcomes --base-dir ~/path/to/history --exclude-non-monthly-scope \
+    --start-date 2025-01-01 [--end-date 2026-06-30] [--eval-date 2026-10-29] [--output-file outcomes.numbers]
+```
+
+`--start-date` and `--end-date` select decisions by their decision date; the end defaults
+to the as-of date. `--eval-date` is the as-of date, defaulting to today. The log is read from
+`decisions/` in the base directory unless `--decision-log` says otherwise, and an invalid log
+fails the run before any price is fetched.
+
+#### What is a decision
+
+Only a trade the decision log covers. Every other trade (a dividend reinvestment, a holding
+from before the log, a capital-gains swap) is left out as a decision, and the report states
+how many; `check-decisions` lists them. Those trades still move shares, so they still count
+when sales are matched to purchases. A decision with no trade by the as-of date is counted
+as not executed and has no outcome.
+
+#### How shares are followed
+
+- Lots are matched first in, first out within each account. Every purchase adds a lot,
+  owned by its decision if it has one. Every sale, logged or not, takes from the oldest lots
+  first, and its proceeds go to the decisions owning them, in proportion to units.
+- Units are counted in today's terms, scaled by later splits and conversions as Yahoo's
+  prices are, so a split changes neither a lot nor its value.
+- A bed-and-ISA move gives the lots it takes, with their decisions, to the receiving account.
+- A demerger's new shares, and a share grant's, go to the lots held before that day, in
+  proportion to their units.
+
+#### Measures
+
+For a purchase: cost is what its trades paid, including charges; value is the proceeds
+realised by the measurement date plus the shares still held at that date's price; return is
+(value − cost) / cost. For a sale: proceeds are what its trades received; value is its shares
+at that date's price; value added by selling is proceeds − value, positive when selling
+avoided a fall.
+
+Each decision is measured at the as-of date and at 3, 6, 12 and 24 calendar months after its
+first trade (31 August + 6 months is 28 February), once that date has passed. A horizon is
+measured only from the trades up to it. Prices use the usual 14-day lookback.
+
+Annualised returns are money-weighted (XIRR over the dated cash flows, with the value held as
+the last flow), and N/A until 3 months after the first trade. A cohort's money-weighted
+return combines its decisions' cash flows, and is N/A until all of them have been held 3
+months. A P&L under half a penny is flat. The loss bands are under 20%, 20–50% inclusive,
+and over 50%; the 2x, 5x and 10x counts are cumulative.
+
+#### Missing prices and delisting
+
+A decision needing a price that is not there is shown as N/A with a flag saying why, counted
+as **Unpriced**, and left out of every other figure in its cohort, never counted as a loss.
+A ticker Yahoo has no data for at all is treated as delisted: worth nothing at the as-of
+date, and N/A at horizons, since Yahoo drops a delisted stock's whole history. The report
+lists those tickers, so a renamed stock or a wrong mapping can be spotted. A price fetch that
+fails, as distinct from returning no data, fails the run.
+
+#### Output
+
+Eight tables, on the console and in the Numbers file: purchase and sale cohorts by month
+at the as-of date, the same at each horizon, then the decisions with their classification,
+each decision's outcome at every measurement, and the trades and share movements behind each
+decision, with the notes they came from. A cohort row is the sum of its decisions' rows.
+
+#### Limitations
+
+- Distributions are not included. Contract notes carry none, and prices are unadjusted closes.
+- A ticker change that Yahoo's history for the new ticker does not reach back across leaves
+  the earlier horizons N/A (Kwesst, renamed DFSC.V, has history only from January 2026).
+- Lots are matched per account, not by tax rules: this measures investment performance,
+  not taxable gains.
 
 ### Note Cache
 
@@ -715,6 +797,7 @@ Organized as a **facade pattern** with specialized modules:
 - `market_data_fetcher.py` - Yahoo Finance API integration, including data cleaning to deal with missing data, spikes, pence<->pound changes mid-stream etc.
 - `holdings_calculator.py` - Holdings and valuations at specific dates
 - `decision_log.py` - The decision log: taxonomy, validation, and linking decisions to trades
+- `decision_outcomes.py` - Decision outcomes: FIFO lots per decision, measurement at the as-of date and horizons, cohorts
 
 **Mode processors:**
 - `full_history_processor.py` - Complete portfolio history analysis
