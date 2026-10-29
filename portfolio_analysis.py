@@ -16,6 +16,7 @@ import full_history_processor
 import periodic_review_processor
 import annual_review_processor
 import list_trades_processor
+import decision_log
 
 class PortfolioAnalysis:
     def __init__(self):
@@ -47,6 +48,16 @@ class PortfolioAnalysis:
                             end_date: Optional[datetime] = None, stocks: Optional[List[str]] = None) -> pd.DataFrame:
         """Return the transactions in the date range, optionally for a set of stocks, as a sorted DataFrame."""
         return list_trades_processor.process_list_trades(portfolio_review, start_date, end_date, stocks)
+
+    def process_decision_log(self, portfolio_review: PortfolioReview, log_dir: str) -> Dict[str, pd.DataFrame]:
+        """Load and validate the decision log, link it to the trades, and return the check's tables.
+
+        Raises:
+            decision_log.DecisionLogError: if the log is invalid.
+        """
+        decisions = decision_log.load_decision_log(log_dir)
+        links = decision_log.link_decisions(decisions, decision_log.trades_from(portfolio_review))
+        return decision_log.check_tables(decisions, links)
 
     def process_annual_review(self, portfolio_review: PortfolioReview, start_date: datetime, price_over_time: bool = False) -> Dict[str, pd.DataFrame]:
         """Process annual review analysis.

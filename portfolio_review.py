@@ -53,6 +53,7 @@ class StockTransaction:
     new_quantity: Optional[int] = None  # For stock conversions, the new number of shares after conversion
     new_ticker: Optional[str] = None  # For stock conversions, the new ticker symbol (if changed)
     new_currency: Optional[str] = None  # For stock conversions, the new currency (if changed)
+    source_file: Optional[str] = None  # The note a buy or sell was read from, for tracing it back
     
     def get_date(self) -> datetime:
         """Get the transaction date."""
@@ -820,7 +821,8 @@ class PortfolioReview:
             transaction_type=transaction_type,
             quantity=data.get('num_shares', 0),
             price_per_share=data.get('price', 0.0),
-            total_amount=data.get('total_amount', 0.0)
+            total_amount=data.get('total_amount', 0.0),
+            source_file=file_path
         )
         
         # Insert transaction chronologically
