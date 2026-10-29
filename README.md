@@ -342,6 +342,18 @@ Filter by tags (thematic investing):
 --exclude-tags "Commodities"
 ```
 
+A tag phrase matches every tag that contains it, ignoring case. A note filed directly under its
+year, with no tag folder, is never excluded by a tag phrase.
+
+Restrict to what the monthly review manages:
+```bash
+--exclude-non-monthly-scope
+```
+
+This is shorthand for `--exclude-tags Fund,Pension,Bond,Opportunistic`, which excludes funds,
+money-market funds, bonds, every pension holding and opportunistic positions. It works in every
+mode, can be combined with `--exclude-tags`, and cannot be combined with `--include-tags`.
+
 Filter by year range:
 ```bash
 --include-years 2020,2023-2025
