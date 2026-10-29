@@ -853,6 +853,39 @@ class TestFiltering(unittest.TestCase):
             # None tag should be included (no tag to match against)
             self.assertTrue(pr._should_include_file('isa', '2024', None))
     
+    def test_exclude_non_monthly_scope_tags(self):
+        """--exclude-non-monthly-scope excludes the live tree's out-of-scope tags only (#96)."""
+        from portfolio import resolve_tag_filters
+        from portfolio_review import PortfolioReview
+        import tempfile
+
+        _, exclude_tags = resolve_tag_filters(None, None, True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pr = PortfolioReview(tmpdir, mode='full-history', exclude_tags=exclude_tags)
+            for tag in ('Money market funds', 'H&L fund recommendations', 'H&L bond recommendations',
+                        'Pension Funds', 'Pension Bonds', 'Pension Money Markets',
+                        'Pension Commodities', 'Opportunistic'):
+                self.assertFalse(pr._should_include_file('isa', '2024', tag), tag)
+            for tag in ('AI', 'Defense', 'Commodities', 'Biotech', 'Electric vehicles'):
+                self.assertTrue(pr._should_include_file('isa', '2024', tag), tag)
+
+    def test_exclude_non_monthly_scope_combines_with_exclude_tags(self):
+        from portfolio import resolve_tag_filters, NON_MONTHLY_SCOPE_TAGS
+
+        self.assertEqual(resolve_tag_filters(None, 'Shipping, AI', True),
+                         (None, ['Shipping', 'AI'] + NON_MONTHLY_SCOPE_TAGS))
+        self.assertEqual(resolve_tag_filters(None, 'Shipping', False), (None, ['Shipping']))
+        self.assertEqual(resolve_tag_filters('AI', None, False), (['AI'], None))
+        self.assertEqual(resolve_tag_filters(None, None, False), (None, None))
+
+    def test_include_tags_cannot_be_combined_with_an_exclusion(self):
+        from portfolio import resolve_tag_filters
+
+        with self.assertRaisesRegex(ValueError, '--exclude-non-monthly-scope'):
+            resolve_tag_filters('AI', None, True)
+        with self.assertRaisesRegex(ValueError, '--exclude-tags'):
+            resolve_tag_filters('AI', 'Shipping', False)
+
     def test_year_filter(self):
         """Test year filtering includes only specified years."""
         from portfolio_review import PortfolioReview

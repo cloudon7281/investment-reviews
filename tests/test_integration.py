@@ -17,6 +17,7 @@ must not wait on Yahoo.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -86,6 +87,33 @@ class DeterministicScenarios(unittest.TestCase):
         tickers = {line.split("|")[2].strip() for line in output.splitlines()
                    if line.startswith("|") and "Company" not in line}
         self.assertEqual(tickers, {"NVDA"})
+
+    def test_exclude_non_monthly_scope_drops_out_of_scope_tags(self):
+        """The flag removes a stock filed under an out-of-scope tag, and nothing else (#96).
+
+        The corpus has no fund, bond or pension tags, so a copy of it has its Defense folder
+        renamed to one the live tree really uses. Without the flag the stock is still listed,
+        which shows the rename alone did not drop it.
+        """
+        def tickers(output):
+            return {line.split("|")[2].strip() for line in review_harness.strip_log_lines(output).splitlines()
+                    if line.startswith("|") and "Company" not in line}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp) / "history"
+            shutil.copytree(ROOT / TEST_DATA, corpus)
+            (corpus / "ISA" / "2025" / "Defense").rename(corpus / "ISA" / "2025" / "Money market funds")
+            args = ("--mode", "list-trades", "--start-date", "2024-01-01", "--base-dir", str(corpus))
+            everything = tickers(run_cli(*args))
+            in_scope = tickers(run_cli(*args, "--exclude-non-monthly-scope"))
+        renamed = {t for t in everything if "KWE" in t.upper()}
+        self.assertTrue(renamed, f"no Kwesst trade in the copied corpus: {sorted(everything)}")
+        self.assertEqual(in_scope, everything - renamed)
+
+    def test_exclude_non_monthly_scope_cannot_be_combined_with_include_tags(self):
+        output = run_cli("--mode", "list-trades", "--start-date", "2024-01-01",
+                         "--include-tags", "Defense", "--exclude-non-monthly-scope")
+        self.assertIn("Cannot specify both --include-tags and --exclude-non-monthly-scope", output)
 
     def test_tax_report_matches_its_reference(self):
         """Realised gains for FY24: parsed notes and Section 104 pooling, no market data."""

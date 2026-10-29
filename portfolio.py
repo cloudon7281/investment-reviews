@@ -12,6 +12,11 @@ import review_invariants
 from periodic_review_processor import BENCHMARKS
 import pandas as pd
 
+# Tag phrases for the holdings outside the monthly review's scope: funds, bonds, pensions and
+# opportunistic positions (briefs/monthly.md, "Scope").  Matched like --exclude-tags, so a
+# phrase excludes every tag containing it, ignoring case (investment-reviews#96).
+NON_MONTHLY_SCOPE_TAGS = ['Fund', 'Pension', 'Bond', 'Opportunistic']
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -64,13 +69,17 @@ def parse_args():
     parser.add_argument('--price-over-time', action='store_true',
                       help='Generate CSV showing individual stock prices since start date (annual-review mode only, requires --output-file)')
 
-    # Filtering arguments (apply to full-history and periodic-review modes only)
+    # Filtering arguments (every mode; tax-report always restricts the category to Taxable)
     parser.add_argument('--include-category', type=str,
                       help='Comma-separated list of categories to include (ISA,Taxable,Pension)')
     parser.add_argument('--include-tags', type=str,
                       help='Comma-separated list of tag phrases to include (cannot use with --exclude-tags)')
     parser.add_argument('--exclude-tags', type=str,
                       help='Comma-separated list of tag phrases to exclude (cannot use with --include-tags)')
+    parser.add_argument('--exclude-non-monthly-scope', action='store_true',
+                      help='Exclude what the monthly review does not manage, i.e. --exclude-tags '
+                           f'{",".join(NON_MONTHLY_SCOPE_TAGS)}; combines with --exclude-tags (any mode, '
+                           'cannot use with --include-tags)')
     parser.add_argument('--include-years', type=str,
                       help='Comma-separated list of years or ranges to include (e.g., 2010,2023-2025)')
     
@@ -96,6 +105,36 @@ def parse_year_ranges(year_str):
             # Single year
             years.append(int(part))
     return sorted(set(years))
+
+def resolve_tag_filters(include_tags_arg, exclude_tags_arg, exclude_non_monthly_scope):
+    """Turn the tag-filter arguments into the include and exclude phrase lists.
+
+    Args:
+        include_tags_arg: --include-tags value, or None
+        exclude_tags_arg: --exclude-tags value, or None
+        exclude_non_monthly_scope: whether --exclude-non-monthly-scope was given
+
+    Returns:
+        (include_tags, exclude_tags), each a list of phrases or None
+
+    Raises:
+        ValueError: if an include filter is combined with an exclude filter
+    """
+    if include_tags_arg and (exclude_tags_arg or exclude_non_monthly_scope):
+        option = '--exclude-tags' if exclude_tags_arg else '--exclude-non-monthly-scope'
+        raise ValueError(f"Cannot specify both --include-tags and {option}")
+
+    include_tags = None
+    if include_tags_arg:
+        include_tags = [t.strip() for t in include_tags_arg.split(',')]
+
+    exclude_tags = None
+    if exclude_tags_arg:
+        exclude_tags = [t.strip() for t in exclude_tags_arg.split(',')]
+    if exclude_non_monthly_scope:
+        exclude_tags = (exclude_tags or []) + NON_MONTHLY_SCOPE_TAGS
+
+    return include_tags, exclude_tags
 
 def parse_tax_year(tax_year_str):
     """Parse tax year string (e.g., 'FY25') into start and end dates."""
@@ -141,8 +180,12 @@ def main():
     setup_logger(args.log_level)
     
     # Validate filter arguments
-    if args.include_tags and args.exclude_tags:
-        logger.error("Cannot specify both --include-tags and --exclude-tags")
+    try:
+        include_tags, exclude_tags = resolve_tag_filters(
+            args.include_tags, args.exclude_tags, args.exclude_non_monthly_scope
+        )
+    except ValueError as e:
+        logger.error(str(e))
         sys.exit(1)
 
     if args.thesis_candidates and args.mode != 'periodic-review':
@@ -164,14 +207,6 @@ def main():
         # Tax-report mode implicitly filters to Taxable category only
         if args.mode == 'tax-report':
             include_categories = ['taxable']
-
-        include_tags = None
-        if args.include_tags:
-            include_tags = [t.strip() for t in args.include_tags.split(',')]
-
-        exclude_tags = None
-        if args.exclude_tags:
-            exclude_tags = [t.strip() for t in args.exclude_tags.split(',')]
 
         include_years = None
         if args.include_years:
