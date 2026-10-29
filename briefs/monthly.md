@@ -232,3 +232,47 @@ The final output will be a downloadable document in Word format, with the sectio
     - **exception creep**: repeated stop-loss or proof-point extensions gradually weakening rules that were intended to be binding
     - **M&A / capital-allocation drift**: companies using acquisitions or financings to create strategic breadth or headline growth without demonstrating per-share value creation
     - **candidate-basket interpretation risk**: small baskets, transient spikes or extreme outliers producing misleading aggregate thesis statistics; always check breadth, individual constituents and robust price references before drawing conclusions
+
+# Decision log
+
+As well as the Word document, produce the decisions we agreed as a decision-log file: a downloadable YAML file named `<review date>.yaml` (e.g. `2026-11-02.yaml`), which I save into the `decisions/` folder of my notes. The format is defined in the investment-reviews README ("Decision Log"):
+
+```yaml
+classification_version: 1
+decision_date: <review date>
+execution_window: {start: <review date>, end: <review date + 14 days>}
+decisions:
+  - ticker: <Yahoo Finance symbol, as in the spreadsheet>
+    action: buy | sell
+    primary_reason: <one reason code>
+    secondary_reasons: [<further reason codes>]
+    investment_type: core | growth | moonshot
+    commentary: <one or two sentences on why>
+    linked_decision_id: <date/action/ticker of the decision this replaces, if any>
+```
+
+- Include one entry for every buy (new holding or increase) and every sell (profit-take or exit) we agreed. Holds are not recorded.
+- Purchase reasons:
+  - `thesis`: an established thesis, supported by fundamentals
+  - `moonshot`: an asymmetric opportunity with large upside and a real chance of heavy loss, usually under proof points
+  - `valuation`: a material price fall or undervaluation without a weaker investment case
+  - `rebalance`: restoring target allocation or correcting an underweight
+  - `replacement`: a better expression of a thesis, replacing an existing holding
+  - `other`
+- Sale reasons:
+  - `profit-take`: realising gains after substantial appreciation, thesis unchanged
+  - `stop-loss`: a fall through the stop-loss threshold
+  - `low-volatility`: no longer the upside or volatility a growth holding needs
+  - `fundamentals-change`: new evidence materially weakens the investment case
+  - `time`: insufficient progress over the expected holding period, short of thesis failure
+  - `benchmark-underperformance`: relative performance breaches the strategy's review criteria
+  - `better-expression-available`: replacing it with a better expression of the same thesis
+  - `moonshot-proof-failure`: proof points not met within the agreed window
+  - `rebalance`: limiting concentration or portfolio-level risk
+  - `liquidity`: capital needed outside the portfolio
+  - `other`
+- Investment types: `core` (trackers, bonds and other diversified holdings), `growth` (thesis-based individual stocks), `moonshot` (high-risk, asymmetric).
+- The primary reason is the principal reason for acting now, not a description of the stock: a moonshot bought after a sharp fall is `valuation`, with `moonshot` as a secondary reason and `moonshot` as its investment type.
+- Where a purchase replaces a sale as a better expression of the same thesis, classify the sale as `better-expression-available`, the purchase as `replacement`, and set the purchase's `linked_decision_id` to the sale's ID, e.g. `2026-11-02/sell/TECK`.
+- Use the default execution window unless I say I will trade over a different period.
+- Classify only from what we discussed and decided; never infer a reason from subsequent price movement.

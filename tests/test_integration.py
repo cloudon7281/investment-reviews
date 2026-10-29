@@ -115,6 +115,40 @@ class DeterministicScenarios(unittest.TestCase):
                          "--include-tags", "Defense", "--exclude-non-monthly-scope")
         self.assertIn("Cannot specify both --include-tags and --exclude-non-monthly-scope", output)
 
+    def test_check_decisions_links_the_logged_trades_to_their_notes(self):
+        """A decision picks up every trade of its stock and action in its window, by note (#96)."""
+        with tempfile.TemporaryDirectory() as log_dir:
+            with open(Path(log_dir) / "2025-03-10.yaml", "w") as fh:
+                fh.write("classification_version: 1\n"
+                         "decision_date: 2025-03-10\n"
+                         "execution_window: {start: 2025-03-10, end: 2025-03-20}\n"
+                         "decisions:\n"
+                         "  - {ticker: TECK, action: sell, primary_reason: time, investment_type: growth}\n"
+                         "  - {ticker: XYZ, action: buy, primary_reason: thesis, investment_type: growth}\n")
+            output = review_harness.strip_log_lines(
+                run_cli("--mode", "check-decisions", "--decision-log", log_dir))
+        linked_section = output.split("Trades linked to decisions")[1].split("Unlogged trades")[0]
+        linked = [line for line in linked_section.splitlines() if line.startswith("| 2025-03-10/sell/TECK")]
+        notes = {line.split("|")[9].strip() for line in linked}
+        self.assertEqual(notes, {"S011043144_SOLD_Teck_Resources_Ltd.pdf",
+                                 "S011043184_SOLD_Teck_Resources_Ltd.pdf"})
+        self.assertIn("Decision log: 2 decisions, 1 not executed,", output)
+
+    def test_check_decisions_fails_on_an_invalid_log(self):
+        with tempfile.TemporaryDirectory() as log_dir:
+            with open(Path(log_dir) / "bad.yaml", "w") as fh:
+                fh.write("classification_version: 1\n"
+                         "decision_date: 2025-03-10\n"
+                         "execution_window: {start: 2025-03-10, end: 2025-03-20}\n"
+                         "decisions:\n"
+                         "  - {ticker: TECK, action: sell, primary_reason: thesis, investment_type: growth}\n")
+            result = subprocess.run(
+                [sys.executable, "portfolio.py", "--base-dir", TEST_DATA, "--log-level", "WARNING",
+                 "--mode", "check-decisions", "--decision-log", log_dir],
+                capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("primary_reason 'thesis' is not a sell reason", result.stderr)
+
     def test_tax_report_matches_its_reference(self):
         """Realised gains for FY24: parsed notes and Section 104 pooling, no market data."""
         output = run_cli("--mode", "tax-report", "--tax-year", "FY24")

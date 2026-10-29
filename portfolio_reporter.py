@@ -497,6 +497,44 @@ class PortfolioReporter:
             self.numbers_writer.write_table(table_data, config, title, title)
             self._save_numbers_document()
 
+    def display_decision_log(self, tables: Dict[str, pd.DataFrame], log_dir: str) -> None:
+        """Display the decision-log check: the decisions, the trades linked to them, and unlogged trades.
+
+        Args:
+            tables: DataFrames from decision_log.check_tables().
+            log_dir: The decision log's directory, used in the empty-log message.
+        """
+        decisions = tables['decisions']
+        if decisions.empty:
+            print(f"\nNo decisions recorded in {log_dir}.")
+            return
+
+        not_executed = int((decisions['status'] == 'not executed').sum())
+        unlogged = len(tables['unlogged_trades'])
+        print(f"\nDecision log: {len(decisions)} decisions, {not_executed} not executed, "
+              f"{unlogged} unlogged trades.")
+
+        for key, config_key, title in (
+                ('decisions', 'decision_log', 'Decisions'),
+                ('decision_trades', 'decision_trades', 'Trades linked to decisions'),
+                ('unlogged_trades', 'unlogged_trades', 'Unlogged trades')):
+            df = tables[key]
+            if df.empty:
+                continue
+            display_df = df.copy()
+            if 'value_gbp' in display_df.columns:
+                display_df['value_gbp'] = display_df['value_gbp'].apply(
+                    lambda x: (x, 'GBP') if x is not None and pd.notna(x) else None
+                )
+            config = rd.COLUMN_CONFIGS[config_key]
+            table_data = self.data_builder.build_table(display_df, config, title=title)
+            self.console_writer.write_table(table_data, config)
+            if self.numbers_writer:
+                self.numbers_writer.write_table(table_data, config, title, title)
+
+        if self.numbers_writer:
+            self._save_numbers_document()
+
     def write_value_over_time_csv(self, value_df: pd.DataFrame, n_days: int) -> None:
         """Write value-over-time CSV file.
 

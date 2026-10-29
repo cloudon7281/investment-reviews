@@ -403,6 +403,26 @@ COLUMN_CONFIGS = {
             None,  # Value (£)
         ]
     },
+    'decision_log': {
+        'headers': ['Decision', 'Ticker', 'Action', 'Window Start', 'Window End', 'Primary Reason',
+                    'Secondary Reasons', 'Type', 'Trades', 'Status', 'Linked To', 'Linked From'],
+        'columns': ['decision_id', 'ticker', 'action', 'window_start', 'window_end', 'primary_reason',
+                    'secondary_reasons', 'investment_type', 'trades', 'status', 'linked_to', 'linked_from'],
+        'column_formats': [None, None, None, DATE_FORMAT, DATE_FORMAT, None, None, None, None, None, None, None],
+        'column_thresholds': [None] * 12,
+    },
+    'decision_trades': {
+        'headers': ['Decision', 'Company', 'Ticker', 'Account', 'Date', 'Type', 'Units', 'Value (£)', 'Note'],
+        'columns': ['decision_id', 'stock_name', 'ticker', 'account', 'date', 'action', 'quantity', 'value_gbp', 'note'],
+        'column_formats': [None, None, None, None, DATE_FORMAT, None, None, CURRENCY_FORMAT_NO_DECIMALS, None],
+        'column_thresholds': [None] * 9,
+    },
+    'unlogged_trades': {
+        'headers': ['Company', 'Ticker', 'Account', 'Date', 'Type', 'Units', 'Value (£)', 'Note'],
+        'columns': ['stock_name', 'ticker', 'account', 'date', 'action', 'quantity', 'value_gbp', 'note'],
+        'column_formats': [None, None, None, DATE_FORMAT, None, None, CURRENCY_FORMAT_NO_DECIMALS, None],
+        'column_thresholds': [None] * 8,
+    },
     'annual_review_detail': {
         'headers': ['Tag', 'Company', 'Ticker', 'Category', 'First Txn', 'Start Price', 'Start Value', 'Bought', 'Sold', 'Current Value', 'P&L', 'MWRR', 'Current Price', '90d High', '% of High', 'Volatility'],
         'columns': ['tag', 'stock_name', 'ticker', 'account_type', 'first_transaction_date', 'start_price', 'start_value', 'bought_since', 'sold_since', 'current_value', 'pnl', 'mwrr', 'current_price', 'recent_high', 'current_price_pct_of_high', 'volatility'],

@@ -58,6 +58,10 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Every trade in a date range, or for a set of stocks, with the account it was made in
 - Computed from parsed broker notes alone, with no market data
 
+**Check Decisions Mode**
+- Validates the decision log, links each recorded decision to the trades that carried it out, and lists trades no decision covers
+- Computed from the log and parsed broker notes alone, with no market data
+
 **Test Mode**
 - Automated regression testing
 - Deterministic modes (tax report, list trades) are compared against reference outputs
@@ -313,6 +317,124 @@ python3 portfolio.py --mode list-trades --base-dir ~/path/to/data --stocks MSFT,
 - `--stocks`: Comma-separated terms; includes every stock whose name or ticker contains any of
   them, ignoring case. `MSFT,Bl` includes Microsoft, Bloom Energy and the BlackRock funds — and
   anything else containing "bl", such as First Republic Bank
+
+### Decision Log
+
+The decisions taken at each review are recorded in a decision log, so that later reports can
+judge outcomes against the reasons decisions were made (investment-reviews#96). It is a
+folder of YAML files, one per review, in `decisions/` in the notes tree:
+
+```
+history/
+  ├── ISA/ Taxable/ Pension/    contract notes
+  └── decisions/
+        ├── 2026-11-02.yaml     the November review
+        └── 2026-11-18.yaml     a decision taken between reviews
+```
+
+The notes scanner reads only `ISA/`, `Taxable/` and `Pension/`, so the log is never mistaken
+for a note. It is written in iCloud and reaches jarvis through the same sync as the notes.
+
+#### File format
+
+```yaml
+classification_version: 1
+decision_date: 2026-11-02
+execution_window: {start: 2026-11-02, end: 2026-11-16}
+decisions:
+  - ticker: RHM.DE
+    action: buy
+    primary_reason: valuation
+    secondary_reasons: [thesis]
+    investment_type: growth
+    commentary: >
+      Fell 25% on contract-timing news with the order book intact.
+  - ticker: TECK
+    action: sell
+    primary_reason: better-expression-available
+    investment_type: growth
+  - ticker: FCX
+    action: buy
+    primary_reason: replacement
+    investment_type: growth
+    linked_decision_id: 2026-11-02/sell/TECK
+```
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| `classification_version` | Yes | The taxonomy version the file is classified under |
+| `decision_date` | Yes | The date of the review, or of a decision taken between reviews |
+| `execution_window` | Yes | The first and last dates, inclusive, of the trades that carry out these decisions |
+| `ticker` | Yes | The stock, as the reports show it (the Yahoo Finance symbol, e.g. `RHM.DE`) |
+| `action` | Yes | `buy` or `sell` |
+| `primary_reason` | Yes | Exactly one reason for that action, from the taxonomy below |
+| `secondary_reasons` | No | Further reasons for the same action; no duplicates and not the primary reason |
+| `investment_type` | Yes | `core`, `growth` or `moonshot` |
+| `commentary` | No | Free text |
+| `linked_decision_id` | No | Another decision, typically the sale a purchase replaces |
+
+A decision's ID is its date, action and ticker, e.g. `2026-11-02/buy/RHM.DE`. It is derived,
+not written, so it cannot be mistyped, and it stays the same as long as the file does.
+
+A decision taken between reviews, such as a profit-take after a doubling alert, goes in a
+file of its own, so it has its own date and window.
+
+#### Linking decisions to trades
+
+Every buy or sell of a decision's stock inside its execution window belongs to that
+decision, in any account. One decision can therefore be carried out by several trades. The
+links are worked out on each run rather than stored, so a log written before its trades
+exist, or added later for a past review, links without touching the transaction history.
+Transfers (bed-and-ISA) and corporate actions are never decisions.
+
+Two consequences of linking this way:
+
+- Two decisions on the same stock and action may not have overlapping windows; otherwise a
+  trade in the overlap could belong to either.
+- A ticker the tool later remaps, or a stock renamed by a corporate action, no longer
+  matches the log's ticker. The check below reports that as a decision not executed and
+  an unlogged trade.
+
+#### Taxonomy (version 1)
+
+Purchase reasons: `thesis` (thesis investment), `moonshot` (asymmetric opportunity with
+proof points), `valuation` (price fall without a weaker case), `rebalance` (restore
+allocation), `replacement` (better expression of a thesis already held), `other`.
+
+Sale reasons: `profit-take`, `stop-loss`, `low-volatility`, `fundamentals-change`, `time`
+(insufficient progress over the expected holding period), `benchmark-underperformance`,
+`better-expression-available`, `moonshot-proof-failure`, `rebalance`, `liquidity`
+(capital needed outside the portfolio), `other`.
+
+Investment types: `core` (trackers, bonds and other diversified holdings), `growth`
+(thesis-based individual stocks), `moonshot` (high-risk, asymmetric).
+
+The reason is the principal motivation at the time, not a description of the security: a
+moonshot bought after a sharp fall can be `valuation` with secondary reason `moonshot` and
+investment type `moonshot`. The full definitions are in investment-reviews#96, section 4.5.
+
+Versions are defined in `decision_log.py` and never edited once used. A change to the
+taxonomy is a new version, so records made under an earlier one keep their meaning.
+
+#### Checking the log
+
+```bash
+python3 portfolio.py --mode check-decisions --base-dir ~/path/to/history --exclude-non-monthly-scope
+```
+
+It validates every file and reports every fault at once, exiting 1 if there is any. For a
+valid log it lists:
+
+- **Decisions**, each with its trades and whether it was executed. A decision no trade
+  matched is **not executed**.
+- **Trades linked to decisions**, each with the contract note it came from.
+- **Unlogged trades**: buys and sells from the start of the first execution window onwards
+  that no decision covers. Trades before the log starts are not flagged; they are
+  historical and stay unclassified.
+
+`--decision-log DIR` reads a log somewhere other than `decisions/` in the base directory.
+The filtering options apply as in any mode, and `--exclude-non-monthly-scope` keeps fund and
+pension trades out of the unlogged list.
 
 ### Note Cache
 
@@ -592,6 +714,7 @@ Organized as a **facade pattern** with specialized modules:
 - `transaction_processor.py` - Transaction aggregation and cashflow building
 - `market_data_fetcher.py` - Yahoo Finance API integration, including data cleaning to deal with missing data, spikes, pence<->pound changes mid-stream etc.
 - `holdings_calculator.py` - Holdings and valuations at specific dates
+- `decision_log.py` - The decision log: taxonomy, validation, and linking decisions to trades
 
 **Mode processors:**
 - `full_history_processor.py` - Complete portfolio history analysis

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os
 import sys
+import decision_log
 from logger import setup_logger, logger
 from portfolio_analysis import PortfolioAnalysis
 from portfolio_reporter import PortfolioReporter
@@ -34,8 +36,9 @@ def parse_args():
     parser.add_argument('--output-file', default=None,
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
-                      choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), or tax-report (tax reporting for a specific tax year)')
+                      choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades',
+                               'check-decisions'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), or check-decisions (the decision log and the trades linked to each decision)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -55,6 +58,10 @@ def parse_args():
                       help='JSON file defining a universe of candidate stocks per investment thesis; '
                            'adds thesis performance analysis to the review (periodic-review mode only)')
     
+    parser.add_argument('--decision-log', type=str, metavar='DIR',
+                      help='Directory of decision-log files (check-decisions mode only, '
+                           'defaults to decisions/ in the base directory)')
+
     # Tax reporting specific arguments
     parser.add_argument('--tax-year', type=str,
                       help='Tax year for tax reporting (FYxx format, e.g., FY25 for tax year ending 5 April 2025)')
@@ -192,6 +199,10 @@ def main():
         logger.error("--thesis-candidates is only supported in periodic-review mode")
         sys.exit(1)
 
+    if args.decision_log and args.mode != 'check-decisions':
+        logger.error("--decision-log is only supported in check-decisions mode")
+        sys.exit(1)
+
     if args.stocks is not None and args.mode != 'list-trades':
         logger.error("--stocks is only supported in list-trades mode")
         sys.exit(1)
@@ -321,6 +332,19 @@ def main():
             end_date = datetime.strptime(args.end_date, '%Y-%m-%d') if args.end_date else None
             trades_df = portfolio_analysis.process_list_trades(portfolio_review, start_date, end_date, stocks)
             reporter.display_list_trades(trades_df, start_date, end_date, stocks)
+
+        elif args.mode == 'check-decisions':
+            # Check-decisions mode: the decision log, the trades linked to each decision, and
+            # the trades no decision covers (investment-reviews#96).  An invalid log fails.
+            log_dir = args.decision_log or os.path.join(base_dir, 'decisions')
+            try:
+                tables = portfolio_analysis.process_decision_log(portfolio_review, log_dir)
+            except decision_log.DecisionLogError as e:
+                print(f"\nThe decision log in {log_dir} is invalid:", file=sys.stderr)
+                for problem in e.problems:
+                    print(f"  - {problem}", file=sys.stderr)
+                sys.exit(1)
+            reporter.display_decision_log(tables, log_dir)
 
         else:  # periodic-review
             # Periodic review mode: Performance analysis for specific period
