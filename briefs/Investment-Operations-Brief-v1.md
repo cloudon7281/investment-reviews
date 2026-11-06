@@ -1,7 +1,7 @@
 # Investment Operations Brief
 
-**Status:** Proposed amendment to the approved v1 (not effective until agreed)
-**Version:** v1.1 (proposed) · 6 November 2026  
+**Status:** Approved
+**Version:** v1.1 · 6 November 2026  
 **Scope:** Standing operating procedure for investment conversations in this ChatGPT project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
 
 ## 1. Purpose and governing documents
@@ -292,7 +292,7 @@ At the end of a substantive review or research programme, summarise **agreed dec
 
 Do not change investment rules in response to a single outlier. Explicitly identify proposals to amend the Investment Strategy, `thesis.md`, `thesis.json`, schemas, the `investment-analysis` tool or this brief. The user must approve the proposed change before it is adopted. The existing code/schema owners, not this operating brief, define valid interchange formats and live data semantics.
 
-### 11.1 Changes in v1.1 (proposed)
+### 11.1 Changes in v1.1
 
 - §3.1.1 (new): revising a registered idea's claim with `IdeaSubmission.v1` `revisesIdeaId`, added to `investment-analysis` on 6 November 2026; §3.1 steps 2–3, §3.2, §7 step 4 and §9 refer to it.
 - §3.1 step 4: where the hypothesis, catalysts, risks, sources and unverified figures go in a submission.
