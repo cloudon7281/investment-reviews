@@ -1,7 +1,7 @@
 # Investment Operations Brief
 
-**Status:** Proposed — for review  
-**Version:** Draft 1 · 6 November 2026  
+**Status:** Approved
+**Version:** v1 · 6 November 2026  
 **Scope:** Standing operating procedure for investment conversations in this ChatGPT project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
 
 ## 1. Purpose and governing documents
