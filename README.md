@@ -645,6 +645,45 @@ move — tier-4-notify's `502` ("every channel failed") is the same signal the o
 was. A `200` that delivered to nothing counts as a failure too, which is what a severity routing
 nowhere looks like.
 
+### Activity Snapshot
+
+`--mode portfolio-activity-snapshot` publishes this service's parsed trade and corporate-action history, and
+its benchmark definitions, for `investment-analysis`. They go out as its interfaces E
+(`PortfolioActivitySnapshot.v1`) and F (`BenchmarkDefinitions.v1`), into the `investment-reviews-exports` store
+(`deploy/service.yaml`, `providesStores`). The nightly job runs it after the spreadsheet update.
+
+```bash
+python -m portfolio --mode portfolio-activity-snapshot --base-dir <notes> --export-dir <directory>
+```
+
+**What it publishes:**
+- **The history** is a projection of what the parsers record, for every account, year and tag: buys, sells,
+  conversions (as ratios; from 0 units, a share grant), transfers (bed-and-ISA, and a demerger's cost), and a
+  merger recorded as a sale.
+- **What it leaves out:** fees, dividends, brokers and ISINs, because no parser records them.
+- **Stocks the reports exclude** (those whose notes begin with a sale) are still exported: their trades are real.
+- **The benchmarks** are `BENCHMARKS` and `briefs/thesis.json`, as this service uses them.
+
+**Complete or not at all.** The export refuses, and leaves the last publication in place, if:
+- the scan logs an error, or a warning it does not know to be harmless;
+- an event's date was not read from its note;
+- the last publication cannot be read, since revisions are counted from it.
+
+The two documents succeed or fail independently.
+
+**Identity.** An event's id comes from its account, security, date, type and ordinal, not from its note's path,
+which changes when a stock is re-tagged (`reconcile_tags.py`). A changed event takes a new revision, and an event
+no longer present becomes a tombstone.
+
+**The contract is investment-analysis's.** The schemas in `contracts/` are byte-identical copies of its own, and
+their hashes are pinned in `tests/test_activity_snapshot.py`. Changing either is a contract change, agreed there.
+
+**Its failure does not fail the nightly job.** `investment-reviews-export.prom` is written every night:
+- `investment_reviews_export_ok` is 1 when both documents were published, 0 when either was refused.
+- `investment_reviews_export_last_success_timestamp_seconds` records the last success.
+
+The reason for a refusal is in the job's log.
+
 ### Checking New Notes (`check_notes.py`)
 
 A note's Yahoo Finance identity cannot be derived from the note. ISINs are only sometimes

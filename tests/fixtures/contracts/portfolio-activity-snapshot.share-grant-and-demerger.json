@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "producer": "investment-reviews",
+  "snapshotId": "15531a6e6fcb6534d4186038018c6ec355a5b03327f021f021cfd4684687763a",
+  "generatedAt": "2026-11-12T22:40:31Z",
+  "asOf": "2026-11-12",
+  "scope": {
+    "accountCategories": [
+      "ISA",
+      "Taxable",
+      "Pension"
+    ],
+    "historyFrom": "2023-02-14",
+    "completeness": "complete"
+  },
+  "securities": [
+    {
+      "securityKey": "EXGP.OL",
+      "yahooSymbol": "EXGP.OL",
+      "name": "Example Group ASA",
+      "currency": "NOK"
+    },
+    {
+      "securityKey": "EXMR.OL",
+      "yahooSymbol": "EXMR.OL",
+      "name": "Example Marine ASA",
+      "currency": "NOK"
+    },
+    {
+      "securityKey": "EXMN",
+      "yahooSymbol": "EXMN",
+      "name": "Example Mining Ltd",
+      "currency": "CAD"
+    }
+  ],
+  "activities": [
+    {
+      "eventId": "ee2d7f95f2799fc1bdb953f07ae289f76cf4d1c075c4a20af25f48e2f1393682",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXMN",
+      "eventType": "buy",
+      "tradeDate": "2023-02-14",
+      "quantity": "300",
+      "unitPrice": "21.40",
+      "currency": "CAD",
+      "gbpConsideration": "3912.55",
+      "conversion": null,
+      "derivation": "broker_note",
+      "sourceRef": "ISA/2023/Commodities/Example Mining bought.pdf"
+    },
+    {
+      "eventId": "ea01b70b87ebaeb5663d36888faa06b0e265fdb7bc52505697c58ca388d1ea39",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXMN",
+      "eventType": "conversion",
+      "tradeDate": "2023-05-26",
+      "quantity": "0",
+      "unitPrice": null,
+      "currency": null,
+      "gbpConsideration": null,
+      "conversion": {
+        "newQuantity": "58",
+        "newSecurityKey": null,
+        "newCurrency": null
+      },
+      "derivation": "manual_entry",
+      "sourceRef": "ISA/2023/Commodities/example_mining_grant_2023.yaml"
+    },
+    {
+      "eventId": "dbc7b73a01a1bc514a46ac930fd9fc8b51f7daa4ebbe3ed0e6eedb5904fded8e",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXGP.OL",
+      "eventType": "buy",
+      "tradeDate": "2024-03-01",
+      "quantity": "1200",
+      "unitPrice": "290.10",
+      "currency": "NOK",
+      "gbpConsideration": "26112.00",
+      "conversion": null,
+      "derivation": "broker_note",
+      "sourceRef": "ISA/2024/Defense/Example Group bought.pdf"
+    },
+    {
+      "eventId": "f19017f874f6c3ef3df1252ec76b0ea293a510e7de31f4f6ecb28b90fe0cca72",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXGP.OL",
+      "eventType": "transfer_out",
+      "tradeDate": "2026-04-23",
+      "quantity": "0",
+      "unitPrice": "0",
+      "currency": "GBP",
+      "gbpConsideration": "5221.00",
+      "conversion": null,
+      "derivation": "manual_entry",
+      "sourceRef": "ISA/2026/Defense/example_group_demerger_2026.yaml"
+    },
+    {
+      "eventId": "f5ff8698116a38f638d73159f2ee1d314b196142f1420560e176acd70e0af6ae",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXMR.OL",
+      "eventType": "transfer_in",
+      "tradeDate": "2026-04-23",
+      "quantity": "1200",
+      "unitPrice": "4.350833",
+      "currency": "GBP",
+      "gbpConsideration": "5221.00",
+      "conversion": null,
+      "derivation": "manual_entry",
+      "sourceRef": "ISA/2026/Defense/example_group_demerger_2026.yaml"
+    }
+  ],
+  "tombstones": []
+}

@@ -38,8 +38,11 @@ def parse_args():
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
                       choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades',
-                               'check-decisions', 'decision-outcomes'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), check-decisions (the decision log and the trades linked to each decision), or decision-outcomes (how the logged purchase and sale decisions have turned out)')
+                               'check-decisions', 'decision-outcomes', 'portfolio-activity-snapshot'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), check-decisions (the decision log and the trades linked to each decision), decision-outcomes (how the logged purchase and sale decisions have turned out), or portfolio-activity-snapshot (publish the trade history and benchmark definitions for investment-analysis)')
+    parser.add_argument('--export-dir', default=None,
+                      help='portfolio-activity-snapshot mode: the directory to publish interfaces E and F into '
+                           '(the investment-reviews-exports store)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -211,6 +214,15 @@ def main():
         logger.error("--stocks is only supported in list-trades mode")
         sys.exit(1)
     
+    if args.mode == 'portfolio-activity-snapshot':
+        # Every account, year and tag, whatever filters were given: a partial history is never published.
+        if not args.export_dir:
+            logger.error("--export-dir is required in portfolio-activity-snapshot mode")
+            sys.exit(1)
+        import activity_snapshot
+        sys.exit(activity_snapshot.run(args.base_dir, args.export_dir,
+                                       note_cache=NoteCache(args.base_dir, rebuild=args.rebuild_cache)))
+
     try:
         base_dir = args.base_dir
 

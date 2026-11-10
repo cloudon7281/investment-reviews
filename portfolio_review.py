@@ -54,6 +54,9 @@ class StockTransaction:
     new_ticker: Optional[str] = None  # For stock conversions, the new ticker symbol (if changed)
     new_currency: Optional[str] = None  # For stock conversions, the new currency (if changed)
     source_file: Optional[str] = None  # The note a buy or sell was read from, for tracing it back
+    # The note a conversion or merger was read from. Kept apart from source_file, which the decision log and
+    # decision outcomes read for buys and sells; only the activity snapshot reads this (activity_snapshot.py).
+    origin_file: Optional[str] = None
     
     def get_date(self) -> datetime:
         """Get the transaction date."""
@@ -576,6 +579,8 @@ class PortfolioReview:
                 logger.warning(f"Stock {ticker} first transaction is {stock_note.transactions[0].transaction_type}, not BUY/TRANSFER/STOCK_CONVERSION - excluding entirely")
                 stocks_to_remove.append(stock_key)
         
+        # Their trades are real, though no report can use them: the activity snapshot still exports them.
+        self.excluded_stock_notes = [stocks_by_ticker[stock_key] for stock_key in stocks_to_remove]
         for stock_key in stocks_to_remove:
             del stocks_by_ticker[stock_key]
         
@@ -890,7 +895,8 @@ class PortfolioReview:
             total_amount=0.0,  # Stock conversions don't have a monetary value
             new_quantity=data.get('new_shares', 0),  # New number of shares after conversion
             new_ticker=data.get('new_ticker'),  # New ticker symbol (if changed)
-            new_currency=data.get('new_currency')  # New currency (if changed)
+            new_currency=data.get('new_currency'),  # New currency (if changed)
+            origin_file=file_path
         )
         
         # Apply conversion to all matching stocks (across all categories)
@@ -939,7 +945,8 @@ class PortfolioReview:
             transaction_type='SELL',  # Treat merger as a sale
             quantity=data.get('num_shares', 0),  # Number of shares
             price_per_share=data.get('total_amount', 0.0) / data.get('num_shares', 1) if data.get('num_shares', 0) > 0 else 0.0,  # Price per share
-            total_amount=data.get('total_amount', 0.0)  # Total cash proceeds
+            total_amount=data.get('total_amount', 0.0),  # Total cash proceeds
+            origin_file=file_path
         )
         
         # Apply merger to all matching stocks (across all categories)
