@@ -55,6 +55,31 @@ if [ -d "$metrics_dir" ] && { [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; }; then
     "investment_reviews_alert_delivery_ok ${ok}"
 fi
 
+# The activity snapshot for investment-analysis: this service's trade history and benchmarks, published as
+# interfaces E and F into the investment-reviews-exports store (README.md, "Activity Snapshot";
+# investment-analysis#1, decision D13). It runs after the spreadsheet update, whatever that update's result,
+# and its own failure never changes this job's exit status: it has its own metric family instead, whose
+# cadence lets the estate's silent-producer detection report an export that stops.
+export_rc=0
+base_dir="$(python -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["portfolio"]["base_dir"])' "$CONFIG_PATH")" \
+  && python -m portfolio --mode portfolio-activity-snapshot --base-dir "$base_dir" --export-dir "${EXPORT_DIR:-/exports}" \
+  || export_rc=$?
+echo "[$(date -Is)] finished the activity snapshot (exit=${export_rc})"
+
+if [ -d "$metrics_dir" ]; then
+  export_file="${metrics_dir}/investment-reviews-export.prom"
+  # The last success is carried over a failed night, so a failure does not read as never having worked.
+  last_ok="$(sed -n 's/^investment_reviews_export_last_success_timestamp_seconds //p' "$export_file" 2>/dev/null || true)"
+  if [ "$export_rc" -eq 0 ]; then ok=1; last_ok=$(date +%s); else ok=0; fi
+  write_metric_file "$export_file" \
+    "# HELP investment_reviews_export_ok Whether the last activity snapshot published both documents (1) or not (0)." \
+    "# TYPE investment_reviews_export_ok gauge" \
+    "investment_reviews_export_ok ${ok}" \
+    "# HELP investment_reviews_export_last_success_timestamp_seconds Unix timestamp (UTC) of the last activity snapshot that published both documents." \
+    "# TYPE investment_reviews_export_last_success_timestamp_seconds gauge" \
+    "investment_reviews_export_last_success_timestamp_seconds ${last_ok:-0}"
+fi
+
 # 2 means the portfolio update worked; do not fail the kicker job for a mail problem.
 if [ "$rc" -eq 2 ]; then
   exit 0

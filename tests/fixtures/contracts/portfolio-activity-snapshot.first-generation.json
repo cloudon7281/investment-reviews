@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "producer": "investment-reviews",
+  "snapshotId": "f0d98bd6e50e05d95e8fcb6a50f4a061045a2b7155c62b1573ad85908c9e5f7e",
+  "generatedAt": "2026-11-10T22:41:07Z",
+  "asOf": "2026-11-10",
+  "scope": {
+    "accountCategories": [
+      "ISA",
+      "Taxable",
+      "Pension"
+    ],
+    "historyFrom": "2021-03-04",
+    "completeness": "complete"
+  },
+  "securities": [
+    {
+      "securityKey": "EXA.L",
+      "yahooSymbol": "EXA.L",
+      "name": "Example Aggregates plc",
+      "currency": "GBP"
+    },
+    {
+      "securityKey": "EXBT",
+      "yahooSymbol": "EXBT",
+      "name": "Example Batteries Inc.",
+      "currency": "USD"
+    },
+    {
+      "securityKey": "EXCO.L",
+      "yahooSymbol": "EXCO.L",
+      "name": "Example Cobalt plc",
+      "currency": "GBP"
+    },
+    {
+      "securityKey": "EXDM.L",
+      "yahooSymbol": "EXDM.L",
+      "name": "Example Dairy Merger plc",
+      "currency": "GBP"
+    },
+    {
+      "securityKey": "EXFN.L",
+      "yahooSymbol": "EXFN.L",
+      "name": "Example Fund Accumulation",
+      "currency": "GBP"
+    }
+  ],
+  "activities": [
+    {
+      "eventId": "30b8312c3692033592ebf2ebb56178cc45e10ba4e9214f2073ea5ca05f397dd4",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXA.L",
+      "eventType": "buy",
+      "tradeDate": "2021-03-04",
+      "quantity": "250",
+      "unitPrice": "8.12",
+      "currency": "GBP",
+      "gbpConsideration": "2041.95",
+      "conversion": null,
+      "derivation": "broker_note",
+      "sourceRef": "ISA/2021/Materials/Example Aggregates bought.pdf"
+    },
+    {
+      "eventId": "b582ad08d8f9a11645a0c1e229f3b46479cd1c863a57df0b341a899be581a990",
+      "revision": 1,
+      "accountKey": "Taxable",
+      "securityKey": "EXBT",
+      "eventType": "buy",
+      "tradeDate": "2021-06-14",
+      "quantity": "20",
+      "unitPrice": "41.50",
+      "currency": "USD",
+      "gbpConsideration": "601.37",
+      "conversion": null,
+      "derivation": "broker_note",
+      "sourceRef": "Taxable/2021/Energy/U1234567 activity.mhtml"
+    },
+    {
+      "eventId": "7aaf9bd584b43c81f546201da7c7bd83afef136d943e209d9c212e6c187de5ac",
+      "revision": 1,
+      "accountKey": "Taxable",
+      "securityKey": "EXBT",
+      "eventType": "conversion",
+      "tradeDate": "2022-08-25",
+      "quantity": "20",
+      "unitPrice": null,
+      "currency": null,
+      "gbpConsideration": null,
+      "conversion": {
+        "newQuantity": "60",
+        "newSecurityKey": null,
+        "newCurrency": null
+      },
+      "derivation": "corporate_action_note",
+      "sourceRef": "Taxable/2022/Energy/Example Batteries subdivision.pdf"
+    },
+    {
+      "eventId": "bc796f0d4e9bcb60eadc6a25e0b6d27189fc5752b6be6783dca4590b02b6ce22",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXCO.L",
+      "eventType": "transfer_in",
+      "tradeDate": "2023-04-11",
+      "quantity": "400",
+      "unitPrice": "2.31",
+      "currency": "GBP",
+      "gbpConsideration": "924.00",
+      "conversion": null,
+      "derivation": "inferred_bed_and_isa",
+      "sourceRef": null
+    },
+    {
+      "eventId": "c7b2707428ad93ec53255d252708dda79deb30ec1ae6c4241c5ff6572e050fe7",
+      "revision": 1,
+      "accountKey": "Taxable",
+      "securityKey": "EXCO.L",
+      "eventType": "transfer_out",
+      "tradeDate": "2023-04-11",
+      "quantity": "400",
+      "unitPrice": "2.31",
+      "currency": "GBP",
+      "gbpConsideration": "924.00",
+      "conversion": null,
+      "derivation": "inferred_bed_and_isa",
+      "sourceRef": null
+    },
+    {
+      "eventId": "279d6196e55d27aa05545959ea0d8d57b2cd28bfff3c1938c68c4e1832dd1d57",
+      "revision": 1,
+      "accountKey": "Pension",
+      "securityKey": "EXDM.L",
+      "eventType": "sell",
+      "tradeDate": "2024-02-01",
+      "quantity": "1000",
+      "unitPrice": "0.875",
+      "currency": "GBP",
+      "gbpConsideration": "875.00",
+      "conversion": null,
+      "derivation": "merger_as_sale",
+      "sourceRef": null
+    },
+    {
+      "eventId": "340bf3d218cdb26e60b795df9707ad9669d57c4cc07da2810e73b910dfe3555a",
+      "revision": 1,
+      "accountKey": "ISA",
+      "securityKey": "EXA.L",
+      "eventType": "sell",
+      "tradeDate": "2024-09-19",
+      "quantity": "100",
+      "unitPrice": "10.40",
+      "currency": "GBP",
+      "gbpConsideration": "1029.05",
+      "conversion": null,
+      "derivation": "broker_note",
+      "sourceRef": "ISA/2024/Materials/Example Aggregates sold.pdf"
+    },
+    {
+      "eventId": "c169e26ed87da9a71c1614a7bddf349e26d04ed99b69adea824e8aa4567687ec",
+      "revision": 1,
+      "accountKey": "Pension",
+      "securityKey": "EXFN.L",
+      "eventType": "buy",
+      "tradeDate": "2025-01-06",
+      "quantity": "12.3456",
+      "unitPrice": "2.0250",
+      "currency": "GBP",
+      "gbpConsideration": "25.00",
+      "conversion": null,
+      "derivation": "manual_entry",
+      "sourceRef": "Pension/2025/Funds/Example Fund.yaml"
+    },
+    {
+      "eventId": "ce06a629a9395571fe4dcaf805b5b2e89a57ac8852e5a71f86196130a104642d",
+      "revision": 1,
+      "accountKey": "Pension",
+      "securityKey": "EXFN.L",
+      "eventType": "buy",
+      "tradeDate": "2025-01-06",
+      "quantity": "24.6912",
+      "unitPrice": "2.0250",
+      "currency": "GBP",
+      "gbpConsideration": "50.00",
+      "conversion": null,
+      "derivation": "manual_entry",
+      "sourceRef": "Pension/2025/Funds/Example Fund.yaml"
+    }
+  ],
+  "tombstones": []
+}

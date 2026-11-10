@@ -22,6 +22,8 @@ services:
       - CONFIG_PATH=/run/config/config.yaml
       - LOG_FORMAT=json
       - METRICS_TEXTFILE_DIR=/textfile
+      # The investment-reviews-exports store this service provides (service.yaml, providesStores).
+      - EXPORT_DIR=/exports
     # SDI, "Secrets": the Google service-account key, read by google_sheets_client.py at
     # /run/secrets/google_sheets_service_account.json. Read once per run, so a rotation reaches the
     # next nightly run with nothing restarted (SDI, "Rotation").
@@ -32,6 +34,8 @@ services:
       - ${STATE_DIR}/config:/run/config:ro
       - ${STATE_DIR}/history:/data/history:ro
       - ${STATE_DIR}/outputs:/data/outputs
+      # SDI, "Shared stores": investment-reviews-exports, which this service owns and investment-analysis reads.
+      - ${STATE_DIR}/exports:/exports:rw
       # SDI, "Shared stores" (metrics-textfile); node_exporter scrapes *.prom here.
       - ${SHARED_METRICS_TEXTFILE}:/textfile:rw
     entrypoint: ["/app/deploy/entrypoints/run-once.sh"]

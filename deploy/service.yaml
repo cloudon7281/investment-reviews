@@ -49,6 +49,14 @@ sharedMounts:
   - store: metrics-textfile
     mode: rw
 
+# SDI, "Shared stores": the store this service owns for investment-analysis, which mounts it ro. The nightly
+# job's activity snapshot publishes interfaces E (portfolio-activity-snapshot.v1.json) and F
+# (benchmark-definitions.v1.json) here (investment-analysis SPEC.md §4 E, F). Named for its producer, not one
+# feed, because it carries both.
+providesStores:
+  - name: investment-reviews-exports
+    path: ${STATE_DIR}/exports
+
 backup:
   enabled: true
   mode: crash-consistent
@@ -103,6 +111,10 @@ metrics:
     file: investment-reviews.prom
   - mode: prom
     file: investment-reviews-alert.prom
+  # The activity snapshot, separate again: its failure leaves the nightly pipeline green (decision D13), so
+  # only this family shows it. Written every night, ok or not; its default 1-day cadence reports one that stops.
+  - mode: prom
+    file: investment-reviews-export.prom
 # SDI, "Health": with more than one family the platform must not pick, so name the one that
 # carries the verdict. Liveness is "did the nightly pipeline run" — the alert-channel file is
 # deliberately a SEPARATE signal, so that a broken email channel cannot hide behind a green

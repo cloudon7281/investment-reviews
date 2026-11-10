@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "producer": "investment-reviews",
+  "definitionsHash": "94697e30211346995b7f6fe1511bfe1db49c9a14e880abcda14743486c0435a7",
+  "generatedAt": "2026-11-10T22:41:07Z",
+  "broadMarket": [
+    {
+      "tag": "Benchmarks - US Equities",
+      "yahooSymbol": "^DJI",
+      "name": "Dow Jones Industrial Average"
+    },
+    {
+      "tag": "Benchmarks - US Equities",
+      "yahooSymbol": "^GSPC",
+      "name": "S&P 500"
+    },
+    {
+      "tag": "Benchmarks - World Equities",
+      "yahooSymbol": "EXWD.L",
+      "name": "Example World Equity Tracker"
+    }
+  ],
+  "theses": [
+    {
+      "name": "Grid storage",
+      "candidates": [
+        {
+          "yahooSymbol": "EXBT",
+          "name": "Example Batteries Inc."
+        },
+        {
+          "yahooSymbol": "EXCO.L",
+          "name": "Example Cobalt plc"
+        },
+        {
+          "yahooSymbol": "EXGR.DE",
+          "name": "Example Grid AG"
+        }
+      ]
+    },
+    {
+      "name": "Construction materials",
+      "candidates": [
+        {
+          "yahooSymbol": "EXA.L",
+          "name": "Example Aggregates plc"
+        }
+      ]
+    }
+  ]
+}

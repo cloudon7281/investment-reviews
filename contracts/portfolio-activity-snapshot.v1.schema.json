@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:calumlabs:investment-analysis:schema:portfolio-activity-snapshot:v1",
+  "title": "PortfolioActivitySnapshot v1",
+  "description": "Interface E (SPEC.md §4 E): investment-reviews' complete history of parsed trades and corporate actions, as one generation. Trades and corporate actions only: no positions, cash, decisions or calculated results. A consumer validates the whole document and reconciles it in one transaction; a missing, invalid or stale snapshot is never an empty history.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "producer", "snapshotId", "generatedAt", "asOf", "scope", "securities", "activities", "tombstones"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "producer": {"const": "investment-reviews"},
+    "snapshotId": {
+      "description": "The SHA-256, in lower-case hex, of the canonical JSON of {securities, activities, tombstones} (SPEC.md §4 E). The same history gives the same id whenever it is generated.",
+      "$ref": "#/$defs/sha256"
+    },
+    "generatedAt": {"description": "When this generation was built.", "$ref": "#/$defs/utcTimestamp"},
+    "asOf": {"description": "The date, Europe/London, of the notes the history was built from: complete as recorded by then.", "$ref": "#/$defs/date"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountCategories", "historyFrom", "completeness"],
+      "properties": {
+        "accountCategories": {
+          "description": "The accounts the history covers, every one in full.",
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/accountKey"}
+        },
+        "historyFrom": {"description": "The earliest tradeDate in activities; null when there are none.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/date"}]},
+        "completeness": {
+          "description": "Always complete: a producer that cannot read a source or parse a note publishes nothing rather than a partial history.",
+          "const": "complete"
+        }
+      }
+    },
+    "securities": {
+      "description": "Every security an activity or conversion names, once each.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/security"}
+    },
+    "activities": {
+      "description": "Every event in the history, ordered by tradeDate, accountKey, securityKey, eventType and eventId.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/activity"}
+    },
+    "tombstones": {
+      "description": "Every event an earlier generation published that the history no longer has. Kept in every later generation, so a consumer that missed one still learns of the removal.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/tombstone"}
+    }
+  },
+  "$defs": {
+    "utcTimestamp": {
+      "description": "UTC, ISO 8601 with a Z suffix.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "date": {"type": "string", "format": "date"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decimal": {"type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$"},
+    "positiveDecimal": {"description": "A decimal greater than zero.", "type": "string", "pattern": "^(0\\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(\\.[0-9]+)?)$"},
+    "nonNegativeDecimal": {"description": "A decimal of zero or more.", "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+    "currency": {"description": "ISO 4217. Prices quoted in pence are given in pounds.", "type": "string", "pattern": "^[A-Z]{3}$"},
+    "accountKey": {"description": "The account category. The broker is not recorded.", "enum": ["ISA", "Taxable", "Pension"]},
+    "securityKey": {"description": "The producer's key for a security: its Yahoo-style ticker after its own renames, e.g. EXA.L.", "type": "string", "minLength": 1},
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["securityKey", "yahooSymbol", "name", "currency"],
+      "properties": {
+        "securityKey": {"$ref": "#/$defs/securityKey"},
+        "yahooSymbol": {"description": "The symbol the producer prices it under.", "type": "string", "minLength": 1},
+        "name": {"description": "The name on the security's notes, or null where they give none.", "type": ["string", "null"]},
+        "currency": {"description": "The currency it trades in, or null where the notes do not say.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/currency"}]}
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "revision", "accountKey", "securityKey", "eventType", "tradeDate", "quantity", "unitPrice", "currency", "gbpConsideration", "conversion", "derivation", "sourceRef"],
+      "properties": {
+        "eventId": {
+          "description": "The SHA-256, in lower-case hex, of accountKey|securityKey|tradeDate|eventType|ordinal (SPEC.md §4 E). Stable when notes are re-parsed, reordered or moved between tag directories.",
+          "$ref": "#/$defs/sha256"
+        },
+        "revision": {"description": "1 when first published; one more each time the event's content changes.", "type": "integer", "minimum": 1},
+        "accountKey": {"$ref": "#/$defs/accountKey"},
+        "securityKey": {"$ref": "#/$defs/securityKey"},
+        "eventType": {
+          "description": "buy and sell as executed or, for a merger, as the cash it paid (derivation merger_as_sale); conversion for a split, consolidation, conversion or share grant; transfer_out and transfer_in for units, cost or both moved between holdings, such as a bed-and-ISA or the cost a demerger apportions.",
+          "enum": ["buy", "sell", "conversion", "transfer_out", "transfer_in"]
+        },
+        "tradeDate": {"$ref": "#/$defs/date"},
+        "quantity": {
+          "description": "Units, greater than zero for a buy or sell. For a conversion, the first term of its ratio: the units held are multiplied by conversion.newQuantity / quantity, and a quantity of 0 is a share grant of conversion.newQuantity units. For a transfer, the units moved, which may be 0 when only cost moves.",
+          "$ref": "#/$defs/nonNegativeDecimal"
+        },
+        "unitPrice": {"description": "Per unit, in currency; null for a conversion.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/decimal"}]},
+        "currency": {"description": "The currency of unitPrice; null for a conversion.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/currency"}]},
+        "gbpConsideration": {
+          "description": "The total in GBP as the producer records it: for a broker note, the note's total, which may include its charges (charges are not separated in v1); for a transfer, the cost moved; null for a conversion.",
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/decimal"}]
+        },
+        "conversion": {
+          "description": "What a conversion turned the units into; null for every other event.",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["newQuantity", "newSecurityKey", "newCurrency"],
+              "properties": {
+                "newQuantity": {"description": "The second term of the ratio; for a share grant, the units granted.", "$ref": "#/$defs/positiveDecimal"},
+                "newSecurityKey": {"description": "The security it became, or null when unchanged.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/securityKey"}]},
+                "newCurrency": {"description": "The currency it trades in after, or null when unchanged.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/currency"}]}
+              }
+            }
+          ]
+        },
+        "derivation": {
+          "description": "Where the event comes from: a broker's contract note, a broker's corporate-action note, the operator's manual entry, a merger recorded as a sale for cash, or a bed-and-ISA the producer inferred from a same-day sale and purchase.",
+          "enum": ["broker_note", "corporate_action_note", "manual_entry", "merger_as_sale", "inferred_bed_and_isa"]
+        },
+        "sourceRef": {
+          "description": "Provenance, not identity: the note's path relative to the producer's notes root, or null for an event no single note records.",
+          "type": ["string", "null"], "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"eventType": {"const": "conversion"}}},
+          "then": {"properties": {"conversion": {"type": "object"}, "unitPrice": {"type": "null"}, "currency": {"type": "null"}, "gbpConsideration": {"type": "null"}}},
+          "else": {"properties": {"conversion": {"type": "null"}, "unitPrice": {"type": "string"}, "currency": {"type": "string"}, "gbpConsideration": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"eventType": {"enum": ["buy", "sell"]}}},
+          "then": {"properties": {"quantity": {"$ref": "#/$defs/positiveDecimal"}}}
+        },
+        {
+          "if": {"properties": {"derivation": {"const": "merger_as_sale"}}},
+          "then": {"properties": {"eventType": {"const": "sell"}}}
+        },
+        {
+          "if": {"properties": {"derivation": {"const": "inferred_bed_and_isa"}}},
+          "then": {"properties": {"eventType": {"enum": ["transfer_out", "transfer_in"]}}}
+        }
+      ]
+    },
+    "tombstone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "lastRevision", "removedAt"],
+      "properties": {
+        "eventId": {"$ref": "#/$defs/sha256"},
+        "lastRevision": {"description": "The revision last published.", "type": "integer", "minimum": 1},
+        "removedAt": {"description": "The generatedAt of the first generation without it.", "$ref": "#/$defs/utcTimestamp"}
+      }
+    }
+  }
+}

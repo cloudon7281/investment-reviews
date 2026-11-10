@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:calumlabs:investment-analysis:schema:benchmark-definitions:v1",
+  "title": "BenchmarkDefinitions v1",
+  "description": "Interface F (SPEC.md §4 F): the benchmarks investment-reviews keeps, as one generation: the broad-market list and each live thesis's candidate universe. A thesis benchmark is the equal-weighted basket of its candidates. A missing or invalid document leaves the last valid generation in force; it never means no benchmarks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "producer", "definitionsHash", "generatedAt", "broadMarket", "theses"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "producer": {"const": "investment-reviews"},
+    "definitionsHash": {
+      "description": "The SHA-256, in lower-case hex, of the canonical JSON of {broadMarket, theses} (SPEC.md §4 F): an unchanged set of definitions is recognisably the same generation.",
+      "type": "string", "pattern": "^[0-9a-f]{64}$"
+    },
+    "generatedAt": {
+      "description": "UTC, ISO 8601 with a Z suffix.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "broadMarket": {
+      "description": "investment-reviews' BENCHMARKS, in its order. Never empty.",
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tag", "yahooSymbol", "name"],
+        "properties": {
+          "tag": {"description": "Its region or asset class, e.g. \"Benchmarks - US Equities\"; the decision-outcomes basket is the US Equities subset.", "type": "string", "minLength": 1},
+          "yahooSymbol": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "theses": {
+      "description": "Each live thesis in briefs/thesis.json, in its order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "candidates"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "candidates": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["yahooSymbol", "name"],
+              "properties": {
+                "yahooSymbol": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

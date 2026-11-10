@@ -20,3 +20,5 @@ pdfplumber>=0.10.0
 reportlab>=4.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
+# The activity snapshot validates what it publishes against the frozen schemas in contracts/.
+jsonschema>=4.18.0
