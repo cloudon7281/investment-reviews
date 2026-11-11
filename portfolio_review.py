@@ -115,6 +115,7 @@ class StockNote:
     tag: Optional[str] = None  # Tag assigned based on directory structure (first transaction only)
     stock_code_in_pdf: Optional[bool] = None  # Track if STOCK CODE was present in original PDF (for anonymization)
     file_paths: List[str] = field(default_factory=list)  # All source file paths for this stock
+    sedol: Optional[str] = None  # From ii's transaction notes; reconcile-holdings matches ii funds on it
 
     def __post_init__(self):
         """Extract stock name, shares, and ticker from the file path."""
@@ -794,6 +795,8 @@ class PortfolioReview:
                 existing_stock.file_paths.append(file_path)
         
         stock_note = stocks_by_ticker[stock_key]
+        if data.get('sedol') and not stock_note.sedol:
+            stock_note.sedol = data['sedol']
         
         # Create transaction
         # Use transaction_type from parsed data if available, otherwise infer from filename

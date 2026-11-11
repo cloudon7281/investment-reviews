@@ -12,6 +12,7 @@ from pdf_parser import NoteParseError
 from portfolio_review import PortfolioReview
 from note_cache import NoteCache
 import review_invariants
+import reconcile_holdings
 from periodic_review_processor import BENCHMARKS
 import pandas as pd
 
@@ -38,11 +39,18 @@ def parse_args():
                       help='Output filename for the Numbers report (if not specified, console output only)')
     parser.add_argument('--mode', default='full-history',
                       choices=['full-history', 'periodic-review', 'tax-report', 'annual-review', 'list-trades',
-                               'check-decisions', 'decision-outcomes', 'portfolio-activity-snapshot'],
-                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), check-decisions (the decision log and the trades linked to each decision), decision-outcomes (how the logged purchase and sale decisions have turned out), or portfolio-activity-snapshot (publish the trade history and benchmark definitions for investment-analysis)')
+                               'check-decisions', 'decision-outcomes', 'portfolio-activity-snapshot',
+                               'reconcile-holdings'],
+                      help='Processing mode: full-history (complete investment history), periodic-review (performance analysis for a specific period), annual-review (annual portfolio performance review), list-trades (trade list for a date range and/or a set of stocks), tax-report (tax reporting for a specific tax year), check-decisions (the decision log and the trades linked to each decision), decision-outcomes (how the logged purchase and sale decisions have turned out), portfolio-activity-snapshot (publish the trade history and benchmark definitions for investment-analysis), or reconcile-holdings (compare the holdings the notes imply with the brokers\' holdings exports)')
     parser.add_argument('--export-dir', default=None,
                       help='portfolio-activity-snapshot mode: the directory to publish interfaces E and F into '
                            '(the investment-reviews-exports store)')
+    parser.add_argument('--broker-files', type=str, metavar='SPEC',
+                      help="reconcile-holdings mode: the brokers' holdings exports, as "
+                           "'HL=<file>,<file>;ii=<file>;IBKR=<file>' (quote it: ; separates shell commands)")
+    parser.add_argument('--broker-accounts', type=str, metavar='FILENAME',
+                      help='reconcile-holdings mode: a CSV with columns account,category classifying each '
+                           'IBKR account as ISA, Taxable or Pension (required with an IBKR file)')
     parser.add_argument('-s', '--show-summary', action='store_true',
                       help='Show portfolio summary')
     parser.add_argument('-d', '--show-details', action='store_true',
@@ -180,10 +188,46 @@ def parse_tax_year(tax_year_str):
 # recorded, which is worse than no row at all (investment-reviews#38).
 EXIT_UNPARSEABLE_NOTES = 3
 
+# Exit code for a reconcile-holdings run that found a difference other than a minor one, so a
+# script can tell "the notes are behind the brokers" from a failure to run (investment-reviews#104).
+EXIT_HOLDINGS_DIFFER = 4
+
 # The message is fenced in the output because stderr also carries library warnings, and
 # the whole of it becomes the body of the nightly alert email.
 UNPARSEABLE_NOTES_BEGIN = "=== NOTES THAT COULD NOT BE READ ==="
 UNPARSEABLE_NOTES_END = "=== END NOTES THAT COULD NOT BE READ ==="
+
+
+def run_reconcile_holdings(args, include_categories, include_tags, exclude_tags) -> int:
+    """Compare the holdings the notes imply with the brokers' holdings exports (investment-reviews#104).
+
+    The notes are read unfiltered, so that every broker line can find its holding; the filters
+    are then applied through the holding each line matches.
+
+    Returns:
+        the exit status: EXIT_HOLDINGS_DIFFER if anything but a minor difference was found.
+    """
+    try:
+        files = reconcile_holdings.parse_broker_files_arg(args.broker_files)
+        accounts = (reconcile_holdings.read_broker_accounts(args.broker_accounts)
+                    if args.broker_accounts else None)
+        portfolio_review = PortfolioReview(args.base_dir, 'full-history',
+                                           note_cache=NoteCache(args.base_dir, rebuild=args.rebuild_cache))
+        portfolio_analysis = PortfolioAnalysis()
+        full_history = portfolio_analysis.process_full_history(portfolio_review)
+        fetcher = portfolio_analysis.market_data_fetcher
+        lines, covered = reconcile_holdings.read_broker_files(
+            files, accounts, lambda currency: fetcher.get_current_exchange_rate(currency, 'GBP'))
+    except (reconcile_holdings.ReconcileInputError, OSError) as e:
+        logger.error(str(e))
+        return 1
+
+    holdings = reconcile_holdings.holdings_from_review(portfolio_review, full_history['individual_stocks'])
+    rows, agreed = reconcile_holdings.reconcile(lines, holdings, covered, include_categories,
+                                                include_tags, exclude_tags)
+    PortfolioReporter(numbers_filename=args.output_file).display_holdings_reconciliation(
+        pd.DataFrame(rows, columns=reconcile_holdings.ROW_COLUMNS), agreed, len(lines))
+    return EXIT_HOLDINGS_DIFFER if reconcile_holdings.has_material_findings(rows) else 0
 
 
 def main():
@@ -213,6 +257,19 @@ def main():
     if args.stocks is not None and args.mode != 'list-trades':
         logger.error("--stocks is only supported in list-trades mode")
         sys.exit(1)
+
+    if (args.broker_files or args.broker_accounts) and args.mode != 'reconcile-holdings':
+        logger.error("--broker-files and --broker-accounts are only supported in reconcile-holdings mode")
+        sys.exit(1)
+
+    if args.mode == 'reconcile-holdings':
+        if not args.broker_files:
+            logger.error("--broker-files is required in reconcile-holdings mode")
+            sys.exit(1)
+        if args.include_years:
+            # A holding is every year's notes together; some years of them is no holding at all.
+            logger.error("--include-years is not supported in reconcile-holdings mode")
+            sys.exit(1)
     
     if args.mode == 'portfolio-activity-snapshot':
         # Every account, year and tag, whatever filters were given: a partial history is never published.
@@ -238,6 +295,9 @@ def main():
         include_years = None
         if args.include_years:
             include_years = parse_year_ranges(args.include_years)
+
+        if args.mode == 'reconcile-holdings':
+            sys.exit(run_reconcile_holdings(args, include_categories, include_tags, exclude_tags))
 
         # Initialize portfolio review and scan directory
         portfolio_review = PortfolioReview(

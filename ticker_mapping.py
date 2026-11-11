@@ -6,7 +6,8 @@ them in the repo rather than a state directory keeps a change reviewable and rev
 which matters because a wrong mapping misprices a holding silently.
 
 This module loads that file and exposes the same four names it always did, so nothing
-downstream has to know where they came from.
+downstream has to know where they came from, plus the broker-holdings overrides that
+--mode reconcile-holdings reads (investment-reviews#104).
 """
 
 import os
@@ -55,6 +56,8 @@ def load_mappings(path: str = None) -> Dict[str, Dict[str, str]]:
         'exchange_suffixes': _flatten(data.get('exchange_suffixes'), 'suffix'),
         'ticker_suffixes': _flatten(data.get('ticker_suffixes'), 'suffix'),
         'renames': _flatten(data.get('renames'), 'to'),
+        'broker_holdings': {broker: _flatten(section, 'ticker')
+                            for broker, section in (data.get('broker_holdings') or {}).items()},
     }
 
 
@@ -71,3 +74,7 @@ SPECIAL_EXCHANGE_SUFFIX_MAP = _MAPPINGS['ticker_suffixes']
 
 # A ticker that became another ticker.
 STOCK_RENAME_MAP = _MAPPINGS['renames']
+
+# Per broker, a line in its holdings export that reconcile-holdings cannot match by rule, and
+# the tool ticker it is.
+BROKER_HOLDINGS_MAP = _MAPPINGS['broker_holdings']

@@ -6,6 +6,11 @@
 #
 # There are three separate problems here, and they are not interchangeable:
 #
+#   broker_holdings   not a note at all: a line in a broker's holdings export that
+#                     --mode reconcile-holdings cannot match to a holding by rule, keyed by
+#                     broker (HL, ii, IBKR) and then by what the export calls it (H&L's
+#                     stock name, ii's or IBKR's symbol), giving the tool ticker under
+#                     `ticker` (investment-reviews#104)
 #   names             a note that carries no ticker at all — unit trusts and OEICs —
 #                     identified by the stock name the note does carry
 #   exchange_suffixes the Yahoo suffix implied by an ISIN's country of domicile
@@ -20,6 +25,7 @@
 # check_notes.py verifies these against the market. Run it over new notes before copying
 # them into the live tree (investment-reviews#59).
 
+broker_holdings: {}
 exchange_suffixes:
   CA:
     note: Vancouver
