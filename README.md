@@ -67,6 +67,10 @@ This tool processes stock transaction notes from various UK brokers (Hargreaves 
 - Purchases: actual realised and unrealised return; sales: what the shares sold would be worth had they been kept
 - Measured at the as-of date and 3, 6, 12 and 24 months after each decision's first trade
 
+**Reconcile Holdings Mode**
+- Compares the holdings the notes imply with the holdings exports from the H&L, ii and IBKR portals
+- Reports every holding where units differ, values differ by more than 5%, or one side has a holding the other does not, so a note that was never downloaded shows up
+
 **Test Mode**
 - Automated regression testing
 - Deterministic modes (tax report, list trades) are compared against reference outputs
@@ -322,6 +326,70 @@ python3 portfolio.py --mode list-trades --base-dir ~/path/to/data --stocks MSFT,
 - `--stocks`: Comma-separated terms; includes every stock whose name or ticker contains any of
   them, ignoring case. `MSFT,Bl` includes Microsoft, Bloom Energy and the BlackRock funds — and
   anything else containing "bl", such as First Republic Bank
+
+### Reconcile Holdings
+
+The tool knows a holding only from the notes, so a note that was never downloaded leaves it with
+the wrong units. This compares every current holding with the brokers' own holdings exports:
+
+```bash
+python3 portfolio.py --mode reconcile-holdings --base-dir ~/path/to/data \
+  --broker-files 'HL=hl-isa.csv,hl-fund-share.csv;ii=ii.csv;IBKR=ibkr.csv' \
+  --broker-accounts ibkr-accounts.csv
+```
+
+**Parameters:**
+- `--broker-files`: each broker's holdings exports, as downloaded. Quote it, because `;` separates
+  shell commands. A holding built from another broker's notes is not reported as missing when that
+  broker's file is not given.
+  - `HL`: one file per account. Its first line names the account: a Stocks & Shares ISA is ISA, a
+    Fund & Share Account is Taxable.
+  - `ii`: the pension.
+  - `IBKR`: the accounts summary, which covers every account.
+- `--broker-accounts`: a CSV classifying each IBKR account, required with an IBKR file:
+  ```
+  account,category
+  U17432565,Taxable
+  U24699765,ISA
+  ```
+- `--include-category`, `--include-tags`, `--exclude-tags`: the category filter applies to broker
+  lines by their account; the tag filters apply through the holding a line matches. A line that
+  matches no holding has no tag, so the tag filters never hide it. `--include-years` is refused.
+- `--output-file`: also writes the table to a Numbers document, as in the other modes.
+
+**Matching.** No export gives both a ticker and a name, so each broker has its own rule:
+- H&L: the stock name in the H&L contract notes is the leading part of the name in the export, so
+  `Amphenol Corp` matches `Amphenol Corp Class A Com Stk USD0.001 *R`. The longest name wins.
+- ii: the symbol is the tool's ticker without its exchange suffix (ETFs), or the SEDOL from the ii
+  transaction notes (funds).
+- IBKR: the symbol is the tool's ticker, with or without its exchange suffix.
+
+A line that cannot be matched by rule can be added to `broker_holdings` in `ticker_mappings.yaml`,
+under its broker and the name or symbol the export uses:
+```yaml
+broker_holdings:
+  HL:
+    Some Fund Class I - Accumulation (GBP):
+      ticker: 0P0000ABCD.L
+      note: renamed; the contract notes use the old name
+```
+
+**Findings.** Lines are summed for each holding, keyed (ticker, account) as everywhere else, and
+units are compared in whole units, ignoring fractions:
+
+| Finding | Meaning |
+|---|---|
+| Unit discrepancy | the whole units differ by 1% of the broker's holding or more |
+| Category mismatch | the broker holds it in a different account from the one the notes file it under |
+| Held at broker, no notes | the broker line matches no holding |
+| In notes, not at broker | the notes imply a holding that no broker file shows |
+| Ambiguous match | the broker line matches more than one holding; add an override |
+| Value discrepancy | units agree, but the values differ by more than 5% of the broker's value |
+| Minor difference | the whole units differ by less than 1%, usually a dividend reinvestment whose note was not downloaded |
+
+Values are compared in GBP. IBKR states each position in its own currency, converted at the live
+rate. Cash is not reconciled. The run exits with status 4 when anything but a minor difference is
+found, and 1 when a file or argument cannot be read.
 
 ### Decision Log
 

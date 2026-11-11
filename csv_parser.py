@@ -118,6 +118,9 @@ def parse_stock_transaction_csv(filename: str) -> List[Dict[str, Any]]:
                         'transaction_type': transaction_type,
                         'stock_name': name,
                         'ticker': symbol,
+                        # ii's holdings export identifies a fund by its SEDOL alone, so
+                        # reconcile-holdings needs it to match the fund (investment-reviews#104)
+                        'sedol': row.get('Sedol', '').strip() or None,
                         'currency': 'GBP',  # All amounts in CSV are in GBP
                         'transaction_date': transaction_date,
                         'num_shares': int(quantity),  # Convert to int for consistency with other parsers

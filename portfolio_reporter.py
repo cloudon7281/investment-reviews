@@ -497,6 +497,35 @@ class PortfolioReporter:
             self.numbers_writer.write_table(table_data, config, title, title)
             self._save_numbers_document()
 
+    def display_holdings_reconciliation(self, findings_df: pd.DataFrame, agreed: int, broker_lines: int) -> None:
+        """Display every difference between the notes' holdings and the brokers' (investment-reviews#104).
+
+        Args:
+            findings_df: rows from reconcile_holdings.reconcile(), one per finding.
+            agreed: how many holdings agreed in units and value.
+            broker_lines: how many broker lines were read, for the summary line.
+        """
+        print(f"\n{broker_lines} broker lines read; {agreed} holdings agree; {len(findings_df)} findings.")
+        if findings_df.empty:
+            return
+
+        display_df = findings_df.copy()
+        for column in ('notes_units', 'broker_units'):
+            display_df[column] = display_df[column].apply(
+                lambda x: f"{int(x):,}" if x is not None and pd.notna(x) else '')
+        for column in ('notes_value', 'broker_value'):
+            display_df[column] = display_df[column].apply(
+                lambda x: (x, 'GBP') if x is not None and pd.notna(x) else None)
+
+        config = rd.COLUMN_CONFIGS['holdings_reconciliation']
+        title = "Holdings reconciliation"
+        table_data = self.data_builder.build_table(display_df, config, title=title)
+        self.console_writer.write_table(table_data, config)
+
+        if self.numbers_writer:
+            self.numbers_writer.write_table(table_data, config, title, title)
+            self._save_numbers_document()
+
     def display_decision_log(self, tables: Dict[str, pd.DataFrame], log_dir: str) -> None:
         """Display the decision-log check: the decisions, the trades linked to them, and unlogged trades.
 
