@@ -1,7 +1,7 @@
 # Investment Operations Brief
 
-**Status:** Approved
-**Version:** v1.1 · 6 November 2026  
+**Status:** Agreed
+**Version:** v1.2 · 14 November 2026  
 **Scope:** Standing operating procedure for investment conversations in this ChatGPT project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
 
 ## 1. Purpose and governing documents
@@ -17,13 +17,14 @@ Sources of authority for their respective subjects:
 | Investment-analysis data contracts | `idea-submission.v1.schema.json`, `research-brief.v1.schema.json`, `analysis-record.v1.schema.json` and their successors, as attached to the project sources from the `investment-analysis` repository (`src/investment_analysis/schemas/`, with worked examples in `tests/fixtures/`) |
 | Broker parsing, actual transactions, execution decisions, decision taxonomy and performance reporting | `investment-reviews` README and implementation |
 | Application discovery, enrichment, research records and observational evaluation | `investment-analysis` specification and implementation |
+| Coordinated discovery triage, watch checks and comparative research programmes | **Investment Research Programme Brief v1.0** and its Charters A, B and C (research methodology; not investment criteria) |
 | The work to be done in a particular conversation | The user's explicit instructions, subject to the above contracts |
 
 Do not silently reconcile contradictory sources or assume that an older attachment is current. Identify material inconsistencies and apply the most recent expressly agreed version. A proposed change to strategy or operating procedure is **not effective until agreed**.
 
 ### 1.1 Scope of the different conversations
 
-- **Monthly stock review:** normally individual stocks held in ISA and taxable accounts; excludes pension holdings, funds, bonds and money-market funds unless explicitly brought into scope.
+- **Monthly active-investment review:** normally individual stocks held in ISA and taxable accounts, plus a **prospective opportunity comparison** of relevant thematic beta-plus instruments and current research candidates under Charter C. This does not make every fund or pension holding part of the monthly stock-by-stock review: broad-market beta funds, bonds, private investments, MMFs and pension-account holdings are excluded from routine holdings-level examination unless explicitly brought into scope. Thematic beta-plus funds may be compared as investment alternatives without requiring the Strategy’s full annual fund-specific compliance review.
 - **Annual review (normally January):** whole-portfolio asset allocation and performance, including pension, non-pension investments, funds, private/off-platform investments and liquidity where the available reports permit; plus detailed non-pension stock/fund decisions.
 - **Ad hoc research:** any specific company, security, investment thesis, economic event or scheduled-monitoring finding. Does not require a scheduled review.
 - **Portfolio construction / implementation:** comparative allocation among broad beta, thematic beta-plus, direct stocks and liquidity; tax wrappers, cash needs and execution arrangements where requested.
@@ -118,6 +119,22 @@ For a concluded judgement on a registered idea:
 
 The analysis record does not authorise a trade. A negative or watch verdict remains tracked by `investment-analysis` in the same way as a selected idea. Where multiple ideas concern one security, identify which economic hypothesis the judgement applies to.
 
+### 3.3.1 Coordinated research programmes and standard charters
+
+For sizeable or recurring research, apply the separately agreed **Investment Research Programme Brief** and one of its three standard charters rather than negotiating a new methodology each time:
+
+- **Charter A — Discovery Triage:** first-pass analysis of newly ingested external or internal ideas; issue evidence-backed research verdicts, not purchases.
+- **Charter B — Watch Requalification:** normally before each monthly review, cover **all ideas whose latest verdict is `watch`**. Promote only those whose circumstances have materially improved enough to warrant substantive research. Produce a complete coverage report but **do not** create new official records for unchanged watches.
+- **Charter C — Comparative Investment Research:** use for monthly/annual thematic beta-plus and alpha-seeking research, or substantial comparative ad hoc work. Default universe is **all current `candidate` ideas plus in-scope holdings**, including promotions accepted from Charter B.
+
+The Research Programme Brief defines work-package assignments, independent challenge, a discovery register, evidence QA, comparative ranking and reproducible outputs. It does **not** change the Investment Strategy's criteria or this brief's idea/analysis import contracts.
+
+In Charter C, establish holdings for **coverage and mandatory risk checks** from the outset, but produce the company/security opportunity ranking **without preference for current ownership, entry price or unrealised P&L**. Run the holdings-review stream in parallel. Only after the holdings-neutral ranking should portfolio-specific position weights, tax, wrappers, switching costs and correlation influence action proposals. Thus the capital decision is zero-based in prospective merit, but research can reuse earlier verified evidence.
+
+Research may discover attractive competitors or adjacent investments. Record these in a separate programme Discovery Register; propose `IdeaSubmission.v1` **only after explicit agreement** that the new idea warrants entering the pipeline, using §3.1. Do not silently add every mentioned competitor, auto-import an idea, or create an analysis for an unregistered idea.
+
+A charter/report is not a trade or an official application record. Create `AnalysisRecord.v1` only when the relevant judgement is concluded, with exact IDs and versioned supersession. Preserve the division of responsibility between `investment-analysis` research and `investment-reviews` execution/portfolio reporting.
+
 ### 3.4 Observation and evaluation (interfaces D and E)
 
 `investment-analysis` observes ideas regardless of whether we selected them, including rejected ideas, later-delisted shares, missed catalysts and revised hypotheses. Its evaluation report should distinguish:
@@ -142,38 +159,44 @@ The **current Investment Strategy** governs all thresholds and allocation target
 
 Do not duplicate numerical rule definitions in schemas or tools when the strategy is their authority. In reports, name the applicable rule and its contemporaneous value, including any written exception.
 
-## 5. Structured monthly stock review
+## 5. Structured monthly active-investment review
 
 ### 5.1 Normal scope, cadence and inputs
 
-Run when requested, usually monthly during higher-volatility periods and otherwise at the cadence directed by the strategy. Normally covers **individual shares in ISA and taxable accounts**; exclude SIPP/pension, collective funds, bonds, private investments and MMFs from the stock-by-stock monthly scope unless explicitly included. Consider those other assets for relevant *portfolio-level correlation, capital and liquidity context* without pretending they are part of the per-stock workbook.
+Run when requested, usually monthly during higher-volatility periods and otherwise at the cadence directed by the strategy. Normally covers **individual shares in ISA and taxable accounts** for stock-specific holdings decisions, alongside the Charter C **comparative opportunity assessment** of in-scope thematic beta-plus and alpha-seeking investments. Pension-account holdings and broad-market beta/other funds are not automatically added to the monthly holdings review; broad beta is normally reviewed through the annual fund/asset-allocation process. Thematic beta-plus ETFs can be competitors or research cases without triggering full monthly fund-compliance checks. Consider out-of-scope assets for whole-portfolio correlation, capital and liquidity context without pretending they are part of the stock-by-stock workbook.
+
+**Before the substantive review:** run Charter B against the complete current watch population, record its coverage and import/confirm any agreed candidate promotions. Freeze the resulting Charter C candidate list. Obtain the latest **`investment-reviews` Periodic Review**, independently of `investment-analysis`, and identify every holding and mandatory review trigger. If either input is unavailable, document the gap and do not claim full coverage.
 
 Read the latest available:
 
 - Investment Strategy; current `thesis.md` and `thesis.json`.
 - Previous monthly/annual decisions report and any agreed watchpoints/proof-point table.
 - `investment-reviews` **Periodic Review** workbook, and where available its decision-outcomes/check-decisions reports or decision log.
-- Relevant `investment-analysis` briefs, candidate inbox and evaluation reports exported for this review.
+- Relevant `investment-analysis` briefs, latest analysis chains, candidate inbox, **Charter B coverage/promotions**, Charter C research dossiers/rankings and evaluation reports exported for this review.
 - Primary filings and material news since the prior review, especially for holdings meeting strategy triggers.
 
 Do **not** mistake the periodic workbook's **Start Value, P&L or ROI since the previous review** for lifetime investment return. `New`, `Retained`, `Increased` and `Sold` are prior-period decision outcome groups, and `Sold` is a counterfactual view. The thesis candidate basket is an equal-weighted diagnostic, **not** an actual portfolio return.
 
 Stop-loss: the **absolute 90-calendar-day closing high** determines the >20% review / >30% default-exit trigger under the current strategy. The 10-trading-day smoothed high and P90 high are context for transient spikes; they do **not** replace the trigger. Volatility in the workbook is a 90-day estimate; the low-volatility rule needs persistence over **two successive quarters**, not a single reading.
 
+Also retain **progress towards doubling and profit-taking review points**, previous decision results, documented moonshot decision windows, proof milestones and prior exceptions from the Periodic Review and decision history. Use these to require an investigation or risk-management response, **not** as a scoring input that prejudges independent prospective merit. Every mandatory holding trigger must receive an explicit conclusion or unresolved/escalated entry, including when the recommendation is no action. The `investment-analysis` trade/activity interface does not contain these full Periodic Review outcomes and must not be used as a substitute.
+
 ### 5.2 Conversation sequence
 
 Unless explicitly changed by the user:
 
-1. **Previous decisions:** compare New/Increased/Retained/Sold outcomes with broad benchmarks and relevant thesis-candidate baskets. Check completed versus pending trades; avoid overinterpreting one month's price changes.
-2. **Theses:** review fundamental changes and whole candidate baskets, held versus unheld expressions, breadth and possible omissions. Revisit `thesis.json` candidate universes systematically each quarter; make interim changes for material new evidence.
-3. **Holdings:** evaluate every in-scope stock against risk rules **and** today's prospective return relative to competing candidates, thematic ETFs and broad-market beta. Distinguish a hold from a recommendation to add.
-4. **Evidence checkpoints:** review dated pre-proof tests, acquisitions/financings, exceptions and slipped catalysts. Record pass/failure criteria and reasons for any one-time extension.
-5. **Provisional decisions:** discuss and agree retain, conditional retain, watch, rotate, partial profit-take, increase or exit. Separate research verdicts from executable trades.
-6. **Capital allocation:** consider existing and newly discovered candidates **on equal terms**; include alternatives within and outside our themes, diversified trackers, thematic funds and MMFs. Do not give the thesis list automatic preference just because it is maintained.
-7. **Process watchpoints:** revisit and close, continue or escalate; identify any proposed (not automatic) strategy or thesis edits.
-8. **Final artefacts:** after discussion and user agreement, produce the Word decision report and, when buy/sell decisions were made, `investment-reviews` YAML. Produce applicable interface A/C records for **new or substantively reanalysed registered ideas**; do not bulk-create ideas for every routine mention or unchanged hold.
+0. **Preparatory research and coverage:** finish the Charter B watch check, capture promotions and source gaps, obtain the `investment-reviews` Periodic Review, and establish the Charter C candidate-plus-holdings universe. Record the versions/cut-off dates of both applications' outputs.
+1. **Previous decisions (opening substantive discussion):** compare `New`/`Increased`/`Retained`/`Sold` outcomes with broad benchmarks and appropriate thesis baskets; check actual versus pending transactions, and preserve the counterfactual meaning of `Sold`. Do not infer lifetime results from the recent review period.
+2. **Holdings governance:** review progress toward doubling/profit-taking points, absolute-high drawdowns (with smoothed/P90 context), volatility/persistence, moonshot proof windows, past exceptions and other mandatory triggers. Establish a documented closure/escalation for **every** applicable trigger, irrespective of investment ranking.
+3. **Theses and candidate changes:** review material thesis developments, held versus unheld expressions, Charter B promotions and newly identified peer alternatives. Revisit `thesis.json` candidate universes systematically each quarter, and as needed for material new evidence.
+4. **Charter C independent investment comparison:** refresh all in-scope current holdings and `candidate` ideas, use source-cited dossiers and independent challenge proportionate to decision relevance, and produce a **holdings-neutral** opportunity ranking before using cost basis or actual position size. Compare alternatives within/outside theses, broad beta and thematic beta-plus; avoid privileging existing names.
+5. **Evidence checkpoints:** review dated pre-proof tests, acquisitions/financings, dilution and capital-allocation evidence, exceptions, and slipped catalysts. Record pass/failure evidence and any permissible dated extension.
+6. **Portfolio overlay and provisional decisions:** combine the independent ranking with positions, exposure correlations, wrappers, taxes, switching costs, cash needs and strategy risk rules. Discuss retain, conditional retain, watch, rotate, partial profit-take, increase and exit; distinguish fresh-buy, add and retain decisions.
+7. **Capital allocation:** compare existing holdings, new candidates, best unheld alternatives, diversified trackers, thematic funds and MMFs against opportunity costs. A better-ranked candidate need not require a rotation if the switching costs eliminate its advantage.
+8. **Process watchpoints:** revisit open issues, including discovery yield, proof-date exceptions, concentration and research effort; record explicit proposed (not automatically adopted) changes to strategy/theses/process.
+9. **Final artefacts:** after discussion and user agreement, prepare the Word decisions report when requested, the `investment-reviews` execution YAML for actual agreed buy/sell decisions, and only the applicable concluded interface A/C records. Include Charter B promotions, Charter C rankings, new-idea proposals and **reasoned no-action/hold conclusions**, rather than manufacturing records for every mention.
 
-Long reviews can proceed by company group. Keep an interim checkpoint of agreed versus unresolved decisions when needed; never describe preliminary recommendations as already approved or executed.
+Long reviews can proceed by company group. Keep an interim checkpoint of agreed versus unresolved decisions when needed; never describe preliminary recommendations as already approved or executed. Completing a candidate ranking **does not complete a monthly review** until prior-decision outcomes and all mandatory holdings triggers are addressed.
 
 ### 5.3 Monthly Word report: required sections
 
@@ -189,11 +212,13 @@ Produce the **downloadable Word report only after the user asks for the final ve
 8. **Material acquisitions and financing:** transaction, strategic purpose, price/dilution/leverage, evidence of per-share value creation, next checkpoint, assessment.
 9. **Process watchpoints:** issue, why it matters, first noted, evidence, escalation trigger and status; specifically exception creep, M&A/capital-allocation drift and candidate-basket statistical distortions.
 
-Where a section is genuinely not applicable, state that briefly rather than manufacturing content. Retain sufficient substance on **holds and no-action conclusions**, not only trades. Distinguish proposed edits to strategy/thesis documents from changes already accepted.
+Where a section is genuinely not applicable, state that briefly rather than manufacturing content. Retain sufficient substance on **holds and no-action conclusions**, not only trades. Distinguish proposed edits to strategy/thesis documents from changes already accepted. The report should reference the completed Charter B promotion/coverage report and the **separate** Charter C merits ranking versus portfolio-adjusted actions; these can be summarized within the existing nine sections rather than imposing a new Word format.
 
 ## 6. Annual investment review
 
 Conduct the annual review normally in **January**, using the Investment Strategy and supplied `investment-reviews` **Annual Review**, full-history, fund and tax/decision reports as applicable. The annual scope is **the consolidated economic portfolio**: pension and non-pension wrappers, off-platform/private holdings and cash where data is available; wrapper-specific implementation remains distinct.
+
+Apply the **same Charter C holdings-neutral comparative research method** to thematic beta-plus and alpha-seeking individual investments as in a monthly review, informed by the latest completed Charter B check. The annual review additionally examines broad-market beta funds (benchmark, tracking, costs, suitability), other funds, the pension and consolidated allocation/risk. These annual tasks are **not** recast as `investment-analysis` stock-selection research. Where holdings are in scope, use authoritative `investment-reviews` reporting for past decision outcomes and mandatory review triggers.
 
 Review in the following order unless directed otherwise:
 
@@ -210,7 +235,7 @@ Discuss in stages before drafting conclusions. The final report should provide a
 
 ## 7. Ad hoc conversations, scheduled monitoring and special reviews
 
-This procedure applies equally to developments discovered during scheduled tasks, a direct user question, a news item, new technology investigation, a candidate found outside our maintained theses, and a focused revisit of a holding.
+This procedure applies equally to developments discovered during scheduled tasks, a direct user question, a news item, new technology investigation, a candidate found outside our maintained theses, and a focused revisit of a holding. A substantial multi-company or comparative ad hoc investigation uses **Research Charter C**, with a stated question and universe, without requiring a monthly-review portfolio overlay unless actual holdings or capital decisions are in scope.
 
 **Default ad hoc sequence:**
 
@@ -257,6 +282,10 @@ If an ad hoc buy/sell is agreed outside a review's decision date/window, use its
 | Situation | Output | Timing / constraints |
 |---|---|---|
 | Agreed **new** candidate for research | `IdeaSubmission.v1-{TICKER}-{DATE}.json` | At agreement, before tool enrichment; validate if possible, check duplicates |
+| Charter A intake/triage | Research register, triage coverage, concluded `AnalysisRecord.v1` batch | For the complete incoming idea batch; no automatic execution |
+| Charter B watch requalification | Complete watch-check coverage report and only **promoted** `candidate` analyses | Normally before each monthly review; no redundant unchanged-watch record |
+| Charter C comparative programme | Issuer/vehicle dossiers, challenge, complete merits ranking and separately labelled portfolio overlay | For monthly/annual active-investment research or significant ad hoc comparisons; candidate + in-scope holdings by default |
+| New idea surfaced during research | Programme Discovery Register; agreed interface A when authorised | A competitor mention alone does not create or import an idea |
 | Agreed correction or refinement of a registered idea's claim | `IdeaSubmission.v1-{TICKER}-{DATE}-revision.json` with `revisesIdeaId` | Real `ideaId` from the idea's brief; same origin, event type and security; never for a new thesis (§3.1.1) |
 | Tool delivers completed enrichment | `ResearchBrief.v1` JSON + paired Markdown | **Read** and analyse the actual version; normally produced by `investment-analysis`, not reconstructed by the assistant |
 | Concluded research verdict on a registered idea | `AnalysisRecord.v1-{TICKER}-{DATE}.json` | After substantive conclusion; real IDs, immutable, validate if possible |
@@ -273,6 +302,8 @@ An ad hoc research discussion need not force a Word report or execution YAML; co
 ## 10. Research outcomes, comparison discipline and self-evaluation
 
 All candidates—including current holdings, external crowdsourced discoveries and our own thematic ideas—compete within one pool under the same investment hurdle. Conditional Retain means *eligible to compete*, not a commitment to keep. A Strong Retain is also reconsidered when materially better alternatives appear.
+
+For substantial comparisons, retain **two separate outputs**: (a) a holdings-neutral, prospective opportunity ranking and (b) portfolio-aware action proposals. Use the Strategy's criteria consistently; former purchase price/holding status is not evidence for rank, while taxes, actual exposures and implementation costs can legitimately change the action. The research programme's Discovery Register records stronger new alternatives, which enter the official pipeline only after the usual explicit agreement and interface A submission.
 
 At the point of selection or rejection record, where relevant:
 
@@ -292,6 +323,15 @@ At the end of a substantive review or research programme, summarise **agreed dec
 
 Do not change investment rules in response to a single outlier. Explicitly identify proposals to amend the Investment Strategy, `thesis.md`, `thesis.json`, schemas, the `investment-analysis` tool or this brief. The user must approve the proposed change before it is adopted. The existing code/schema owners, not this operating brief, define valid interchange formats and live data semantics.
 
+### 11.2 Changes proposed in v1.2
+
+- Recognise companion *Investment Research Programme Brief* v1.0 and its three standard charters; add §3.3.1 describing the delegated workflow and official interface boundaries.
+- Make Charter B requalification of the entire `watch` population a normal monthly preparatory step; promotions join the Charter C candidate population, without monthly unchanged-watch analyses.
+- Preserve `investment-reviews` **Periodic Review** as a separate authoritative input: previous decision outcome groups, path to doubling, absolute-high review/exit triggers, spike context, volatility persistence, moonshot proof points and **mandatory trigger closure**.
+- Require Charter C's holdings-neutral opportunity ranking before the holdings-aware allocation overlay; maintain full non-actions, tax/switching costs and wrapper effects.
+- Clarify thematic beta-plus **comparative opportunity assessment** in monthly reviews without creating a new monthly annual-style fund compliance obligation or bringing broad-market beta into `investment-analysis`.
+- Add discovery proposals arising from competitor research and cross-references to the new programme artifacts; retain annual consolidated/broad-market review and the existing execution and analysis contracts.
+
 ### 11.1 Changes in v1.1
 
 - §3.1.1 (new): revising a registered idea's claim with `IdeaSubmission.v1` `revisesIdeaId`, added to `investment-analysis` on 6 November 2026; §3.1 steps 2–3, §3.2, §7 step 4 and §9 refer to it.
@@ -304,6 +344,6 @@ Do not change investment rules in response to a single outlier. Explicitly ident
 
 Keep the project-level instructions short; the full operating procedure should live in this document, attached to the project sources:
 
-> For all investment-related conversations, use the latest **Investment Strategy** and **Investment Operations Brief** in project sources. The Investment Operations Brief defines the procedures for periodic reviews, ad hoc research, `investment-analysis` hand-offs, evaluation and `investment-reviews` decision recording. Follow its triggers, authoritative schemas and artifact requirements; do not assume access to unprovided tool records.
+> For all investment-related conversations, use the latest **Investment Strategy** and **Investment Operations Brief** in project sources. When a coordinated research programme is invoked, also follow the **Investment Research Programme Brief** and its applicable standard charter (A: Discovery Triage; B: Watch Requalification; C: Comparative Investment Research). The Operations Brief defines periodic reviews, ad hoc research, `investment-analysis` hand-offs, evaluation and `investment-reviews` decision recording. Follow approved sources and authoritative schemas; do not assume access to unprovided tool records.
 
-*This draft is an operating procedure. It does not itself change the Investment Strategy or the applications' schemas.*
+*This proposed v1.2 replaces the approved v1.1 only on adoption in the project sources. It does not change the Investment Strategy or either application's schemas, nor alter any previously accepted application record.*
