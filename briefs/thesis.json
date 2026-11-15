@@ -16,7 +16,9 @@
         {"ticker": "EOS.AX", "name": "EOS"},
         {"ticker": "RCAT", "name": "Red Cat Holdings"},
         {"ticker": "MILDEF.ST", "name": "MilDef Group"},
-        {"ticker": "QQ.L", "name": "QinetiQ Group"}
+        {"ticker": "QQ.L", "name": "QinetiQ Group"},
+        {"ticker": "CODA", "name": "Coda Octopus Group"},
+        {"ticker": "NORBT.OL", "name": "NORBIT"}
       ]
     },
     {
@@ -32,7 +34,8 @@
         {"ticker": "BE", "name": "Bloom Energy"},
         {"ticker": "NVTS", "name": "Navitas Semiconductor"},
         {"ticker": "ALMU", "name": "Aeluma"},
-        {"ticker": "SIVE.ST", "name": "Sivers Semiconductors"}
+        {"ticker": "SIVE.ST", "name": "Sivers Semiconductors"},
+        {"ticker": "CLS", "name": "Celestica"} 
       ]
     },
     {
