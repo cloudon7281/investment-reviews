@@ -22,7 +22,7 @@ Candidate tables use the following concise metadata:
 
 | Thesis | Status | Current strength | Preferred expressions | Last reviewed |
 |---|---|---:|---|---|
-| Defence | Active | High | European defence primes; layered counter-UAS; sensors/EW; C2 and battlefield integration; low-cost effectors; Ukrainian-derived autonomy | 2026-09 |
+| Defence | Active | High | European defence primes; layered counter-UAS; critical-undersea-infrastructure protection; sensors/EW; C2 and battlefield integration; low-cost effectors; Ukrainian-derived autonomy | 2026-09 |
 | Data-centre infrastructure | Active | High | Power/grid/cooling bottleneck solvers; connectivity/data movement; time-to-power solutions; selective rack-power optionality | 2026-09 |
 | Nuclear / SMR / energy security | Active | High | Fuel cycle; proven engineering and manufacturing; existing generation; selective reactor optionality | 2026-09 |
 | EVs and battery technology | Active | Medium | Scaled EV manufacturers; commercially validated application-specific battery performance; qualified and secure manufacturing | 2026-09 |
@@ -65,6 +65,24 @@ This broadens the attractive layers of the stack. Critical-infrastructure defenc
 
 The likely winners may differ by layer. A broad defence prime can benefit from system integration, while smaller specialists may capture disproportionate value in sensors, autonomy, RF, software, low-cost interceptors or directed energy.
 
+### Critical undersea infrastructure protection sub-thesis
+
+Protection of subsea communications cables, pipelines and other critical undersea infrastructure is now an explicit Defence sub-thesis. Persistent Russian and Chinese activity around European and allied undersea infrastructure increases demand for surveillance, attribution, inspection and rapid response.
+
+The investible stack is:
+
+1. **Wide-area maritime awareness** — satellite, AIS, SAR and dark-vessel detection.
+2. **Persistent seabed surveillance** — sonar, acoustics and fixed/mobile sensing.
+3. **Autonomous patrol and inspection** — AUVs and USVs able to inspect long stretches of seabed efficiently.
+4. **Underwater navigation and communications** — acoustic positioning, modems, DVLs and related enabling technology.
+5. **Change/anomaly detection** — software and sensor fusion that identify suspicious activity or damage.
+6. **Response and repair** — systems enabling investigation, intervention and restoration.
+7. **Integration** — combining maritime awareness, subsea sensing, autonomous platforms and command systems into an operational protection architecture.
+
+Recent consolidation across the industry supports the strategic importance of scarce sonar, subsea communications and autonomous-platform capability. However, acquisition interest is evidence of strategic scarcity rather than proof that an acquirer will create shareholder value. Candidates should be attractive on their own economics and technology, not because they might be bought.
+
+Preferred expressions are companies controlling scarce sensing, autonomy, navigation/communications or integrated-surveillance capability rather than cable owners themselves.
+
 ### Evidence and rationale
 
 - European rearmament remains a multi-year programme rather than a one-off spending spike.
@@ -93,16 +111,18 @@ The likely winners may differ by layer. A broad defence prime can benefit from s
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
 | Rheinmetall | RHM.DE | Yes | Direct | Land systems, ammunition, air defence, missiles and integration | Established growth | Broad European rearmament exposure with scalable production and strong air-defence relevance. |
-| Kongsberg Gruppen | KOG.OL | Yes | Direct | Missiles, air defence, remote weapon systems, maritime defence and secure communications | Established growth | High-quality European defence technology exposure with strong missile and integrated-defence relevance. |
+| Kongsberg Gruppen | KOG.OL | Yes | Direct | Missiles, air defence, maritime defence, subsea autonomy/sensing and secure communications | Established growth | High-quality European defence technology exposure; Kongsberg Discovery adds HUGIN/Aegir and other direct critical-undersea-infrastructure surveillance capability. |
 | Hensoldt | HAG.DE | Yes | Enabler | Radar, sensors, electronic warfare and counter-UAS detection | Growth | Direct exposure to detect/classify layers and increasingly relevant to persistent infrastructure protection. |
 | MilDef Group | MILDEF.ST | Yes | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
 | QinetiQ Group | QQ.L | Yes | Diversified beneficiary | Test and evaluation, robotics, autonomy and mission systems | Established growth | Defence-technology and integration exposure without dependence on a single platform. |
-| Cohort | CHRT.L | Yes | Enabler | Sensors, communications, electronic warfare and naval systems | Growth | Smaller listed UK expression of specialist defence electronics and integration. |
+| Cohort | CHRT.L | Yes | Enabler | Sensors, communications, electronic warfare, naval systems and submarine sonar | Growth | Smaller listed UK expression of specialist defence electronics; ELAC adds direct undersea/sonar relevance to the CUI sub-thesis. |
 | Firan Technology Group | FTG.TO | Yes | Enabler | Aerospace and defence electronics and cockpit products | Growth | Niche electronics supplier benefiting from defence and aerospace production growth. |
-| Kraken Robotics | PNG.V | Yes | Enabler | Underwater sensing, sonar, batteries and autonomous systems | High-beta growth | Distinct exposure to subsea autonomy and maritime defence, with acquisition-integration risk. |
+| Kraken Robotics | PNG.V | Yes | Enabler | Underwater sensing, sonar, batteries, autonomous systems and subsea infrastructure surveillance | High-beta growth | Direct CUI/subsea-autonomy exposure, strengthened strategically by Covelya/Sonardyne capability but carrying material acquisition-integration and cash-conversion risk. |
+| Coda Octopus Group | CODA | Yes | Enabler | Real-time 3D underwater imaging sonar and defence engineering | Growth / asymmetric small-cap | Profitable, cash-rich niche sonar company with scarce underwater-imaging IP and asymmetric upside if CUI procurement becomes a material growth market. |
+| NORBIT | NORBT.OL | No | Enabler | Multibeam sonar, DVLs, acoustic positioning/modems and underwater autonomy | Growth | Profitable undersea-autonomy picks-and-shovels candidate; Water Linked broadens navigation, perception and communications capability. |
 | Filtronic | FTC.L | Yes | Enabler | RF, microwave and high-frequency communications | High-beta growth | Scarce RF capability relevant to defence and secure communications, with strategic space-communications adjacency. |
-| OHB | OHB.DE | Yes | Diversified beneficiary | Sovereign satellites, tactical reconnaissance and secure communications | High-beta growth | Listed route to European sovereign-space and military-space investment. |
-| Magellan Aerospace | MAL.TO | Yes | Diversified beneficiary | Aerospace structures, engines, space and defence programmes | Established growth | Lower-profile industrial exposure across commercial aerospace, defence and space. |
+| OHB | OHB.DE | No | Diversified beneficiary | Sovereign satellites, tactical reconnaissance and secure communications | High-beta growth | Listed route to European sovereign-space and military-space investment. |
+| Magellan Aerospace | MAL.TO | No | Diversified beneficiary | Aerospace structures, engines, space and defence programmes | Established growth | Lower-profile industrial exposure across commercial aerospace, defence and space. |
 | Red Cat Holdings | RCAT | Yes | Speculative optionality | U.S.-manufactured small military drones | Speculative | Direct expression of U.S. drone procurement, with real programme access but material scale, margin and financing risk. |
 | Swarmer | SWMR | Yes | Speculative optionality | Battlefield-tested multi-drone autonomy software | Speculative | Direct investable route to Ukrainian-origin swarm technology; commercial proof remains extremely early. |
 | DroneShield | DRO.AX | Yes | Direct | RF sensing, jamming, sensor fusion and integrated counter-UAS | High-beta growth | Listed pure-play C-UAS exposure. September integration/deployment evidence is consistent with the proposition that its RF/EW products can become components of broader multi-sensor/multi-effector architectures. |
@@ -132,9 +152,17 @@ September market performance was broadly weak across the configured candidate un
 
 Fundamental evidence strengthened around institutionalised counter-UAS procurement, persistent critical-infrastructure protection and layered architectures combining multi-sensor detection, C2, EW and affordable hard-kill effectors.
 
-DroneShield's September deployment and integration evidence is directionally consistent with the pre-purchase proof point that it become part of broader C-UAS architectures rather than remain merely a standalone RF jammer vendor. This is promising evidence but remains below the strongest adversarial/independent-validation level.
+The review also promotes **critical undersea infrastructure protection** to a formal Defence sub-thesis. Repeated strategic activity around subsea cables and pipelines, together with industry consolidation around sonar, underwater communications, navigation and autonomy, supports a durable need for maritime awareness, seabed surveillance, autonomous inspection and integrated response. Kongsberg Gruppen is already a high-quality integrated expression through Kongsberg Discovery. Coda Octopus becomes the first deliberately small asymmetric allocation; NORBIT enters the research/candidate universe.
 
-EOS is added to the candidate universe as a directed-energy and kinetic counter-UAS expression following materially stronger evidence around European operationalisation and potential production.
+DroneShield's September deployment and integration evidence is directionally consistent with the pre-purchase proof point that it become part of broader C-UAS architectures rather than remain merely a standalone RF jammer vendor. This is promising evidence but remains below the strongest adversarial/independent-validation level. It remains early and should not be increased until actual orders, margins and governance provide stronger proof.
+
+EOS is added to the candidate universe as a directed-energy and kinetic counter-UAS expression following materially stronger evidence around European operationalisation and potential production. Valuation and portfolio overlap prevent a current purchase.
+
+OHB, Magellan Aerospace and Kongsberg Maritime were exited on opportunity-cost grounds rather than because the Defence thesis weakened. OHB no longer justified a repeated stop-loss exception; Magellan was an indirect expression with better alternatives available; Kongsberg Maritime proved not to own the principal Kongsberg Discovery/HUGIN assets relevant to the CUI thesis.
+
+Red Cat and Kraken receive one-time, explicitly dated Q3 extensions rather than open-ended exceptions. Red Cat must demonstrate credible Black Widow procurement conversion, a path toward FY revenue guidance, margin improvement, inventory conversion and no material new dilution. Kraken must show combined Kraken/Covelya revenue and margins tracking guidance, good working-capital/cash conversion, no unexpected integration problems and no new acquisition spree. No second extension should be granted merely because the strategic stories remain attractive.
+
+Rheinmetall, Hensoldt, MilDef, Kongsberg Gruppen, QinetiQ, Cohort, Firan and Filtronic remain holds. Swarmer remains a pre-proof hold, but acquisition/capital-discipline risk has increased and becomes an explicit early-review condition.
 
 The Ukrainian defence-tech value-capture watchpoint remains unresolved: battlefield innovation clearly shapes Western procurement, but it remains uncertain whether original Ukrainian developers, Western integrators or local manufacturers ultimately capture most of the economics.
 
@@ -250,6 +278,10 @@ However, U.S. data-centre construction has become a live political issue ahead o
 
 The rack-power architecture proposition strengthened separately. 800VDC increasingly appears to be an emerging industry architecture rather than a speculative possibility, but value capture is unresolved. Navitas remains a HOLD to its existing FY26 / approximately February 2027 proof point, with no averaging down or increase before customer/production validation.
 
+Bloom Energy, Astera Labs, Amphenol, Schneider Electric and Celestica remain holds. Celestica should be classified economically under this thesis rather than under its historical idea-source tag. Aeluma's proof sequence advanced through funding, capacity and contract/NRE evidence, but an increase still requires qualification, a design win or production commitment.
+
+No additional Data-centre capital was allocated in September because existing exposure is already substantial and the marginal pound had stronger uses elsewhere.
+
 ---
 
 ## Nuclear / SMR / energy security
@@ -326,9 +358,13 @@ Fundamental evidence strengthened across the stack. Centrus signed additional mu
 
 The preferred hierarchy remains unchanged: **fuel-cycle scarcity → proven engineering/manufacturing → existing generation → selective reactor optionality**.
 
-Centrus's September equity/warrant financing is important contrary evidence at the company level. It reinforces that strong HALEU demand does not automatically imply capital-efficient shareholder returns and requires specific examination during the stock review.
+Centrus continues to benefit from strengthening HALEU demand and funded customer commitments, but the September equity/warrant financing adds a material dilution and capital-efficiency test. The key shareholder question is whether funded HALEU backlog, prepayments and capacity economics grow faster than the prospective dilution and capex burden. Repeated issuance without proportionate contracted economics would weaken the stock case even if the strategic fuel-cycle thesis remains correct.
 
-BWXT remains the lower-binary-risk expression and should be tested against its existing proof-point-capital criterion: whether commercial nuclear, Government Operations and advanced-reactor programmes are now lifting the medium-term earnings trajectory sufficiently to justify further capital.
+BWXT's September evidence materially passed the proof-point-capital gate. The Investor Day medium-term outlook, Janus/BANR progress, government nuclear work and improved financing quality strengthen the case that existing profitable nuclear and defence businesses can compound into a larger earnings base. BWXT therefore became eligible for incremental capital and was increased.
+
+The broader U.S. licensing backdrop improved, including progress around SMR pathways, but Oklo remains company-specifically pre-proof. Its next decision still requires tangible Aurora-INL capex/DOE progress, NRC fleet/commercial evidence, fuel/A3F progress, credible timetable and customer conversion.
+
+Avoid circular reasoning of the form “AI needs power, therefore all nuclear equities win”; each holding must continue to justify its own valuation, capital needs and path to per-share value.
 
 ---
 
@@ -370,7 +406,7 @@ The thesis has two distinct sleeves:
 - Scaled EV manufacturers with durable cost, manufacturing and supply-chain advantages.
 - Battery companies with real customers, repeat orders and evidence of qualified manufacturing.
 - Application-specific battery moonshots that deliver a step-change in the parameter constraining a valuable application.
-- For defence applications, companies able to combine performance with qualified and trusted production.
+- Battery companies combining **performance × manufacturability × trusted/eligible supply chain**, with real customers, repeat orders and evidence of qualified production.
 - Small position sizes with dated commercial decision points; no averaging down before validation.
 
 ### Candidate expressions
@@ -412,7 +448,11 @@ At the battery level, overcapacity and pricing pressure reinforce the preference
 
 High-energy-density drone and defence batteries remain an attractive niche. Enovix's growing defence/drone commercial activity, compliant production and planned capacity expansion make it an increasingly credible comparator to Amprius.
 
-Amprius remains at its scheduled Q3 / approximately November decision point. There should be no increase before evidence of repeatable revenue, margins, repeat orders, manufacturing performance and improved cash economics.
+Amprius remains the preferred listed battery moonshot. September materially strengthened the case through U.S. defence-manufacturing support and continued evidence that high gravimetric energy density has real value in drone applications. The investment test is now explicitly **performance × manufacturability × trusted/eligible supply chain**. Enovix remains the most useful listed comparator. Amprius should still be held to the Q3 repeatability test rather than declaring proof early: roughly $30m+ repeat revenue, ~25%+ gross margin, repeat/customer depth, manufacturing progress and acceptable cash discipline.
+
+BYD remains strategically credible, but after roughly 18 months and a material loss the holding is no longer granted open-ended patience. Add a formal **FY2026 / Q1-2027 checkpoint**. Internationalisation must translate into durable consolidated earnings quality, margins and acceptable returns on localisation capital, not merely overseas unit growth. A failure of profitable internationalisation, persistent domestic deterioration overwhelming foreign growth, or evidence that localisation destroys the cost advantage should trigger exit consideration.
+
+No increase is justified in either BYD or Amprius before those respective proof points.
 
 ---
 
@@ -500,7 +540,9 @@ The IonQ/Synopsys engineering-simulation result is nevertheless qualitatively di
 
 The central thesis risk remains unresolved until such results survive comparison against the best contemporary classical and AI-assisted alternatives. The application-advantage watchpoint therefore moves from effectively “no persuasive positive evidence yet” to “one promising candidate result requiring adversarial validation”.
 
-IonQ remains the preferred single listed expression. Its FY26 decision point should continue to test useful workloads alongside compute-scale/fidelity progress, organic computing revenue, Oxford/SkyWater integration and capital discipline.
+IonQ remains the preferred single listed expression. Its FY26 decision point should continue to test useful workloads alongside compute-scale/fidelity progress, organic computing revenue, Oxford/SkyWater integration and capital discipline. Acquisition-generated growth should not be confused with organic quantum progress. IonQ's expanding footprint across computing, networking, sensing and semiconductor manufacturing may become a strategic advantage, but it also increases M&A/integration and capital-allocation risk.
+
+Hold IonQ; do not increase the small optionality sleeve until application advantage becomes materially more defensible.
 
 ---
 
@@ -571,7 +613,7 @@ This hierarchy is conceptual rather than a mechanical ranking of candidate stock
 | Salesforce | CRM | Yes | Direct | Customer systems of record, workflow, agentic enterprise software and governed execution | Established growth | Direct expression of the control-layer thesis; September product direction further emphasised data, workflows, permissions and business logic beneath interchangeable agent interfaces. |
 | Adobe | ADBE | No | Direct | Creative workflows, document systems and generative AI | Established growth | Useful higher-disintermediation-risk counterexample: strong installed workflow but direct exposure to AI-native feature substitution. |
 | Intuit | INTU | No | Direct | Financial and tax systems of record | Established growth | Deeply embedded high-value workflows with proprietary financial context and execution rights. |
-| Veeva Systems | VEEV | No | Direct | Life-sciences systems of record and regulated workflows | Established growth | Particularly strong regulated vertical/control-layer comparator with high switching costs and domain-specific data. |
+| Veeva Systems | VEEV | Yes | Direct | Life-sciences systems of record and regulated workflows | Established growth | Particularly strong regulated vertical/control-layer comparator with high switching costs and domain-specific data. |
 
 ### Main risks
 
@@ -594,6 +636,10 @@ Candidate performance was mixed, while held names modestly outperformed the broa
 Fundamental evidence strengthened the central proposition. Salesforce, Microsoft, ServiceNow and Palantir increasingly frame enterprise AI around governed access to context and actions rather than ownership of the best foundation model.
 
 The strongest conceptual development is that large populations of autonomous agents may themselves create a new governance problem: enterprises need to identify agents, determine ownership, control permissions, audit actions and revoke authority. Existing enterprise identity, workflow and governance platforms are well placed to capture this layer.
+
+Salesforce's first tranche is held, but the second tranche remains deferred. Thesis evidence is improving; the missing proof is monetisation quality: Agentforce/Data 360 must demonstrate net-new economics rather than bundling, acceptable consumption/work-unit pricing, manageable inference costs, limited seat cannibalisation and scaled customer usage.
+
+Veeva is now held as a new lower-binary-risk expression. Regulated life-sciences workflows, domain-specific context, auditability and switching costs make it a particularly clean test of whether the enterprise context/control layer retains value as model intelligence becomes commoditised.
 
 The remaining uncertainty is economic rather than architectural: sustained AI-related revenue, inference costs, replacement of seat economics and preservation of software-like margins remain key tests. The thesis therefore remains Medium-High rather than High.
 
@@ -618,9 +664,9 @@ Crowd-sourced ideas do not need a candidate universe in `thesis.json`, because t
 
 ### September 2026 assessment
 
-The category remains an idea source rather than a portfolio thesis.
+The category remains an idea source rather than a portfolio thesis. Celestica is now classified under Data-centre infrastructure, Magellan Aerospace has been exited, and Filtronic remains primarily Defence with space-communications adjacency.
 
-Rocket Lab remains better treated as **standalone space / defence-space infrastructure and applications optionality** rather than as a permanent crowd-sourced holding. It does not yet justify creating a broad Space thesis, but should continue to be reviewed on its own economics, Neutron progress, space-systems execution and Iridium financing/integration.
+Rocket Lab remains better treated as **standalone space / defence-space infrastructure and applications optionality** rather than as a permanent crowd-sourced holding. It does not yet justify creating a broad Space thesis, but should continue to be reviewed on its own economics, Neutron progress, space-systems execution and Iridium financing/integration. September launch and backlog evidence remained strong, while Neutron schedule risk and the proposed Iridium transaction materially increase execution and capital-allocation risk. Hold the existing position but do not increase it pending clearer evidence on Neutron execution and Iridium per-share economics.
 
 ---
 
@@ -649,10 +695,24 @@ A useful distinction is now explicit:
 
 | Company | Ticker | Current role | Why it is being watched |
 |---|---|---|---|
-| Sidus Space | SIDU | Held £5k pre-proof moonshot | Direct orbital-storage/edge-compute adjacency, with LizzieSat/StarVault/Fortis acting as company-specific proof points. Industry progress strengthens the proposition but does not substitute for SIDU execution. First decision point: Q1 2027. |
+| Sidus Space | SIDU | Existing £5k pre-proof moonshot | Direct orbital-storage/edge-compute adjacency. Q1 2027 is now a schedule/qualification checkpoint: LizzieSat-4/5 should remain manifested for Bandwagon-6, Fortis qualification should be substantially complete, StarVault/edge payloads intact, cash burn controlled and no strategic sprawl. A second operational checkpoint follows Bandwagon-6 (currently no earlier than April 2027): successful deployment, Fortis operation in orbit, StarVault/edge-compute demonstration and preferably paying follow-on demand. |
 | AAC Clyde Space | AAC.ST | Watchlist / infrastructure candidate | Tiny listed supplier with real space power, data-handling and optical-communications capability plus strong backlog, but no transformational orbital-compute design win yet. |
 | Filtronic | FTC.L | Existing dual-thesis strategic supplier | Primarily mapped to Defence, but its strategic RF relationship and emerging spaceborne work create credible orbital-infrastructure adjacency. Rebuild only on material new commercial evidence. |
 | Planet Labs | PL | Higher-quality direct proxy | Direct involvement in Google's Project Suncatcher hardware makes it a more credible orbital-compute proxy, but current involvement is validation rather than yet a material revenue pool. |
 | Redwire | RDW | Enabling-infrastructure candidate | Relevant spacecraft power, structures and infrastructure capability; becomes materially more interesting on a named orbital-compute contract. |
 | Rocket Lab | RKLB | Existing higher-quality proxy | Launch, spacecraft, defence-space and potential satellite-service capability provide indirect exposure; review on its own economics rather than as a generic orbital-compute holding. |
 
+---
+
+# Maintenance after the September 2026 review
+
+The qualitative thesis document now incorporates the agreed September changes. The machine-readable `thesis.json` should be kept aligned with these candidate universes.
+
+The principal September candidate-universe deltas are:
+
+1. Add **Coda Octopus Group (CODA)** and **NORBIT (NORBT.OL)** to Defence for the critical-undersea-infrastructure sub-thesis.
+2. Ensure **Celestica (CLS)** is represented under Data-centre infrastructure.
+3. Retain OHB and Magellan as Defence comparators despite their exits; candidate inclusion is diagnostic, not a recommendation.
+4. Keep **EOS (EOS.AX)** in the Defence candidate universe and **Vicor (VICR)** in the AI rack-power comparator basket.
+5. Keep the orbital-compute watchlist outside `thesis.json` while orbital compute remains a watchpoint rather than a full thesis.
+6. Continue to treat candidate universes as diagnostic comparison sets, not automatic purchase lists.
