@@ -13,7 +13,7 @@
 [project]
 name = "investment-reviews"
 version = "0.0.0"
-requires-python = "==3.13.*"
+requires-python = "==3.15.*"
 
 # Metadata only: this service has no installable package. Its modules are single files at the repository
 # root, imported by name, which is why tests/conftest.py puts the root on sys.path rather than relying on

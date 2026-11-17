@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.15.2-slim
 
 # Keep image minimal; no runtime apt installs expected.
 ENV PYTHONDONTWRITEBYTECODE=1 \
