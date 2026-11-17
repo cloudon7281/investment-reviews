@@ -18,7 +18,14 @@
         {"ticker": "MILDEF.ST", "name": "MilDef Group"},
         {"ticker": "QQ.L", "name": "QinetiQ Group"},
         {"ticker": "CODA", "name": "Coda Octopus Group"},
-        {"ticker": "NORBT.OL", "name": "NORBIT"}
+        {"ticker": "NORBT.OL", "name": "NORBIT"},
+        {"ticker": "CHRT.L", "name": "Cohort"},
+        {"ticker": "FTG.TO", "name": "Firan Technology Group"},
+        {"ticker": "PNG.V", "name": "Kraken Robotics"},
+        {"ticker": "FTC.L", "name": "Filtronic"},
+        {"ticker": "OHB.DE", "name": "OHB"},
+        {"ticker": "MAL.TO", "name": "Magellan Aerospace"},
+        {"ticker": "SWMR", "name": "Swarmer"}
       ]
     },
     {
@@ -73,7 +80,8 @@
         {"ticker": "QS", "name": "QuantumScape"},
         {"ticker": "SLDP", "name": "Solid Power"},
         {"ticker": "AMPX", "name": "Amprius Technologies"},
-        {"ticker": "ENVX", "name": "Enovix"}
+        {"ticker": "ENVX", "name": "Enovix"},
+        {"ticker": "SES", "name": "SES AI"}
       ]
     },
     {
