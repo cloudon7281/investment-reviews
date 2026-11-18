@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from portfolio_review import PortfolioReview
+from holdings_calculator import HoldingValueFilter
 
 # Specialized calculation modules
 from market_data_fetcher import MarketDataFetcher
@@ -28,17 +29,19 @@ class PortfolioAnalysis:
         self.exchange_rate_cache = self.market_data_fetcher.exchange_rate_cache
         self.stock_currencies: Dict[str, str] = {}
 
-    def process_full_history(self, portfolio_review: PortfolioReview, value_over_time_days: int = None) -> Dict[str, pd.DataFrame]:
+    def process_full_history(self, portfolio_review: PortfolioReview, value_over_time_days: int = None,
+                             holding_filter: Optional[HoldingValueFilter] = None) -> Dict[str, pd.DataFrame]:
         """Process full history mode - three-phase implementation."""
         return full_history_processor.process_full_history(
-            portfolio_review, value_over_time_days, self.market_data_fetcher
+            portfolio_review, value_over_time_days, self.market_data_fetcher, holding_filter=holding_filter
         )
 
-    def process_periodic_review(self, portfolio_review: PortfolioReview, start_date: datetime, end_date: datetime, eval_date: Optional[datetime] = None, thesis_candidates_path: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    def process_periodic_review(self, portfolio_review: PortfolioReview, start_date: datetime, end_date: datetime, eval_date: Optional[datetime] = None, thesis_candidates_path: Optional[str] = None,
+                                holding_filter: Optional[HoldingValueFilter] = None) -> Dict[str, pd.DataFrame]:
         """Process a periodic review analysis."""
         return periodic_review_processor.process_periodic_review(
             portfolio_review, start_date, end_date, eval_date, self.market_data_fetcher,
-            thesis_candidates_path=thesis_candidates_path
+            thesis_candidates_path=thesis_candidates_path, holding_filter=holding_filter
         )
 
     def process_tax_report(self, portfolio_review: PortfolioReview, tax_year_start: datetime, tax_year_end: datetime) -> pd.DataFrame:

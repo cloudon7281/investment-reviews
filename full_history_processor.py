@@ -18,7 +18,9 @@ import value_over_time_processor
 
 
 def process_full_history(portfolio_review: PortfolioReview, value_over_time_days: int,
-                         market_data_fetcher) -> Dict[str, pd.DataFrame]:
+                         market_data_fetcher,
+                         holding_filter: Optional[holdings_calculator.HoldingValueFilter] = None
+                         ) -> Dict[str, pd.DataFrame]:
     """Process full history mode - three-phase implementation.
 
     Phase 1: Analyze transactions for each stock
@@ -31,6 +33,8 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
                              If specified, fetches historical prices for this many days
                              to avoid re-fetching later.
         market_data_fetcher: MarketDataFetcher instance for price cache access
+        holding_filter: If given, only the stocks it includes, each valued today in one account,
+                        are reported, summarised and counted in the value over time
 
     Returns:
         Dictionary with:
@@ -168,6 +172,7 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
     portfolio_transactions = []
     category_transactions = defaultdict(list)
     tag_transactions = defaultdict(list)
+    excluded = []
 
     for stock_key, data in stock_data.items():
         ticker = stock_key[0]  # Extract ticker from tuple
@@ -197,6 +202,12 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
                 raise RuntimeError(error_msg)
 
             logger.debug(f"  {ticker}: {data['units_held']:.0f} shares @ £{current_price:.2f} = £{current_value:.2f}")
+
+        if holding_filter and not holding_filter.includes(data['units_held'], current_value):
+            logger.info(f"  {ticker} in {account_type}: excluded by the holding value filters "
+                        f"(£{current_value:.2f})")
+            excluded.append(stock_key)
+            continue
 
         # Calculate performance metrics
         total_pnl = data['total_received'] + current_value - data['total_invested']
@@ -320,6 +331,10 @@ def process_full_history(portfolio_review: PortfolioReview, value_over_time_days
                    f"Received £{data['total_received']:.2f}, "
                    f"Current £{current_value:.2f}, "
                    f"P&L £{total_pnl:.2f}")
+
+    # An excluded stock is out of the value over time too, which is calculated from stock_data
+    for stock_key in excluded:
+        del stock_data[stock_key]
 
     # Calculate aggregated MWRRs for portfolio, categories, and tags
     logger.info("Calculating aggregated MWRRs for portfolio, categories, and tags")
