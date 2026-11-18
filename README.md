@@ -649,6 +649,25 @@ Filter by year range:
 --include-years 2020,2023-2025
 ```
 
+Filter by holding value, in full-history and periodic-review modes only:
+```bash
+--min-holding-value 5000      # only holdings worth at least £5,000
+--max-holding-value 1000      # only holdings worth at most £1,000
+--exclude-sold-holdings       # leave out holdings that have been fully sold
+```
+
+A holding is what one row of the report shows, and its value is that row's valuation:
+- **full-history**: a stock in one account, valued today. A stock held in two accounts is
+  filtered on each account's holding separately.
+- **periodic-review**: a stock across every account, as it is held at the end of the period
+  (`--end-date`) and valued at `--eval-date`. A stock that is both Retained and Increased stays
+  or goes from both. A stock sold during the period is a fully sold holding.
+
+A fully sold holding is worth nothing, so a minimum above zero excludes it too, and a maximum
+keeps it unless `--exclude-sold-holdings` is also given. A holding of fewer than zero units, which
+only notes missing a purchase can produce, counts as fully sold. The summaries and the
+value-over-time CSV cover only the holdings that remain.
+
 ### Test Mode
 
 Run tests with default anonymized data:

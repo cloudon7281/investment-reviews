@@ -13,6 +13,7 @@ from portfolio_review import PortfolioReview
 from note_cache import NoteCache
 import review_invariants
 import reconcile_holdings
+from holdings_calculator import HoldingValueFilter
 from periodic_review_processor import BENCHMARKS
 import pandas as pd
 
@@ -104,6 +105,15 @@ def parse_args():
                            'cannot use with --include-tags)')
     parser.add_argument('--include-years', type=str,
                       help='Comma-separated list of years or ranges to include (e.g., 2010,2023-2025)')
+    # Holding value filters (full-history and periodic-review only, investment-reviews#109)
+    parser.add_argument('--min-holding-value', type=float, metavar='VALUE',
+                      help='Include only holdings worth at least VALUE in GBP; a fully sold holding is worth 0 '
+                           '(full-history and periodic-review modes only)')
+    parser.add_argument('--max-holding-value', type=float, metavar='VALUE',
+                      help='Include only holdings worth at most VALUE in GBP '
+                           '(full-history and periodic-review modes only)')
+    parser.add_argument('--exclude-sold-holdings', action='store_true',
+                      help='Exclude holdings that have been fully sold (full-history and periodic-review modes only)')
     
     return parser.parse_args()
 
@@ -157,6 +167,29 @@ def resolve_tag_filters(include_tags_arg, exclude_tags_arg, exclude_non_monthly_
         exclude_tags = (exclude_tags or []) + NON_MONTHLY_SCOPE_TAGS
 
     return include_tags, exclude_tags
+
+def resolve_holding_filter(mode, min_value, max_value, exclude_sold):
+    """Turn the holding value arguments into a HoldingValueFilter (investment-reviews#109).
+
+    Args:
+        mode: the --mode value
+        min_value, max_value: --min-holding-value and --max-holding-value, or None
+        exclude_sold: whether --exclude-sold-holdings was given
+
+    Returns:
+        the filter, or None if none of the arguments was given
+
+    Raises:
+        ValueError: in a mode that does not support them, or if the minimum exceeds the maximum
+    """
+    if min_value is None and max_value is None and not exclude_sold:
+        return None
+    if mode not in ('full-history', 'periodic-review'):
+        raise ValueError("--min-holding-value, --max-holding-value and --exclude-sold-holdings "
+                         "are only supported in full-history and periodic-review modes")
+    if min_value is not None and max_value is not None and min_value > max_value:
+        raise ValueError(f"--min-holding-value {min_value:g} is more than --max-holding-value {max_value:g}")
+    return HoldingValueFilter(min_value, max_value, exclude_sold)
 
 def parse_tax_year(tax_year_str):
     """Parse tax year string (e.g., 'FY25') into start and end dates."""
@@ -241,6 +274,9 @@ def main():
     try:
         include_tags, exclude_tags = resolve_tag_filters(
             args.include_tags, args.exclude_tags, args.exclude_non_monthly_scope
+        )
+        holding_filter = resolve_holding_filter(
+            args.mode, args.min_holding_value, args.max_holding_value, args.exclude_sold_holdings
         )
     except ValueError as e:
         logger.error(str(e))
@@ -328,7 +364,8 @@ def main():
             # Pass value_over_time parameter so prices are fetched once and value-over-time is calculated
             full_history_results = portfolio_analysis.process_full_history(
                 portfolio_review,
-                value_over_time_days=args.value_over_time
+                value_over_time_days=args.value_over_time,
+                holding_filter=holding_filter
             )
             review_invariants.report(
                 review_invariants.check_full_history(full_history_results), 'Full history'
@@ -463,7 +500,8 @@ def main():
             # Process periodic review
             periodic_results = portfolio_analysis.process_periodic_review(
                 portfolio_review, start_date, end_date, eval_date,
-                thesis_candidates_path=args.thesis_candidates
+                thesis_candidates_path=args.thesis_candidates,
+                holding_filter=holding_filter
             )
             review_invariants.report(
                 review_invariants.check_periodic_review(

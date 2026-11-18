@@ -226,7 +226,9 @@ def create_thesis_summary(theses: List[Dict], candidates_df: pd.DataFrame) -> pd
 def process_periodic_review(portfolio_review: PortfolioReview, start_date: datetime,
                             end_date: datetime, eval_date: Optional[datetime],
                             market_data_fetcher,
-                            thesis_candidates_path: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+                            thesis_candidates_path: Optional[str] = None,
+                            holding_filter: Optional[holdings_calculator.HoldingValueFilter] = None
+                            ) -> Dict[str, pd.DataFrame]:
     """Process a periodic review analysis.
 
     Args:
@@ -237,6 +239,9 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         market_data_fetcher: MarketDataFetcher instance for price fetching
         thesis_candidates_path: Optional path to a thesis candidate configuration file.
             When supplied, 'thesis_candidates' and 'thesis_summary' DataFrames are added.
+        holding_filter: If given, only the stocks it includes are reviewed.  A stock's holding
+            is what it holds across accounts at the end of the period, valued at eval_date, so
+            a stock sold during the period is a fully sold holding worth nothing.
 
     Returns:
         Dictionary with 'summary', 'per_tag', 'new', 'retained', and 'sold' DataFrames
@@ -320,6 +325,22 @@ def process_periodic_review(portfolio_review: PortfolioReview, start_date: datet
         logger.info("No stocks to process")
         price_data = {}
         highs_and_vol = {}
+
+    # Step 2b: Apply the holding value filters (investment-reviews#109).  An increased stock is
+    # in both 'retained' and 'increased' with the same units at the end, so it stays or goes
+    # from both.  A stock with no price at eval_date has no row whatever the filters.
+    if holding_filter:
+        for cat in ['new', 'retained', 'increased', 'sold']:
+            kept = []
+            for entry in classification[cat]:
+                ticker, units_at_end = entry[0], entry[3]
+                price = holdings_calculator.get_stock_price_from_data(ticker, eval_date, price_data)
+                value = units_at_end * price if price is not None else 0.0
+                if holding_filter.includes(units_at_end, value):
+                    kept.append(entry)
+                else:
+                    logger.info(f"{ticker} ({cat}): excluded by the holding value filters (£{value:.2f})")
+            classification[cat] = kept
 
     # Step 3: Calculate performance for each category
     results = {}

@@ -4,11 +4,34 @@ This module handles calculating holdings, stock valuations, and positions at
 various dates. It uses transaction data and market data to compute these values.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from logger import logger
 import transaction_processor
+
+
+@dataclass(frozen=True)
+class HoldingValueFilter:
+    """The value filters: --min/--max-holding-value and --exclude-sold-holdings (investment-reviews#109).
+
+    A holding is what one row of the report shows, valued as that mode values it.  A fully sold
+    holding is worth nothing, so a minimum above zero excludes it as well.
+    """
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    exclude_sold: bool = False
+
+    def includes(self, units_held: float, value: float) -> bool:
+        """Whether a holding of units_held units, worth value in GBP, is in scope."""
+        if self.exclude_sold and units_held <= 0:
+            return False
+        if self.min_value is not None and value < self.min_value:
+            return False
+        if self.max_value is not None and value > self.max_value:
+            return False
+        return True
 
 
 def get_holdings_at_date(transactions: List, target_date: datetime) -> float:

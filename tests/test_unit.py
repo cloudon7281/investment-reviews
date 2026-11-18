@@ -1879,6 +1879,7 @@ from contextlib import redirect_stdout
 
 import alerts
 import full_history_processor
+import holdings_calculator
 import reporter_definitions as rd
 from console_parser import ConsoleOutputParser
 from console_table_writer import ConsoleTableWriter
@@ -4981,6 +4982,171 @@ class TestNoteCache(unittest.TestCase):
         cache_path = note_cache.NoteCache(self.base.name).path
         self.assertTrue(os.path.exists(cache_path))
         self.assertTrue(cache_path.startswith(os.path.join(self.home.name, '.cache', 'investment-reviews')))
+
+
+class TestHoldingValueFilters(unittest.TestCase):
+    """--min/--max-holding-value and --exclude-sold-holdings (investment-reviews#109).
+
+    Three stocks: BIG worth £10,000 and SMALL worth £1,000 at today's price of £100, and SOLD,
+    bought and fully sold, worth nothing.
+    """
+
+    TODAY = datetime.now()
+    PRICE = 100.0
+
+    def _review(self, notes):
+        """A PortfolioReview holding `notes`: {account: {ticker: [transactions]}}."""
+        review = PortfolioReview.__new__(PortfolioReview)
+        review.stock_notes = {'isa': [], 'taxable': [], 'pension': []}
+        for account, stocks in notes.items():
+            for ticker, transactions in stocks.items():
+                review.stock_notes[account].append(portfolio_review.StockNote(
+                    file_path=f'{account}/{ticker}.pdf', category=account, subcategory=None,
+                    review_date=None, stock_name=f'{ticker} plc', ticker=ticker, currency='GBP',
+                    transactions=list(transactions), tag='Tag'))
+        return review
+
+    def _fetcher(self):
+        dates = pd.date_range(datetime(2025, 1, 1), self.TODAY, freq='D')
+        prices = pd.DataFrame({'Close': [self.PRICE] * len(dates)}, index=dates)
+        fetcher = Mock()
+        fetcher.batch_get_stock_prices.side_effect = \
+            lambda tickers, start, end, **kwargs: {t: prices for t in tickers}
+        return fetcher
+
+    @staticmethod
+    def _buy(units, day=datetime(2025, 3, 3)):
+        return StockTransaction(day, 'BUY', units, 80.0, units * 80.0)
+
+    @staticmethod
+    def _sell(units, day=datetime(2025, 6, 2)):
+        return StockTransaction(day, 'SELL', units, 90.0, units * 90.0)
+
+    def _stocks(self):
+        return {'isa': {'BIG': [self._buy(100)], 'SMALL': [self._buy(10)],
+                        'SOLD': [self._buy(50), self._sell(50)]}}
+
+    def _full_history(self, holding_filter, notes=None):
+        return full_history_processor.process_full_history(
+            self._review(notes or self._stocks()), None, self._fetcher(), holding_filter=holding_filter)
+
+    @staticmethod
+    def _tickers(df):
+        return sorted(df['ticker']) if not df.empty else []
+
+    # The filter itself
+
+    def test_bounds_are_inclusive(self):
+        f = holdings_calculator.HoldingValueFilter(min_value=1000, max_value=5000)
+        self.assertTrue(f.includes(10, 1000.0))
+        self.assertTrue(f.includes(10, 5000.0))
+        self.assertFalse(f.includes(10, 999.99))
+        self.assertFalse(f.includes(10, 5000.01))
+
+    def test_a_sold_holding_is_worth_nothing(self):
+        self.assertFalse(holdings_calculator.HoldingValueFilter(min_value=1).includes(0, 0.0))
+        self.assertTrue(holdings_calculator.HoldingValueFilter(max_value=500).includes(0, 0.0))
+        self.assertFalse(holdings_calculator.HoldingValueFilter(exclude_sold=True).includes(0, 0.0))
+        self.assertTrue(holdings_calculator.HoldingValueFilter(exclude_sold=True).includes(1, 100.0))
+
+    # The arguments
+
+    def test_no_arguments_is_no_filter(self):
+        from portfolio import resolve_holding_filter
+        self.assertIsNone(resolve_holding_filter('tax-report', None, None, False))
+
+    def test_arguments_become_a_filter(self):
+        from portfolio import resolve_holding_filter
+        self.assertEqual(resolve_holding_filter('periodic-review', 500.0, None, True),
+                         holdings_calculator.HoldingValueFilter(500.0, None, True))
+
+    def test_refused_outside_full_history_and_periodic_review(self):
+        from portfolio import resolve_holding_filter
+        for mode in ('tax-report', 'annual-review', 'list-trades', 'reconcile-holdings'):
+            with self.assertRaisesRegex(ValueError, 'only supported in full-history and periodic-review'):
+                resolve_holding_filter(mode, None, None, True)
+
+    def test_minimum_above_maximum_is_refused(self):
+        from portfolio import resolve_holding_filter
+        with self.assertRaisesRegex(ValueError, '--min-holding-value 5000 is more than --max-holding-value 100'):
+            resolve_holding_filter('full-history', 5000.0, 100.0, False)
+
+    # Full history
+
+    def test_full_history_unfiltered_reports_every_stock(self):
+        self.assertEqual(self._tickers(self._full_history(None)['individual_stocks']),
+                         ['BIG', 'SMALL', 'SOLD'])
+
+    def test_full_history_minimum(self):
+        results = self._full_history(holdings_calculator.HoldingValueFilter(min_value=5000))
+        self.assertEqual(self._tickers(results['individual_stocks']), ['BIG'])
+        # The summaries are of what is reported, so they still reconcile with it
+        self.assertAlmostEqual(results['whole_portfolio']['current_value'].iloc[0], 10000.0)
+        self.assertAlmostEqual(results['whole_portfolio']['total_invested'].iloc[0], 8000.0)
+
+    def test_full_history_maximum_keeps_sold_stocks(self):
+        results = self._full_history(holdings_calculator.HoldingValueFilter(max_value=5000))
+        self.assertEqual(self._tickers(results['individual_stocks']), ['SMALL', 'SOLD'])
+
+    def test_full_history_exclude_sold(self):
+        results = self._full_history(holdings_calculator.HoldingValueFilter(exclude_sold=True))
+        self.assertEqual(self._tickers(results['individual_stocks']), ['BIG', 'SMALL'])
+
+    def test_full_history_values_each_account_separately(self):
+        """A full-history row is a stock in one account, so each account is filtered on its own."""
+        notes = {'isa': {'BIG': [self._buy(100)]}, 'taxable': {'BIG': [self._buy(10)]}}
+        results = self._full_history(holdings_calculator.HoldingValueFilter(min_value=5000), notes)
+        self.assertEqual(list(results['individual_stocks']['account_type']), ['ISA'])
+
+    def test_full_history_value_over_time_leaves_out_excluded_stocks(self):
+        with patch.object(full_history_processor.value_over_time_processor,
+                          'calculate_value_over_time') as value_over_time:
+            full_history_processor.process_full_history(
+                self._review(self._stocks()), 30, self._fetcher(),
+                holding_filter=holdings_calculator.HoldingValueFilter(min_value=5000))
+        stock_data = value_over_time.call_args.args[1]
+        self.assertEqual([key[0] for key in stock_data], ['BIG'])
+
+    # Periodic review
+
+    START, END = datetime(2025, 5, 1), datetime(2025, 7, 1)
+
+    def _periodic(self, holding_filter, notes=None):
+        return periodic_review_processor.process_periodic_review(
+            self._review(notes or self._stocks()), self.START, self.END, self.TODAY, self._fetcher(),
+            holding_filter=holding_filter)
+
+    def test_periodic_review_unfiltered(self):
+        results = self._periodic(None)
+        self.assertEqual(self._tickers(results['retained']), ['BIG', 'SMALL'])
+        self.assertEqual(self._tickers(results['sold']), ['SOLD'])
+
+    def test_periodic_review_minimum_excludes_small_and_sold(self):
+        results = self._periodic(holdings_calculator.HoldingValueFilter(min_value=5000))
+        self.assertEqual(self._tickers(results['retained']), ['BIG'])
+        self.assertTrue(results['sold'].empty)
+        summary = results['summary'].set_index('category')
+        self.assertEqual(summary.loc['Retained', 'count'], 1)
+        self.assertEqual(summary.loc['Sold', 'count'], 0)
+
+    def test_periodic_review_exclude_sold(self):
+        results = self._periodic(holdings_calculator.HoldingValueFilter(exclude_sold=True))
+        self.assertEqual(self._tickers(results['retained']), ['BIG', 'SMALL'])
+        self.assertTrue(results['sold'].empty)
+
+    def test_periodic_review_values_the_whole_stock_across_accounts(self):
+        """60 in the ISA and 40 bought in Taxable in the period are one £10,000 holding.
+
+        It is in both Retained and Increased, and the filter keeps or drops it from both.
+        """
+        notes = {'isa': {'BIG': [self._buy(60)]},
+                 'taxable': {'BIG': [self._buy(40, datetime(2025, 6, 2))]}}
+        kept = self._periodic(holdings_calculator.HoldingValueFilter(min_value=8000), notes)
+        self.assertEqual(self._tickers(kept['retained']), ['BIG'])
+        self.assertEqual(self._tickers(kept['increased']), ['BIG'])
+        dropped = self._periodic(holdings_calculator.HoldingValueFilter(min_value=12000), notes)
+        self.assertTrue(dropped['retained'].empty)
+        self.assertTrue(dropped['increased'].empty)
 
 
 if __name__ == '__main__':
