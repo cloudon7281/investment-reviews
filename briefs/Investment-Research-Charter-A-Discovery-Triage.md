@@ -43,7 +43,7 @@ Default inputs: the actual `ResearchBrief` exports and applicable schemas; any k
 - `thesis`: the name of the originating thesis as it appears in `thesis.json`, or `null`;
 - `fiveQuestions`: for a disruptive-technology idea, the answers reached at triage depth; otherwise `null`.
 
-The schema leaves these fields optional so that records made before 21 November 2026 remain valid; this charter makes them mandatory for new records. The discovery channel is not repeated on the record: it is carried by the idea's `origin` and `discoveryEventType`. A thesis-derived idea also names its thesis in the `thesis` field of `idea-submission.v1.schema.json`.
+The schema leaves these fields optional so that records made before 21 November 2026 remain valid; this charter makes them mandatory for new records. The discovery channel is not repeated on the record: it is carried by the idea's `origin` and `discoveryEventType`. A thesis-derived idea names its thesis in `origin.thesisRef` of `idea-submission.v1.schema.json`; the record's `thesis` repeats that name, and differs from it only where an idea from another channel is attributed to a thesis at analysis.
 
 These are precisely the `AnalysisRecord.v1` meanings; use its other verdict values only where truly applicable. A source mention does not imply the source advocated a buy. Do not set quotas for positive or negative verdicts.
 
@@ -69,5 +69,5 @@ Review the candidate yield, reasoned rejection yield, discovery-source duplicati
 3. Triage test now depends on the criterion; disruptive-technology ideas are screened on the five questions, not the central case.
 4. `reject` may rest on "no alpha criterion met"; `not_relevant` covers untradeable listings.
 5. Convention separating `watch` (not yet researched) from `candidate` with a dated proof point (researched, awaiting evidence).
-6. Criterion, its rationale, the originating thesis and the five-question answers recorded in new fields of the analysis-record schema; thesis also recorded on the idea submission.
+6. Criterion, its rationale, the originating thesis and the five-question answers recorded in new fields of the analysis-record schema; the idea submission's existing `origin.thesisRef` holds the thesis name.
 7. Outputs and success measures reported by criterion and thesis as well as channel.
