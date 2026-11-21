@@ -59,14 +59,65 @@ CLASSIFICATION_VERSIONS: Dict[int, Dict[str, Dict[str, str]]] = {
             'moonshot': 'Asymmetric speculative investment',
         },
     },
+    # The Investment Strategy's second revision (approved 19 Nov 2026; Operations Brief v1.3 §8;
+    # investment-analysis#1, Phase 7d): three classes across the whole portfolio, and for alpha
+    # one of three criteria, in place of investment_type. The low-volatility rule is withdrawn,
+    # so its sale reason is not in this version.
+    2: {
+        'buy': {
+            'thesis': 'Thesis investment',
+            'moonshot': 'Moonshot investment',
+            'valuation': 'Valuation opportunity',
+            'rebalance': 'Portfolio rebalancing',
+            'replacement': 'Better expression of thesis',
+            'other': 'Other',
+        },
+        'sell': {
+            'profit-take': 'Profit-taking',
+            'stop-loss': 'Stop-loss',
+            'fundamentals-change': 'Deterioration in fundamentals',
+            'time': 'Time-based reassessment',
+            'benchmark-underperformance': 'Benchmark underperformance',
+            'better-expression-available': 'Better expression available',
+            'moonshot-proof-failure': 'Moonshot proof-point failure',
+            'rebalance': 'Portfolio rebalancing',
+            'liquidity': 'Liquidity requirement',
+            'other': 'Other',
+        },
+        'investment_class': {
+            'pure-beta': 'Broad-market exposure',
+            'beta-plus': 'An allocation thesis, through a fund or a basket',
+            'alpha': 'An individual stock held under one of the three criteria',
+        },
+        'criterion': {
+            'mispricing': 'Mispricing',
+            'accelerating-leader': 'Accelerating leader',
+            'disruptive-technology': 'Disruptive technology',
+        },
+    },
 }
+
+# Version 1's investment types as version 2 classes and criteria, for reporting across both
+# versions. Only moonshot maps: growth covers two criteria and core two classes, so they stay
+# unclassified unless a decision is classified again by hand (Operations Brief v1.3 §8).
+V1_CLASS_AND_CRITERION = {'moonshot': ('alpha', 'disruptive-technology')}
 
 ACTIONS = ('buy', 'sell')
 
 _FILE_KEYS = {'classification_version', 'decision_date', 'execution_window', 'decisions'}
 _WINDOW_KEYS = {'start', 'end'}
-_REQUIRED_DECISION_KEYS = {'ticker', 'action', 'primary_reason', 'investment_type'}
-_DECISION_KEYS = _REQUIRED_DECISION_KEYS | {'secondary_reasons', 'commentary', 'linked_decision_id'}
+_COMMON_REQUIRED_KEYS = {'ticker', 'action', 'primary_reason'}
+_OPTIONAL_KEYS = {'secondary_reasons', 'commentary', 'linked_decision_id'}
+
+
+def _decision_keys(taxonomy: Dict[str, Dict[str, str]]) -> Tuple[set, set]:
+    """(required, allowed) entry fields under a taxonomy: investment_type where it has investment
+    types (version 1), else investment_class and, for alpha, criterion (version 2 onwards)."""
+    if 'investment_type' in taxonomy:
+        required = _COMMON_REQUIRED_KEYS | {'investment_type'}
+        return required, required | _OPTIONAL_KEYS
+    required = _COMMON_REQUIRED_KEYS | {'investment_class'}
+    return required, required | _OPTIONAL_KEYS | {'criterion'}
 
 # The transaction types a decision can be carried out by.  Transfers (bed-and-ISA) and
 # corporate actions are not decisions.
@@ -84,11 +135,15 @@ class Decision:
     action: str
     primary_reason: str
     secondary_reasons: Tuple[str, ...]
-    investment_type: str
+    investment_type: Optional[str]          # version 1 only
     commentary: Optional[str]
     linked_decision_id: Optional[str]
     classification_version: int
     source_file: str
+    # As recorded from version 2; for version 1, mapped from investment_type where it maps
+    # (V1_CLASS_AND_CRITERION), else None. criterion is set only for alpha.
+    investment_class: Optional[str] = None
+    criterion: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -218,9 +273,10 @@ def _parse_entry(entry, where: str, taxonomy: Dict[str, Dict[str, str]], version
         return None
 
     faults_before = len(problems)
-    for key in sorted(set(entry) - _DECISION_KEYS):
+    required, allowed = _decision_keys(taxonomy)
+    for key in sorted(set(entry) - allowed):
         problems.append(f"{where}: unknown field '{key}'")
-    for key in sorted(_REQUIRED_DECISION_KEYS - set(entry)):
+    for key in sorted(required - set(entry)):
         problems.append(f"{where}: missing field '{key}'")
     if len(problems) > faults_before:
         return None
@@ -256,10 +312,25 @@ def _parse_entry(entry, where: str, taxonomy: Dict[str, Dict[str, str]], version
     if duplicates:
         problems.append(f"{where}: duplicate secondary reasons {duplicates}")
 
-    investment_type = entry['investment_type']
-    if not isinstance(investment_type, str) or investment_type not in taxonomy['investment_type']:
-        problems.append(f"{where}: investment_type must be one of "
-                        f"{', '.join(taxonomy['investment_type'])}, not {investment_type!r}")
+    investment_type = entry.get('investment_type')
+    if 'investment_type' in taxonomy:
+        if not isinstance(investment_type, str) or investment_type not in taxonomy['investment_type']:
+            problems.append(f"{where}: investment_type must be one of "
+                            f"{', '.join(taxonomy['investment_type'])}, not {investment_type!r}")
+        investment_class, criterion = V1_CLASS_AND_CRITERION.get(investment_type, (None, None))
+    else:
+        investment_class, criterion = entry['investment_class'], entry.get('criterion')
+        if not isinstance(investment_class, str) or investment_class not in taxonomy['investment_class']:
+            problems.append(f"{where}: investment_class must be one of "
+                            f"{', '.join(taxonomy['investment_class'])}, not {investment_class!r}")
+        elif investment_class == 'alpha' and criterion is None:
+            problems.append(f"{where}: an alpha decision needs a criterion, one of "
+                            f"{', '.join(taxonomy['criterion'])}")
+        elif investment_class != 'alpha' and criterion is not None:
+            problems.append(f"{where}: criterion is for alpha decisions only, not {investment_class}")
+        elif criterion is not None and criterion not in taxonomy['criterion']:
+            problems.append(f"{where}: criterion must be one of "
+                            f"{', '.join(taxonomy['criterion'])}, not {criterion!r}")
 
     commentary = entry.get('commentary')
     if commentary is not None and not isinstance(commentary, str):
@@ -286,6 +357,8 @@ def _parse_entry(entry, where: str, taxonomy: Dict[str, Dict[str, str]], version
         linked_decision_id=linked,
         classification_version=version,
         source_file=path,
+        investment_class=investment_class,
+        criterion=criterion,
     )
 
 
@@ -438,6 +511,8 @@ def check_tables(decisions: List[Decision], links: DecisionLinks) -> Dict[str, p
             'primary_reason': d.primary_reason,
             'secondary_reasons': ', '.join(d.secondary_reasons),
             'investment_type': d.investment_type,
+            'investment_class': d.investment_class,
+            'criterion': d.criterion,
             'trades': len(trades),
             'status': 'executed' if trades else 'not executed',
             'linked_to': d.linked_decision_id or '',

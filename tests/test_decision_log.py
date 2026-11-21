@@ -296,3 +296,82 @@ class Linking(LogTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def entry_v2(ticker, action, primary, investment_class='alpha', criterion='mispricing', **fields):
+    lines = [f"  - ticker: {ticker}", f"    action: {action}", f"    primary_reason: {primary}",
+             f"    investment_class: {investment_class}"]
+    if criterion is not None:
+        lines.append(f"    criterion: {criterion}")
+    lines += [f"    {key}: {value}" for key, value in fields.items()]
+    return "\n".join(lines)
+
+
+class ClassificationVersion2(LogTestCase):
+    """Version 2 (investment-analysis#1, Phase 7d; Operations Brief v1.3 §8): investment_class, and a criterion for
+    alpha, in place of investment_type; the low-volatility sale reason retired. Version 1 files stay as they are."""
+
+    def write_v2(self, *entries):
+        self.write('2026-11-23.yaml', log_file('2026-11-23', '2026-11-23', '2026-12-04', *entries, version=2))
+
+    def test_an_alpha_decision_carries_its_criterion_and_other_classes_none(self):
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis', criterion='accelerating-leader'),
+                      entry_v2('VWRP.L', 'buy', 'rebalance', investment_class='pure-beta', criterion=None),
+                      entry_v2('DFNS.L', 'sell', 'rebalance', investment_class='beta-plus', criterion=None))
+        by_ticker = {d.ticker: d for d in self.load()}
+        self.assertEqual({t: (d.investment_class, d.criterion, d.investment_type, d.classification_version)
+                          for t, d in by_ticker.items()},
+                         {'RHM.DE': ('alpha', 'accelerating-leader', None, 2),
+                          'VWRP.L': ('pure-beta', None, None, 2), 'DFNS.L': ('beta-plus', None, None, 2)})
+
+    def test_an_alpha_decision_without_a_criterion_is_rejected(self):
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis', criterion=None))
+        self.assertRejected("an alpha decision needs a criterion, one of mispricing, accelerating-leader, "
+                            "disruptive-technology")
+
+    def test_a_criterion_on_a_decision_that_is_not_alpha_is_rejected(self):
+        self.write_v2(entry_v2('VWRP.L', 'buy', 'rebalance', investment_class='pure-beta'))
+        self.assertRejected("criterion is for alpha decisions only, not pure-beta")
+
+    def test_an_unknown_class_or_criterion_is_rejected(self):
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis', investment_class='growth', criterion=None))
+        self.assertRejected("investment_class must be one of pure-beta, beta-plus, alpha, not 'growth'")
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis', criterion='moonshot'))
+        self.assertRejected("criterion must be one of mispricing, accelerating-leader, disruptive-technology, "
+                            "not 'moonshot'")
+
+    def test_each_version_has_its_own_fields(self):
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis', investment_type='growth'))
+        self.assertRejected("unknown field 'investment_type'")
+        self.write_v2("  - {ticker: RHM.DE, action: buy, primary_reason: thesis}")
+        self.assertRejected("missing field 'investment_class'")
+        os.remove(os.path.join(self.dir, '2026-11-23.yaml'))
+        self.write('old.yaml', log_file('2026-10-01', '2026-10-01', '2026-10-10',
+                                        entry('RHM.DE', 'buy', 'thesis', investment_class='alpha')))
+        self.assertRejected("unknown field 'investment_class'")
+
+    def test_the_low_volatility_reason_is_retired_in_version_2_but_stays_valid_in_version_1(self):
+        self.write('old.yaml', log_file('2026-10-01', '2026-10-01', '2026-10-10', entry('PLTR', 'sell', 'low-volatility')))
+        [d] = self.load()
+        self.assertEqual((d.primary_reason, d.classification_version), ('low-volatility', 1))
+        self.write_v2(entry_v2('MSFT', 'sell', 'low-volatility'))
+        self.assertRejected("primary_reason 'low-volatility' is not a sell reason")
+
+    def test_a_version_1_moonshot_reports_as_alpha_disruptive_technology_and_growth_and_core_stay_unclassified(self):
+        self.write('old.yaml', log_file('2026-10-01', '2026-10-01', '2026-10-10',
+                                        entry('AEVA', 'buy', 'moonshot', investment_type='moonshot'),
+                                        entry('RHM.DE', 'buy', 'thesis', investment_type='growth'),
+                                        entry('VWRP.L', 'buy', 'rebalance', investment_type='core')))
+        self.assertEqual({d.ticker: (d.investment_type, d.investment_class, d.criterion) for d in self.load()},
+                         {'AEVA': ('moonshot', 'alpha', 'disruptive-technology'),
+                          'RHM.DE': ('growth', None, None), 'VWRP.L': ('core', None, None)})
+
+    def test_both_versions_report_together_with_their_class_and_criterion(self):
+        self.write('old.yaml', log_file('2026-10-01', '2026-10-01', '2026-10-10',
+                                        entry('AEVA', 'buy', 'moonshot', investment_type='moonshot')))
+        self.write_v2(entry_v2('RHM.DE', 'buy', 'thesis'))
+        decisions = self.load()
+        table = decision_log.check_tables(decisions, link_decisions(decisions, []))['decisions']
+        cells = table[['ticker', 'investment_type', 'investment_class', 'criterion']]
+        self.assertEqual(cells.astype(object).where(cells.notna(), None).values.tolist(),          # missing as None
+                         [['AEVA', 'moonshot', 'alpha', 'disruptive-technology'], ['RHM.DE', None, 'alpha', 'mispricing']])
