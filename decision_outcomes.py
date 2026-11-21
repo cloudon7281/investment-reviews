@@ -591,6 +591,8 @@ def decision_table(decisions: List[Decision], movements: Dict[str, List[Movement
             'primary_reason': decision.primary_reason,
             'secondary_reasons': _joined(decision.secondary_reasons),
             'investment_type': decision.investment_type,
+            'investment_class': decision.investment_class,
+            'criterion': decision.criterion,
             'classification_version': decision.classification_version,
             'linked_to': decision.linked_decision_id,
             'linked_from': _joined(linked_from.get(decision.decision_id, [])),

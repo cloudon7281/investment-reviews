@@ -410,28 +410,39 @@ for a note. It is written in iCloud and reaches jarvis through the same sync as 
 
 #### File format
 
+A new file uses classification version 2:
+
 ```yaml
-classification_version: 1
-decision_date: 2026-11-02
-execution_window: {start: 2026-11-02, end: 2026-11-16}
+classification_version: 2
+decision_date: 2026-12-01
+execution_window: {start: 2026-12-01, end: 2026-12-12}
 decisions:
   - ticker: RHM.DE
     action: buy
     primary_reason: valuation
     secondary_reasons: [thesis]
-    investment_type: growth
+    investment_class: alpha
+    criterion: accelerating-leader
     commentary: >
       Fell 25% on contract-timing news with the order book intact.
   - ticker: TECK
     action: sell
     primary_reason: better-expression-available
-    investment_type: growth
+    investment_class: alpha
+    criterion: mispricing
   - ticker: FCX
     action: buy
     primary_reason: replacement
-    investment_type: growth
-    linked_decision_id: 2026-11-02/sell/TECK
+    investment_class: alpha
+    criterion: mispricing
+    linked_decision_id: 2026-12-01/sell/TECK
+  - ticker: VWRP.L
+    action: buy
+    primary_reason: rebalance
+    investment_class: pure-beta
 ```
+
+A version 1 file has `investment_type` in place of `investment_class` and `criterion`.
 
 | Field | Required | Meaning |
 |-------|----------|---------|
@@ -442,7 +453,9 @@ decisions:
 | `action` | Yes | `buy` or `sell` |
 | `primary_reason` | Yes | Exactly one reason for that action, from the taxonomy below |
 | `secondary_reasons` | No | Further reasons for the same action; no duplicates and not the primary reason |
-| `investment_type` | Yes | `core`, `growth` or `moonshot` |
+| `investment_class` | Yes, from version 2 | `pure-beta`, `beta-plus` or `alpha` |
+| `criterion` | For `alpha` only, from version 2 | `mispricing`, `accelerating-leader` or `disruptive-technology`: the Investment Strategy's alpha criterion the stock is held under. Required for `alpha` and refused for any other class |
+| `investment_type` | Yes, in version 1 only | `core`, `growth` or `moonshot` |
 | `commentary` | No | Free text |
 | `linked_decision_id` | No | Another decision, typically the sale a purchase replaces |
 
@@ -467,6 +480,22 @@ Two consequences of linking this way:
 - A ticker the tool later remaps, or a stock renamed by a corporate action, no longer
   matches the log's ticker. The check below reports that as a decision not executed and
   an unlogged trade.
+
+#### Taxonomy (version 2)
+
+Version 2 follows the Investment Strategy's second revision (approved 19 November 2026; the
+Operations Brief v1.3, §8). Purchase reasons are as in version 1. Sale reasons are as in
+version 1 without `low-volatility`, whose rule the Strategy withdrew.
+
+Investment classes, across the whole portfolio, the pension included: `pure-beta`
+(broad-market exposure), `beta-plus` (an allocation thesis, through a fund or a basket),
+`alpha` (an individual stock held under one of the three criteria). Criteria, for `alpha`:
+`mispricing`, `accelerating-leader`, `disruptive-technology`.
+
+**Across versions.** Reports show each decision's class and criterion beside its version 1
+type. A version 1 `moonshot` is shown as `alpha` / `disruptive-technology`. `growth` covers
+two criteria and `core` two classes, so their decisions are shown unclassified rather than
+guessed. Version 1 files are never rewritten.
 
 #### Taxonomy (version 1)
 
