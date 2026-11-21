@@ -1,8 +1,8 @@
 # Investment Operations Brief
 
-**Status:** Agreed
-**Version:** v1.2 · 14 November 2026  
-**Scope:** Standing operating procedure for investment conversations in this ChatGPT project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
+**Status:** APPROVED
+**Version:** v1.3 · 21 November 2026  
+**Scope:** Standing operating procedure for investment conversations in this project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
 
 ## 1. Purpose and governing documents
 
@@ -13,21 +13,21 @@ Sources of authority for their respective subjects:
 | Subject | Authoritative source |
 |---|---|
 | Objectives, allocations, risk rules, security-selection criteria | Most recent agreed **Investment Strategy** |
-| Thesis hypotheses, watchpoints and candidate universes | Current `thesis.md` and `thesis.json` |
-| Investment-analysis data contracts | `idea-submission.v1.schema.json`, `research-brief.v1.schema.json`, `analysis-record.v1.schema.json` and their successors, as attached to the project sources from the `investment-analysis` repository (`src/investment_analysis/schemas/`, with worked examples in `tests/fixtures/`) |
+| Thesis hypotheses, kind, status, watchpoints and benchmark candidate lists | Current `thesis.md` and `thesis.json` |
+| Investment-analysis data contracts | `idea-submission.v1.schema.json`, `research-brief.v4.schema.json`, `analysis-record.v1.schema.json` and their successors, as attached to the project sources from the `investment-analysis` repository (`src/investment_analysis/schemas/`, with worked examples in `tests/fixtures/`) |
 | Broker parsing, actual transactions, execution decisions, decision taxonomy and performance reporting | `investment-reviews` README and implementation |
 | Application discovery, enrichment, research records and observational evaluation | `investment-analysis` specification and implementation |
-| Coordinated discovery triage, watch checks and comparative research programmes | **Investment Research Programme Brief v1.0** and its Charters A, B and C (research methodology; not investment criteria) |
+| Thesis development, discovery triage, watch checks and comparative research programmes | **Investment Research Programme Brief** and its Charters A, B, C and D (research methodology; not investment criteria) |
 | The work to be done in a particular conversation | The user's explicit instructions, subject to the above contracts |
 
 Do not silently reconcile contradictory sources or assume that an older attachment is current. Identify material inconsistencies and apply the most recent expressly agreed version. A proposed change to strategy or operating procedure is **not effective until agreed**.
 
 ### 1.1 Scope of the different conversations
 
-- **Monthly active-investment review:** normally individual stocks held in ISA and taxable accounts, plus a **prospective opportunity comparison** of relevant thematic beta-plus instruments and current research candidates under Charter C. This does not make every fund or pension holding part of the monthly stock-by-stock review: broad-market beta funds, bonds, private investments, MMFs and pension-account holdings are excluded from routine holdings-level examination unless explicitly brought into scope. Thematic beta-plus funds may be compared as investment alternatives without requiring the Strategy’s full annual fund-specific compliance review.
-- **Annual review (normally January):** whole-portfolio asset allocation and performance, including pension, non-pension investments, funds, private/off-platform investments and liquidity where the available reports permit; plus detailed non-pension stock/fund decisions.
+- **Monthly alpha review:** the alpha class: individual stocks held under one of the Strategy's three criteria, in any wrapper including the pension, plus current research candidates under Charter C. Pure beta, beta plus, bonds, commodities, private investments and liquidity are excluded from routine monthly examination unless explicitly brought into scope. Thematic funds appear only as the alternative an alpha stock must beat.
+- **Annual review (normally January):** whole-portfolio asset allocation and performance, including pension, non-pension investments, funds, private/off-platform investments and liquidity where the available reports permit; plus detailed stock/fund decisions. The annual review also renews the written case for each beta-plus theme, reviews any sector tilt held within pure beta, and checks the portfolio against the Strategy's class ranges and tax strategy.
 - **Ad hoc research:** any specific company, security, investment thesis, economic event or scheduled-monitoring finding. Does not require a scheduled review.
-- **Portfolio construction / implementation:** comparative allocation among broad beta, thematic beta-plus, direct stocks and liquidity; tax wrappers, cash needs and execution arrangements where requested.
+- **Portfolio construction / implementation:** comparative allocation among pure beta, beta plus, alpha and liquidity; tax wrappers, cash needs and execution arrangements where requested.
 - **Retrospective evaluation:** results from `investment-analysis` and `investment-reviews`, including ideas we accepted **and rejected**.
 
 If the user changes scope or order, follow that direction without pretending the default procedure was completed.
@@ -43,6 +43,8 @@ If the user changes scope or order, follow that direction without pretending the
 **The assistant does not assume live access to either application.** When the tool's live state is not available through an authorised connection, work from the exported briefing, evaluation report or portfolio files actually provided; request a specific export when necessary. Do not invent `ideaId`, `briefId`, version, database status, imported trades or successful submissions.
 
 ## 3. The common research lifecycle
+
+Theses are developed, classified and reviewed under Charter D. An adopted discovery thesis produces a field map, a benchmark and proposed admissions; it does not itself produce ideas or verdicts.
 
 The same process applies to our thesis-derived ideas, crowdsourced suggestions and currently held investments:
 
@@ -60,7 +62,7 @@ A company is not an idea, an idea is not a research verdict, a research verdict 
 
 ### 3.1 When to submit or revise an idea (interface A)
 
-**Trigger:** Create an `IdeaSubmission.v1` when we explicitly agree that a **new security or investment vehicle warrants entry to the research pipeline**. Expressions such as “add to our research list”, “investigate this”, and “let's research this candidate” count as agreement. A user expressly requesting submission also triggers it.
+**Trigger:** Create an `IdeaSubmission.v1` when we explicitly agree that a **new security or investment vehicle warrants entry to the research pipeline**. Expressions such as “add to our research list”, “investigate this”, and “let's research this candidate” count as agreement. A user expressly requesting submission also triggers it. An admission agreed at the end of a Charter D run counts as agreement.
 
 **Do not automatically submit** every company mentioned in news, monitoring reports, competitors, sector comparisons, analyst articles or an exploratory conversation. If the intent is uncertain, suggest research candidacy and await agreement. An existing holding being routinely reviewed is not by itself a new discovery.
 
@@ -68,7 +70,7 @@ For every agreed new internal submission:
 
 1. Check the known research history or accessible tool records for an existing idea. If inaccessible, say the duplicate check is unverified; do not claim it was done.
 2. If the **same security and substantially the same hypothesis** already exist, reuse/reassess the idea rather than creating a redundant submission. A materially new thesis may justify a separately linked idea. Do not overwrite history. To correct or refine that existing idea's claim, produce a **revision** (§3.1.1) rather than a new submission.
-3. Produce a complete JSON object using **exactly** `idea-submission.v1.schema.json`, including all required fields and `null`/empty arrays where permitted. Use `origin.kind=internal`, accurate `proposer` attribution (`user`, `assistant` or `collaborative`), `discoveryEventType=internal_thesis`, actual submission timestamp and source references. Do not retrospectively invent publication or original-discovery dates. Omit `revisesIdeaId` (or set it to `null`) for a new idea.
+3. Produce a complete JSON object using **exactly** `idea-submission.v1.schema.json`, including all required fields and `null`/empty arrays where permitted. Use `origin.kind=internal`, accurate `proposer` attribution (`user`, `assistant` or `collaborative`), `discoveryEventType=internal_thesis`, actual submission timestamp and source references. Do not retrospectively invent publication or original-discovery dates. Omit `revisesIdeaId` (or set it to `null`) for a new idea. For a thesis-derived idea, set `thesis` to the name of the originating thesis in `thesis.json`.
 4. Capture the investable hypothesis, stance, horizon, claimed catalysts and risks, and supporting evidence *only to the extent known*. Distinguish facts, claims and validation gaps. Do not manufacture targets, market data or source quotes. Keep `hypothesis` to the investable claim in one or two sentences; put catalysts and risks in `claimedCatalysts` and `claimedRisks`, and sources in `evidenceRefs` with a description of each. Label figures from exploratory research that have not been checked against a primary source as unverified where they appear, and record process caveats in `extraction.warnings`.
 5. Validate against the canonical JSON Schema where tooling permits. Explicitly disclose if validation could not be performed.
 6. Provide a downloadable artifact named **`IdeaSubmission.v1-{TICKER}-{YYYY-MM-DD}.json`**. The ticker in the filename is an aid to identification; the actual security identity remains governed by the schema and resolution process.
@@ -100,9 +102,10 @@ Supplement it with primary company filings, current market evidence, independent
 
 Triage can reject, defer or prioritise a candidate without a full deep dive. In-depth analysis should normally test:
 
+- The alpha criterion the idea falls under (mispricing, accelerating leader, disruptive technology, or none met), which decides the test that follows.
 - The business and its competitive position, economic drivers and financing/dilution risks.
 - The specific source of potentially **exceptional, underappreciated per-share shareholder returns**; whether it is genuinely company-specific or just broad thematic enthusiasm.
-- Valuation today, market expectations and a plausible range of future financial outcomes. Use adverse, central/strong and exceptional scenarios where feasible; explicitly label assumptions and do not invent probabilities.
+- Valuation today, market expectations and a plausible range of future financial outcomes. Use adverse, central/strong and exceptional scenarios where feasible; explicitly label assumptions and do not invent probabilities. This scenario test applies to mispricing and accelerating-leader cases; a disruptive-technology case is tested on the Strategy's five questions and is not judged on its central case.
 - What would falsify the thesis; catalysts, evidence milestones, dates, pass and failure conditions, and the cost of delayed proof.
 - Returns and risks relative to **broad-market beta**, a relevant **thematic fund** and the **strongest competing stocks**, including existing holdings. Consider portfolio overlap, liquidity, position size and the cost of attention.
 - Whether the company merits a **fresh purchase** and, independently, an **increase to an existing position**. Existing ownership and Strong/Conditional Retain labels confer no priority.
@@ -115,21 +118,23 @@ For a concluded judgement on a registered idea:
 2. Use the real `ideaId` and exact `briefId`/`briefVersion`; if no brief was used, set `briefId` and `briefVersion` to `null` as the schema permits. If the `ideaId` is unavailable, supply the prose conclusion and identify the missing linkage rather than invent a valid-looking record.
 3. Record the analysis at the **actual judgement date**, with analyst attribution and documented reasoning. Reassessments create new immutable records linked through `supersedesAnalysisId` where known; never alter an earlier verdict to make history look more accurate.
 4. Include assumptions, valuation basis, scenarios, falsification conditions, proof points, benchmark alternatives, sizing guidance and source references as supported; retain the full reasoning in `rationaleMarkdown`.
-5. Validate if feasible; state when validation was not possible. Provide a downloadable, importable JSON artifact using a clear filename such as **`AnalysisRecord.v1-{TICKER}-{YYYY-MM-DD}.json`**.
+5. Fill `criterion`, `criterionRationale`, `thesis` and, for a disruptive-technology case, `fiveQuestions`, as Charter A requires. A researched idea awaiting a dated proof point before any purchase is a `candidate` with that proof point in `proofPoints`; `watch` means not yet researched.
+6. Validate if feasible; state when validation was not possible. Provide a downloadable, importable JSON artifact using a clear filename such as **`AnalysisRecord.v1-{TICKER}-{YYYY-MM-DD}.json`**.
 
 The analysis record does not authorise a trade. A negative or watch verdict remains tracked by `investment-analysis` in the same way as a selected idea. Where multiple ideas concern one security, identify which economic hypothesis the judgement applies to.
 
 ### 3.3.1 Coordinated research programmes and standard charters
 
-For sizeable or recurring research, apply the separately agreed **Investment Research Programme Brief** and one of its three standard charters rather than negotiating a new methodology each time:
+For sizeable or recurring research, apply the separately agreed **Investment Research Programme Brief** and one of its four standard charters rather than negotiating a new methodology each time. Charters A, B and C apply to the alpha class only; Charter D applies to theses:
 
-- **Charter A — Discovery Triage:** first-pass analysis of newly ingested external or internal ideas; issue evidence-backed research verdicts, not purchases.
+- **Charter A — Discovery Triage:** first-pass analysis of newly ingested external or internal ideas; assign each idea a criterion and triage by that criterion's test; issue evidence-backed research verdicts, not purchases.
 - **Charter B — Watch Requalification:** normally before each monthly review, cover **all ideas whose latest verdict is `watch`**. Promote only those whose circumstances have materially improved enough to warrant substantive research. Produce a complete coverage report but **do not** create new official records for unchanged watches.
-- **Charter C — Comparative Investment Research:** use for monthly/annual thematic beta-plus and alpha-seeking research, or substantial comparative ad hoc work. Default universe is **all current `candidate` ideas plus in-scope holdings**, including promotions accepted from Charter B.
+- **Charter C — Comparative Investment Research:** use for monthly/annual research on the alpha class, or substantial comparative ad hoc work on individual stocks. Default universe is **all current `candidate` ideas plus in-scope alpha holdings**, including promotions accepted from Charter B. Cases are ranked within each criterion.
+- **Charter D — Thesis Development and Review:** state, critique, classify and adopt or reject theses; map the field of a discovery thesis and set its benchmark; propose admissions to Charter A; review adopted theses, normally each quarter.
 
 The Research Programme Brief defines work-package assignments, independent challenge, a discovery register, evidence QA, comparative ranking and reproducible outputs. It does **not** change the Investment Strategy's criteria or this brief's idea/analysis import contracts.
 
-In Charter C, establish holdings for **coverage and mandatory risk checks** from the outset, but produce the company/security opportunity ranking **without preference for current ownership, entry price or unrealised P&L**. Run the holdings-review stream in parallel. Only after the holdings-neutral ranking should portfolio-specific position weights, tax, wrappers, switching costs and correlation influence action proposals. Thus the capital decision is zero-based in prospective merit, but research can reuse earlier verified evidence.
+In Charter C, establish holdings for **coverage and mandatory risk checks** from the outset, but produce the per-criterion opportunity tiers **without preference for current ownership, entry price or unrealised P&L**. Run the holdings-review stream in parallel. Only after the holdings-neutral tiers should portfolio-specific position weights, tax, wrappers, switching costs and correlation influence action proposals. Thus the capital decision is zero-based in prospective merit, but research can reuse earlier verified evidence.
 
 Research may discover attractive competitors or adjacent investments. Record these in a separate programme Discovery Register; propose `IdeaSubmission.v1` **only after explicit agreement** that the new idea warrants entering the pipeline, using §3.1. Do not silently add every mentioned competitor, auto-import an idea, or create an analysis for an unregistered idea.
 
@@ -150,22 +155,22 @@ When an evaluation report is supplied, examine not just the winners and losers b
 
 The **current Investment Strategy** governs all thresholds and allocation targets. In particular:
 
-- The non-pension portfolio has **broad-market beta, thematic beta-plus and alpha-seeking individual stocks**, plus liquidity; themes are intentional systematic tilts, not automatically diversified beta or assured alpha. Assess look-through overlap, especially common defence and AI-capex exposures.
-- Select stocks for credible, underappreciated *shareholder* outcomes at current valuation, not technological excitement, headline growth or already-recognised quality. Include permanent-loss risk and opportunity cost.
+- The whole portfolio, pension included, has three classes (**pure beta, beta plus and alpha**) plus liquidity, with the ranges and limits set in the Strategy. Beta plus expresses an allocation thesis through a fund or a self-built basket and is not presumed to generate alpha. Assess look-through overlap across classes, especially common defence and AI-capex exposures.
+- Select stocks for credible, underappreciated *shareholder* outcomes at current valuation, not technological excitement, headline growth or already-recognised quality. Include permanent-loss risk and opportunity cost. State which of the three alpha criteria the stock qualifies under.
 - Compare **business evidence** with the credibility of the original claim: company assertion; customer/partner corroboration; independent technical evidence; and, where available, a commercially relevant adversarial comparison against strong competitors. Customer deployment does not by itself demonstrate superiority.
 - For material M&A or financing, analyse purchase price, organic versus acquired growth, leverage, dilution, execution, cash conversion, ROIC and **per-share** economics—not just strategic rationale.
-- Keep the strategy's profit-taking, absolute-high stop-loss review/default-exit thresholds, spike-context exception, volatility and time-held checks, and the separate dated **moonshot proof-window** rules. Do not let conditional holdings or extensions become indefinite avoidance of an exit.
+- Apply the Strategy's exit rule for the holding's class and criterion: the price stop by default for mispricing and accelerating-leader positions; the dated **moonshot proof-window** rules for disruptive-technology positions; theme failure for a beta-plus basket stock; and the profit-taking, fundamentals and time-held checks for all alpha positions. Honour and list recorded exceptions. Do not let conditional holdings or extensions become indefinite avoidance of an exit.
 - Review actions for genuine prospective merit. A rise, fall, historical gain/loss, or attractive thesis does not itself decide the allocation. Reinvest only when alternatives exceed the appropriate hurdle; the allocation target is a risk budget, not a purchase quota.
 
 Do not duplicate numerical rule definitions in schemas or tools when the strategy is their authority. In reports, name the applicable rule and its contemporaneous value, including any written exception.
 
-## 5. Structured monthly active-investment review
+## 5. Structured monthly alpha review
 
 ### 5.1 Normal scope, cadence and inputs
 
-Run when requested, usually monthly during higher-volatility periods and otherwise at the cadence directed by the strategy. Normally covers **individual shares in ISA and taxable accounts** for stock-specific holdings decisions, alongside the Charter C **comparative opportunity assessment** of in-scope thematic beta-plus and alpha-seeking investments. Pension-account holdings and broad-market beta/other funds are not automatically added to the monthly holdings review; broad beta is normally reviewed through the annual fund/asset-allocation process. Thematic beta-plus ETFs can be competitors or research cases without triggering full monthly fund-compliance checks. Consider out-of-scope assets for whole-portfolio correlation, capital and liquidity context without pretending they are part of the stock-by-stock workbook.
+Run when requested, usually monthly during higher-volatility periods and otherwise at the cadence directed by the strategy. Covers the **alpha class**: individual stocks held under one of the Strategy's three criteria, in any wrapper including the pension, alongside the Charter C comparative assessment of current candidates. Pure beta, beta plus, bonds, commodities, private investments and liquidity are not part of the monthly holdings review; they are reviewed through the annual process. Thematic funds appear only as the alternative an alpha stock must beat. Consider out-of-scope assets for whole-portfolio correlation, capital and liquidity context without pretending they are part of the stock-by-stock workbook.
 
-**Before the substantive review:** run Charter B against the complete current watch population, record its coverage and import/confirm any agreed candidate promotions. Freeze the resulting Charter C candidate list. Obtain the latest **`investment-reviews` Periodic Review**, independently of `investment-analysis`, and identify every holding and mandatory review trigger. If either input is unavailable, document the gap and do not claim full coverage.
+**Before the substantive review:** run Charter B against the complete current watch population, record its coverage and import/confirm any agreed candidate promotions. Where no idea currently has a `watch` verdict, record that fact in place of a Charter B run. Freeze the resulting Charter C candidate list. Obtain the latest **`investment-reviews` Periodic Review**, independently of `investment-analysis`, and identify every holding and mandatory review trigger. If either input is unavailable, document the gap and do not claim full coverage.
 
 Read the latest available:
 
@@ -177,9 +182,9 @@ Read the latest available:
 
 Do **not** mistake the periodic workbook's **Start Value, P&L or ROI since the previous review** for lifetime investment return. `New`, `Retained`, `Increased` and `Sold` are prior-period decision outcome groups, and `Sold` is a counterfactual view. The thesis candidate basket is an equal-weighted diagnostic, **not** an actual portfolio return.
 
-Stop-loss: the **absolute 90-calendar-day closing high** determines the >20% review / >30% default-exit trigger under the current strategy. The 10-trading-day smoothed high and P90 high are context for transient spikes; they do **not** replace the trigger. Volatility in the workbook is a 90-day estimate; the low-volatility rule needs persistence over **two successive quarters**, not a single reading.
+Stop-loss: for mispricing and accelerating-leader positions, the **absolute 90-calendar-day closing high** determines the >20% review / >30% default-exit trigger under the current strategy. The 10-trading-day smoothed high and P90 high are context for transient spikes; they do **not** replace the trigger.
 
-Also retain **progress towards doubling and profit-taking review points**, previous decision results, documented moonshot decision windows, proof milestones and prior exceptions from the Periodic Review and decision history. Use these to require an investigation or risk-management response, **not** as a scoring input that prejudges independent prospective merit. Every mandatory holding trigger must receive an explicit conclusion or unresolved/escalated entry, including when the recommendation is no action. The `investment-analysis` trade/activity interface does not contain these full Periodic Review outcomes and must not be used as a substitute.
+Also retain **progress towards doubling and profit-taking review points**, previous decision results, documented moonshot decision windows, every dated proof point attached to a holding or an unheld candidate, and prior exceptions from the Periodic Review and decision history. Use these to require an investigation or risk-management response, **not** as a scoring input that prejudges independent prospective merit. Every mandatory holding trigger must receive an explicit conclusion or unresolved/escalated entry, including when the recommendation is no action. The `investment-analysis` trade/activity interface does not contain these full Periodic Review outcomes and must not be used as a substitute.
 
 ### 5.2 Conversation sequence
 
@@ -187,11 +192,11 @@ Unless explicitly changed by the user:
 
 0. **Preparatory research and coverage:** finish the Charter B watch check, capture promotions and source gaps, obtain the `investment-reviews` Periodic Review, and establish the Charter C candidate-plus-holdings universe. Record the versions/cut-off dates of both applications' outputs.
 1. **Previous decisions (opening substantive discussion):** compare `New`/`Increased`/`Retained`/`Sold` outcomes with broad benchmarks and appropriate thesis baskets; check actual versus pending transactions, and preserve the counterfactual meaning of `Sold`. Do not infer lifetime results from the recent review period.
-2. **Holdings governance:** review progress toward doubling/profit-taking points, absolute-high drawdowns (with smoothed/P90 context), volatility/persistence, moonshot proof windows, past exceptions and other mandatory triggers. Establish a documented closure/escalation for **every** applicable trigger, irrespective of investment ranking.
-3. **Theses and candidate changes:** review material thesis developments, held versus unheld expressions, Charter B promotions and newly identified peer alternatives. Revisit `thesis.json` candidate universes systematically each quarter, and as needed for material new evidence.
-4. **Charter C independent investment comparison:** refresh all in-scope current holdings and `candidate` ideas, use source-cited dossiers and independent challenge proportionate to decision relevance, and produce a **holdings-neutral** opportunity ranking before using cost basis or actual position size. Compare alternatives within/outside theses, broad beta and thematic beta-plus; avoid privileging existing names.
+2. **Holdings governance:** review progress toward doubling/profit-taking points, the exit triggers for each holding's class and criterion (absolute-high drawdowns with smoothed/P90 context for mispricing and accelerating-leader positions; moonshot proof windows for disruptive-technology positions), every due proof point, past exceptions and other mandatory triggers. Establish a documented closure/escalation for **every** applicable trigger, irrespective of investment ranking.
+3. **Theses:** note material developments against each adopted thesis's falsifiers and indicators, and held versus unheld expressions against its benchmark. The full thesis review is a Charter D run, normally quarterly; its admissions enter through Charter A before the Charter C universe is frozen.
+4. **Charter C independent investment comparison:** refresh all in-scope current holdings and `candidate` ideas, use source-cited dossiers and independent challenge proportionate to decision relevance, and produce **holdings-neutral** tiers within each criterion before using cost basis or actual position size. Compare against alternatives within/outside theses, broad trackers and relevant thematic funds; avoid privileging existing names.
 5. **Evidence checkpoints:** review dated pre-proof tests, acquisitions/financings, dilution and capital-allocation evidence, exceptions, and slipped catalysts. Record pass/failure evidence and any permissible dated extension.
-6. **Portfolio overlay and provisional decisions:** combine the independent ranking with positions, exposure correlations, wrappers, taxes, switching costs, cash needs and strategy risk rules. Discuss retain, conditional retain, watch, rotate, partial profit-take, increase and exit; distinguish fresh-buy, add and retain decisions.
+6. **Portfolio overlay and provisional decisions:** combine the independent tiers with positions, exposure correlations, wrappers, taxes, switching costs, cash needs and strategy risk rules. Discuss retain, conditional retain, watch, rotate, partial profit-take, increase and exit; distinguish fresh-buy, add and retain decisions. Check the Strategy's limits (alpha; the disruptive-technology share of alpha; beta plus and alpha together; the stake guide) and its tax strategy for wrapper placement.
 7. **Capital allocation:** compare existing holdings, new candidates, best unheld alternatives, diversified trackers, thematic funds and MMFs against opportunity costs. A better-ranked candidate need not require a rotation if the switching costs eliminate its advantage.
 8. **Process watchpoints:** revisit open issues, including discovery yield, proof-date exceptions, concentration and research effort; record explicit proposed (not automatically adopted) changes to strategy/theses/process.
 9. **Final artefacts:** after discussion and user agreement, prepare the Word decisions report when requested, the `investment-reviews` execution YAML for actual agreed buy/sell decisions, and only the applicable concluded interface A/C records. Include Charter B promotions, Charter C rankings, new-idea proposals and **reasoned no-action/hold conclusions**, rather than manufacturing records for every mention.
@@ -204,34 +209,34 @@ Produce the **downloadable Word report only after the user asks for the final ve
 
 1. **Executive Summary:** approximately three paragraphs on headline outcomes, thesis validity and significant decisions.
 2. **Outcome of previous decisions:** New/Increased/Retained/Sold versus benchmarks and candidate baskets; commentary on selection quality, not just short-term return.
-3. **Core thesis areas:** fundamental developments, candidate/held baskets, breadth, expressions, new watchpoints; proposed `thesis.md`/`thesis.json` changes.
-4. **Stock recommendations:** one table per thesis with stock, proposed action, relative candidate-basket performance, principal competitor/alternative, and the reasoning. State separately **would buy today?** and **would add today?** Include proof points and material M&A/shareholder-value assessment where relevant.
+3. **Core thesis areas:** fundamental developments, candidate/held baskets, breadth, expressions, new watchpoints; proposed `thesis.md`/`thesis.json` changes. State each thesis's kind (allocation or discovery) and status.
+4. **Stock recommendations:** one table per criterion with stock, thesis, proposed action, relative candidate-basket performance, principal competitor/alternative, and the reasoning. State separately **would buy today?** and **would add today?** Include proof points and material M&A/shareholder-value assessment where relevant.
 5. **Agreed actions:** table of thesis, stock, action and GBP amount/value for each increase, partial sale/profit-take or exit.
 6. **Reinvestment decisions:** rationale and alternatives, including best existing position, unheld candidate, asymmetric candidate, lower-risk/fund alternative and MMF; wrapper placement, overlap and purchasing table (thesis, security, GBP amount, role, justification).
 7. **Conditional increases/proof-point capital:** stock, why withheld, next event/date, pass/fail evidence and status; no automatic drift of deadlines.
 8. **Material acquisitions and financing:** transaction, strategic purpose, price/dilution/leverage, evidence of per-share value creation, next checkpoint, assessment.
 9. **Process watchpoints:** issue, why it matters, first noted, evidence, escalation trigger and status; specifically exception creep, M&A/capital-allocation drift and candidate-basket statistical distortions.
 
-Where a section is genuinely not applicable, state that briefly rather than manufacturing content. Retain sufficient substance on **holds and no-action conclusions**, not only trades. Distinguish proposed edits to strategy/thesis documents from changes already accepted. The report should reference the completed Charter B promotion/coverage report and the **separate** Charter C merits ranking versus portfolio-adjusted actions; these can be summarized within the existing nine sections rather than imposing a new Word format.
+Where a section is genuinely not applicable, state that briefly rather than manufacturing content. Retain sufficient substance on **holds and no-action conclusions**, not only trades. Distinguish proposed edits to strategy/thesis documents from changes already accepted. The report should reference the completed Charter B promotion/coverage report and the **separate** Charter C merits tiers versus portfolio-adjusted actions; these can be summarized within the existing nine sections rather than imposing a new Word format.
 
 ## 6. Annual investment review
 
 Conduct the annual review normally in **January**, using the Investment Strategy and supplied `investment-reviews` **Annual Review**, full-history, fund and tax/decision reports as applicable. The annual scope is **the consolidated economic portfolio**: pension and non-pension wrappers, off-platform/private holdings and cash where data is available; wrapper-specific implementation remains distinct.
 
-Apply the **same Charter C holdings-neutral comparative research method** to thematic beta-plus and alpha-seeking individual investments as in a monthly review, informed by the latest completed Charter B check. The annual review additionally examines broad-market beta funds (benchmark, tracking, costs, suitability), other funds, the pension and consolidated allocation/risk. These annual tasks are **not** recast as `investment-analysis` stock-selection research. Where holdings are in scope, use authoritative `investment-reviews` reporting for past decision outcomes and mandatory review triggers.
+Apply the **same Charter C holdings-neutral comparative research method** to the alpha class as in a monthly review, informed by the latest completed Charter B check. The annual review additionally examines pure beta funds (benchmark, tracking, costs, suitability), beta-plus themes and their funds or baskets, and consolidated allocation/risk. These annual tasks are **not** recast as `investment-analysis` stock-selection research. Where holdings are in scope, use authoritative `investment-reviews` reporting for past decision outcomes and mandatory review triggers.
 
 Review in the following order unless directed otherwise:
 
 1. **Reconcile the year:** starting/ending values, external contributions/withdrawals, money-weighted return where available, results by wrapper, stock/fund/asset category and appropriate benchmarks. Treat price gains and external cash flows separately.
 2. **Whole-portfolio risk:** allocations to equities, bonds, alternatives, liquidity; drawdown tolerance; concentrated/correlated exposures across wrappers and off-platform assets.
-3. **Three-tranche non-pension model:** broad beta (diversification, cost, index composition), thematic beta-plus (sector valuation, overlap, cost, index methodology), active stocks (distribution of expected returns, proof points, position sizes, new versus existing candidates). Assess whether the normal allocation and risk budget remain suitable.
+3. **Three classes, whole portfolio:** pure beta (breadth, cost, any sector tilt and why it is held, any active fund and whether a suitable tracker now exists); beta plus (renew the written case for each theme: valuation against its own history and the broad market, and the growth the price assumes; fund choice, cost and overlap; the basket rules where a basket is held); alpha (distribution of outcomes by criterion, proof points, stake sizes, new versus existing candidates). Check every range and limit in the Strategy.
 4. **Fund review:** assess strategy's annual rules for loss, two-year benchmark underperformance and unexpected volatility, plus active-manager risk for any remaining active funds. Test thematic funds against broad beta rather than presuming sector attractiveness.
 5. **Active-stock review:** assess the year's winners/losers, exits, retain/rotation decisions, realised versus hypothetical outcomes and opportunity cost. Apply the same forward-looking test as the monthly review; include new discovery candidates.
 6. **Discovery and decision quality:** discuss available `investment-analysis` evaluation reports and `investment-reviews` outcomes, including accepted/rejected ideas, author/source cohorts, internal discovery, decision timing, risk-adjusted returns and attention cost.
-7. **Tax, cash and allocation plan:** consider foreseeable withdrawals, taxable gains/losses, wrapper capacity, liquidity reserves and a staged rebalancing/implementation plan. Distinguish investment judgement from tax-driven implementation.
-8. **Governance:** decide which watchpoints warrant formally revising the Investment Strategy, theses, proof-point rules or this operating brief.
+7. **Tax, cash and allocation plan:** consider foreseeable withdrawals, taxable gains/losses, wrapper capacity, liquidity reserves and a staged rebalancing/implementation plan. Distinguish investment judgement from tax-driven implementation. Check wrapper placement against the Strategy's tax strategy.
+8. **Governance:** decide which watchpoints warrant formally revising the Investment Strategy, theses, proof-point rules or this operating brief, and which theses are due a Charter D review.
 
-Discuss in stages before drafting conclusions. The final report should provide an executive summary, annual performance and attribution, allocation/risk review, fund/tranche reviews, active-stock decisions, discovery/process evaluation, action plan and agreed governance changes. Produce a dated Word report on request and a separate YAML execution-decision file for any agreed buys/sells covered by the existing decision-log scope. Do not invent transaction details or tax calculations absent from the authoritative reports.
+Discuss in stages before drafting conclusions. The final report should provide an executive summary, annual performance and attribution, allocation/risk review, fund/class reviews, active-stock decisions, discovery/process evaluation, action plan and agreed governance changes. Produce a dated Word report on request and a separate YAML execution-decision file for any agreed buys/sells covered by the existing decision-log scope. Do not invent transaction details or tax calculations absent from the authoritative reports.
 
 ## 7. Ad hoc conversations, scheduled monitoring and special reviews
 
@@ -245,7 +250,7 @@ This procedure applies equally to developments discovered during scheduled tasks
 4. **For an existing registered idea:** use its existing record and dated brief where available. If the news materially changes the case and we reach a new conclusion, create a new **interface C**, linked to the earlier analysis; do not create a duplicate A unless it is a genuinely distinct thesis. If the idea's recorded claim itself is wrong or incomplete, produce a revision (§3.1.1).
 5. **When the user requests immediate assessment:** answer the question with available sources even if formal enrichment has not yet happened, identifying what remains unverified and what is needed for an importable record.
 6. **If an actual purchase or sale is agreed:** document the rationale and produce/update an `investment-reviews` decision YAML as appropriate; do not treat the decision as an executed trade.
-7. **Update continuity:** propose adjustments to `thesis.md`, watchpoints, candidate universes or proof-point dates where warranted; do not modify the standing Investment Strategy without explicit agreement.
+7. **Update continuity:** propose adjustments to `thesis.md`, watchpoints, benchmark lists or proof-point dates where warranted; take a proposed new thesis through Charter D; do not modify the standing Investment Strategy without explicit agreement.
 
 A scheduled monitoring task is a **discovery/evidence channel, not an autonomous buyer or a blanket authorisation to create ideas**. Routine monitoring alerts may be triaged and discarded without producing structured artefacts.
 
@@ -260,18 +265,19 @@ For each session in which buys or sells are **actually agreed**, prepare a downl
 Required structure:
 
 ```yaml
-classification_version: 1
+classification_version: 2
 decision_date: YYYY-MM-DD
 execution_window: {start: YYYY-MM-DD, end: YYYY-MM-DD}
 decisions:
   - ticker: EXAMPLE.N
     action: sell
     primary_reason: better-expression-available
-    investment_type: growth
+    investment_class: alpha
+    criterion: mispricing
     commentary: "Why we agreed this action at the time."
 ```
 
-Populate exact Yahoo Finance symbols as recognised by `investment-reviews`; use the README's controlled **purchase/sale reason codes**, optional `secondary_reasons`, and `linked_decision_id` for an actual replacement. The primary reason is the **reason to act now**, not a general description of the company. `investment_type` remains `core`, `growth` or `moonshot` as defined by the existing tool—not our new beta/beta-plus/alpha shorthand.
+Populate exact Yahoo Finance symbols as recognised by `investment-reviews`; use the README's controlled **purchase/sale reason codes**, optional `secondary_reasons`, and `linked_decision_id` for an actual replacement. The primary reason is the **reason to act now**, not a general description of the company. From classification version 2, `investment_class` is `pure-beta`, `beta-plus` or `alpha`, and an alpha decision also carries `criterion`: `mispricing`, `accelerating-leader` or `disruptive-technology`. These replace the former `investment_type` (`core`, `growth`, `moonshot`). Version 1 files remain valid history and are not rewritten. The `low-volatility` sale reason is retired for new decisions, following the withdrawal of that rule from the Strategy.
 
 **Include** agreed new buys, increases, reductions, profit-takes and exits. **Exclude** holds, rejected ideas, mere research selections and orders we never agreed. Distinguish a trade intended in a decision window from its later actual execution; the tool links them independently. Execution windows and entries must satisfy the `investment-reviews` decision-log checks.
 
@@ -284,7 +290,8 @@ If an ad hoc buy/sell is agreed outside a review's decision date/window, use its
 | Agreed **new** candidate for research | `IdeaSubmission.v1-{TICKER}-{DATE}.json` | At agreement, before tool enrichment; validate if possible, check duplicates |
 | Charter A intake/triage | Research register, triage coverage, concluded `AnalysisRecord.v1` batch | For the complete incoming idea batch; no automatic execution |
 | Charter B watch requalification | Complete watch-check coverage report and only **promoted** `candidate` analyses | Normally before each monthly review; no redundant unchanged-watch record |
-| Charter C comparative programme | Issuer/vehicle dossiers, challenge, complete merits ranking and separately labelled portfolio overlay | For monthly/annual active-investment research or significant ad hoc comparisons; candidate + in-scope holdings by default |
+| Charter C comparative programme | Issuer dossiers, challenge, per-criterion tiers, proof-point register and separately labelled portfolio overlay | For monthly/annual alpha research or significant ad hoc comparisons; candidates + in-scope alpha holdings by default |
+| Charter D thesis run | Thesis statement, critique, classification, field map, benchmark, decision, admission proposals and proposed thesis-document updates | When a thesis is proposed or due review; no analysis records |
 | New idea surfaced during research | Programme Discovery Register; agreed interface A when authorised | A competitor mention alone does not create or import an idea |
 | Agreed correction or refinement of a registered idea's claim | `IdeaSubmission.v1-{TICKER}-{DATE}-revision.json` with `revisesIdeaId` | Real `ideaId` from the idea's brief; same origin, event type and security; never for a new thesis (§3.1.1) |
 | Tool delivers completed enrichment | `ResearchBrief.v1` JSON + paired Markdown | **Read** and analyse the actual version; normally produced by `investment-analysis`, not reconstructed by the assistant |
@@ -301,19 +308,20 @@ An ad hoc research discussion need not force a Word report or execution YAML; co
 
 ## 10. Research outcomes, comparison discipline and self-evaluation
 
-All candidates—including current holdings, external crowdsourced discoveries and our own thematic ideas—compete within one pool under the same investment hurdle. Conditional Retain means *eligible to compete*, not a commitment to keep. A Strong Retain is also reconsidered when materially better alternatives appear.
+All candidates—including current holdings, external crowdsourced discoveries and our own thematic ideas—compete within their criterion under the Strategy's test for it. Conditional Retain means *eligible to compete*, not a commitment to keep. A Strong Retain is also reconsidered when materially better alternatives appear.
 
-For substantial comparisons, retain **two separate outputs**: (a) a holdings-neutral, prospective opportunity ranking and (b) portfolio-aware action proposals. Use the Strategy's criteria consistently; former purchase price/holding status is not evidence for rank, while taxes, actual exposures and implementation costs can legitimately change the action. The research programme's Discovery Register records stronger new alternatives, which enter the official pipeline only after the usual explicit agreement and interface A submission.
+For substantial comparisons, retain **two separate outputs**: (a) holdings-neutral, prospective tiers within each criterion and (b) portfolio-aware action proposals. Use the Strategy's criteria consistently; former purchase price/holding status is not evidence for rank, while taxes, actual exposures and implementation costs can legitimately change the action. The research programme's Discovery Register records stronger new alternatives, which enter the official pipeline only after the usual explicit agreement and interface A submission.
 
 At the point of selection or rejection record, where relevant:
 
+- The alpha criterion and the originating thesis.
 - What the market appears to be underpricing, what economic improvement is needed, and what it would mean **per diluted share**.
-- Adverse/central/exceptional scenarios with explicit horizon, evidence and valuation assumptions; avoid a binary rule requiring an arbitrary 5× outcome.
+- For mispricing and accelerating-leader cases, adverse/central/exceptional scenarios with explicit horizon, evidence and valuation assumptions; for disruptive-technology cases, the answers to the Strategy's five questions.
 - Whether the alternative broad tracker, thematic ETF or another stock offers better risk-adjusted prospective returns.
 - Why the candidate is in scope, whether the proof point has a meaningful date, and what would change the verdict.
 - Whether the decision is a research judgement, executable instruction, or actual imported transaction.
 
-For retrospective evaluation, **track misses as well as successes**. Compare rejected and accepted idea cohorts from comparable actionable dates and horizons; include delistings, corporate actions and coverage gaps. Separate source discovery value from source recommendation quality, our research value-add from implementation, and business-thesis correctness from price return. Avoid rewarding prolific reprints, correlated repeated recommendations, survivorship bias or a small number of 10× outliers.
+For retrospective evaluation, **track misses as well as successes**. Compare rejected and accepted idea cohorts from comparable actionable dates and horizons; include delistings, corporate actions and coverage gaps. Report cohorts by channel, by criterion and by thesis. Separate source discovery value from source recommendation quality, our research value-add from implementation, and business-thesis correctness from price return. Avoid rewarding prolific reprints, correlated repeated recommendations, survivorship bias or a small number of 10× outliers.
 
 Treat conclusions as provisional when the evidence is incomplete. If research, outcome data and investment-review reports disagree, identify why (different dates, FX, corporate actions, price adjustment, capital flows, benchmark or missing records) before drawing behavioural lessons.
 
@@ -323,7 +331,16 @@ At the end of a substantive review or research programme, summarise **agreed dec
 
 Do not change investment rules in response to a single outlier. Explicitly identify proposals to amend the Investment Strategy, `thesis.md`, `thesis.json`, schemas, the `investment-analysis` tool or this brief. The user must approve the proposed change before it is adopted. The existing code/schema owners, not this operating brief, define valid interchange formats and live data semantics.
 
-### 11.2 Changes proposed in v1.2
+### 11.3 Changes in v1.3
+
+- Follow the Investment Strategy approved 19 November 2026 (second revision): three classes across the whole portfolio including the pension; exits by class and criterion; the low-volatility rule removed.
+- Charters A, B and C apply to the alpha class only. Every idea and holding carries one of the three alpha criteria and is tested by it; Charter C ranks within each criterion and keeps a proof-point register.
+- New Charter D for developing, classifying, adopting or rejecting, and reviewing theses, including the benchmark for each adopted thesis; thesis review moves into it.
+- Monthly review rescoped as the monthly alpha review; beta plus and pure beta handled at the annual review, which now renews each beta-plus written case and checks class ranges and the tax strategy.
+- Analysis records carry `criterion`, `criterionRationale`, `thesis` and `fiveQuestions`; idea submissions carry `thesis`. `watch` means not yet researched; a researched idea awaiting a proof point is a `candidate`.
+- The execution decision log uses classification version 2: `investment_class` and `criterion` replace `investment_type`; the `low-volatility` reason is retired.
+
+### 11.2 Changes in v1.2
 
 - Recognise companion *Investment Research Programme Brief* v1.0 and its three standard charters; add §3.3.1 describing the delegated workflow and official interface boundaries.
 - Make Charter B requalification of the entire `watch` population a normal monthly preparatory step; promotions join the Charter C candidate population, without monthly unchanged-watch analyses.
@@ -340,10 +357,10 @@ Do not change investment rules in response to a single outlier. Explicitly ident
 
 ---
 
-## Proposed replacement project instructions
+## Project instructions
 
 Keep the project-level instructions short; the full operating procedure should live in this document, attached to the project sources:
 
-> For all investment-related conversations, use the latest **Investment Strategy** and **Investment Operations Brief** in project sources. When a coordinated research programme is invoked, also follow the **Investment Research Programme Brief** and its applicable standard charter (A: Discovery Triage; B: Watch Requalification; C: Comparative Investment Research). The Operations Brief defines periodic reviews, ad hoc research, `investment-analysis` hand-offs, evaluation and `investment-reviews` decision recording. Follow approved sources and authoritative schemas; do not assume access to unprovided tool records.
+> For all investment-related conversations, use the latest **Investment Strategy** and **Investment Operations Brief** in project sources. When a coordinated research programme is invoked, also follow the **Investment Research Programme Brief** and its applicable standard charter (A: Discovery Triage; B: Watch Requalification; C: Comparative Investment Research; D: Thesis Development and Review). The Operations Brief defines periodic reviews, ad hoc research, `investment-analysis` hand-offs, evaluation and `investment-reviews` decision recording. Follow approved sources and authoritative schemas; do not assume access to unprovided tool records.
 
-*This proposed v1.2 replaces the approved v1.1 only on adoption in the project sources. It does not change the Investment Strategy or either application's schemas, nor alter any previously accepted application record.*
+*v1.3 replaces v1.2. It does not change the Investment Strategy or alter any previously accepted application record. It relies on the additions to the idea-submission and analysis-record schemas and on classification version 2 of the `investment-reviews` decision log.*
