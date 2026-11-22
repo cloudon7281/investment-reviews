@@ -244,22 +244,49 @@ python3 portfolio.py --mode periodic-review \
   --thesis-candidates ~/path/to/theses.json
 ```
 
-The file lists the candidate stocks for each thesis:
+The file lists each thesis and sub-thesis with its kind, status and candidate stocks:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "theses": [
     {
-      "name": "European Defence",
+      "name": "Defence",
+      "kind": "allocation",
+      "status": "adopted",
       "candidates": [
         {"ticker": "RHM.DE", "name": "Rheinmetall"},
         {"ticker": "KOG.OL", "name": "Kongsberg Gruppen"}
+      ]
+    },
+    {
+      "name": "Counter-drone",
+      "parent": "Defence",
+      "kind": "discovery",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "DRO.AX", "name": "DroneShield"}
       ]
     }
   ]
 }
 ```
+
+- **A sub-thesis** is an entry that names its `parent`. The parent must be an entry with no
+  parent, so sub-theses go one level deep. A sub-thesis is its own thesis for every purpose
+  below: it has its own kind, status, candidate basket and benchmark. Its candidates may
+  overlap its parent's.
+- **`kind`** is `allocation`, `discovery` or `both`, and **`status`** is `proposed`, `adopted`,
+  `parked`, `rejected` or `retired`. These are Charter D's terms
+  (`briefs/Investment-Research-Charter-D-Thesis-Development.md`). A thesis's kind describes
+  its own broad case; each sub-thesis is classified separately.
+- **Names are unique** and are the identifiers ideas cite (`thesisRef` in investment-analysis).
+  Keep a rejected or retired entry rather than deleting it, so the record stays complete.
+- **An adopted entry needs at least one candidate.** Any other may have none. An entry with
+  candidates gets a basket and a benchmark whatever its status, so a retired thesis's benchmark
+  still measures the ideas that cited it. An entry with no candidates gets neither.
+
+The loader rejects a file that breaks any of these rules.
 
 Tickers are Yahoo Finance symbols, as used elsewhere in the tool. Whether a candidate is
 held is derived by matching the ticker against the parsed portfolio (holdings at the end of
@@ -778,7 +805,9 @@ python -m portfolio --mode portfolio-activity-snapshot --base-dir <notes> --expo
   merger recorded as a sale.
 - **What it leaves out:** fees, dividends, brokers and ISINs, because no parser records them.
 - **Stocks the reports exclude** (those whose notes begin with a sale) are still exported: their trades are real.
-- **The benchmarks** are `BENCHMARKS` and `briefs/thesis.json`, as this service uses them.
+- **The benchmarks** are `BENCHMARKS` and `briefs/thesis.json`, as this service uses them. Each entry with
+  candidates, thesis or sub-thesis, is one thesis benchmark carrying only its name and candidates; kind, status
+  and parent are not published.
 
 **Complete or not at all.** The export refuses, and leaves the last publication in place, if:
 - the scan logs an error, or a warning it does not know to be harmless;

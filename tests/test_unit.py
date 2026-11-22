@@ -1644,15 +1644,24 @@ class TestThesisConfig(unittest.TestCase):
     """Tests for loading and validating the thesis candidate configuration file."""
 
     VALID_CONFIG = {
-        'schema_version': 1,
+        'schema_version': 2,
         'theses': [
             {
                 'name': 'European Defence',
+                'kind': 'allocation',
+                'status': 'adopted',
                 'candidates': [
                     {'ticker': 'RHM.DE', 'name': 'Rheinmetall'},
                     {'ticker': 'KOG.OL', 'name': 'Kongsberg Gruppen'},
                 ],
-            }
+            },
+            {
+                'name': 'Counter-drone',
+                'parent': 'European Defence',
+                'kind': 'discovery',
+                'status': 'adopted',
+                'candidates': [{'ticker': 'DRO.AX', 'name': 'DroneShield'}],
+            },
         ],
     }
 
@@ -1667,11 +1676,31 @@ class TestThesisConfig(unittest.TestCase):
         self.addCleanup(os.unlink, path)
         return path
 
+    def _config_with(self, index, **changes):
+        """VALID_CONFIG with fields of one entry changed; a value of None removes the field."""
+        config = json.loads(json.dumps(self.VALID_CONFIG))
+        for field, value in changes.items():
+            if value is None:
+                config['theses'][index].pop(field, None)
+            else:
+                config['theses'][index][field] = value
+        return config
+
+    def _assert_rejected(self, config, message):
+        with self.assertRaises(ValueError) as caught:
+            load_thesis_config(self._write_config(config))
+        self.assertIn(message, str(caught.exception))
+
     def test_valid_config_loads(self):
         theses = load_thesis_config(self._write_config(self.VALID_CONFIG))
-        self.assertEqual(len(theses), 1)
-        self.assertEqual(theses[0]['name'], 'European Defence')
+        self.assertEqual([t['name'] for t in theses], ['European Defence', 'Counter-drone'])
         self.assertEqual(len(theses[0]['candidates']), 2)
+        self.assertEqual(theses[1]['parent'], 'European Defence')
+        self.assertEqual((theses[1]['kind'], theses[1]['status']), ('discovery', 'adopted'))
+
+    def test_repository_thesis_file_is_valid(self):
+        theses = load_thesis_config(os.path.join(os.path.dirname(__file__), '..', 'briefs', 'thesis.json'))
+        self.assertTrue(theses)
 
     def test_missing_file_raises(self):
         with self.assertRaises(ValueError):
@@ -1683,28 +1712,56 @@ class TestThesisConfig(unittest.TestCase):
 
     def test_unsupported_schema_version_raises(self):
         config = json.loads(json.dumps(self.VALID_CONFIG))
-        config['schema_version'] = 2
-        with self.assertRaises(ValueError):
-            load_thesis_config(self._write_config(config))
+        config['schema_version'] = 1
+        self._assert_rejected(config, 'schema_version 1')
 
     def test_missing_theses_raises(self):
         with self.assertRaises(ValueError):
-            load_thesis_config(self._write_config({'schema_version': 1}))
+            load_thesis_config(self._write_config({'schema_version': 2}))
 
     def test_thesis_without_name_raises(self):
-        config = {'schema_version': 1, 'theses': [{'candidates': [{'ticker': 'VRT', 'name': 'Vertiv'}]}]}
-        with self.assertRaises(ValueError):
-            load_thesis_config(self._write_config(config))
+        self._assert_rejected(self._config_with(0, name=None), "must have a non-empty 'name'")
 
     def test_candidate_without_ticker_raises(self):
-        config = {'schema_version': 1, 'theses': [{'name': 'Quantum', 'candidates': [{'name': 'IonQ'}]}]}
-        with self.assertRaises(ValueError):
-            load_thesis_config(self._write_config(config))
+        self._assert_rejected(self._config_with(0, candidates=[{'name': 'IonQ'}]), "non-empty 'ticker'")
 
-    def test_thesis_with_no_candidates_raises(self):
-        config = {'schema_version': 1, 'theses': [{'name': 'Quantum', 'candidates': []}]}
-        with self.assertRaises(ValueError):
-            load_thesis_config(self._write_config(config))
+    def test_kind_must_be_a_charter_d_kind(self):
+        self._assert_rejected(self._config_with(1, kind='moonshot'), "has kind 'moonshot'")
+        self._assert_rejected(self._config_with(1, kind=None), 'has kind None')
+
+    def test_both_is_a_kind(self):
+        theses = load_thesis_config(self._write_config(self._config_with(0, kind='both')))
+        self.assertEqual(theses[0]['kind'], 'both')
+
+    def test_status_must_be_a_charter_d_status(self):
+        self._assert_rejected(self._config_with(0, status='active'), "has status 'active'")
+        self._assert_rejected(self._config_with(0, status=None), 'has status None')
+
+    def test_adopted_thesis_with_no_candidates_raises(self):
+        self._assert_rejected(self._config_with(1, candidates=[]), 'must have at least one candidate')
+
+    def test_thesis_not_adopted_may_have_no_candidates(self):
+        for status in ('proposed', 'parked', 'rejected', 'retired'):
+            theses = load_thesis_config(self._write_config(self._config_with(1, status=status, candidates=[])))
+            self.assertEqual(theses[1]['candidates'], [])
+
+    def test_candidates_must_be_a_list(self):
+        self._assert_rejected(self._config_with(0, status='retired', candidates=None), "must have a 'candidates' list")
+
+    def test_names_must_be_unique(self):
+        self._assert_rejected(self._config_with(1, name='European Defence', parent=None), 'repeated: European Defence')
+
+    def test_parent_must_name_a_thesis_in_the_file(self):
+        self._assert_rejected(self._config_with(1, parent='Defence'), "has parent 'Defence'")
+
+    def test_sub_theses_are_one_level_deep(self):
+        config = json.loads(json.dumps(self.VALID_CONFIG))
+        config['theses'].append({'name': 'Interceptors', 'parent': 'Counter-drone', 'kind': 'discovery',
+                                 'status': 'adopted', 'candidates': [{'ticker': 'AVAV', 'name': 'AeroVironment'}]})
+        self._assert_rejected(config, "has parent 'Counter-drone'")
+
+    def test_a_thesis_cannot_be_its_own_parent(self):
+        self._assert_rejected(self._config_with(0, parent='European Defence'), "has parent 'European Defence'")
 
 
 class TestThesisCandidatePerformance(unittest.TestCase):

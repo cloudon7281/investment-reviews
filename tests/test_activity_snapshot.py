@@ -81,6 +81,21 @@ def test_the_benchmarks_are_this_service_s_own(published):
     assert [t["name"] for t in f["theses"]] == [t["name"] for t in load_thesis_config(str(A.THESES))]
 
 
+def test_an_entry_with_no_candidates_has_no_benchmark(tmp_path):
+    theses = {"schema_version": 2, "theses": [
+        {"name": "Defence", "kind": "allocation", "status": "adopted",
+         "candidates": [{"ticker": "BA.L", "name": "BAE Systems"}]},
+        {"name": "Space", "kind": "discovery", "status": "proposed", "candidates": []},
+        {"name": "Counter-drone", "parent": "Defence", "kind": "discovery", "status": "retired",
+         "candidates": [{"ticker": "DRO.AX", "name": "DroneShield"}]}]}
+    path = tmp_path / "thesis.json"
+    path.write_text(json.dumps(theses))
+    f = A.definitions(NIGHT, path)
+    assert A.check("BenchmarkDefinitions", f) == []
+    assert f["theses"] == [{"name": "Defence", "candidates": [{"yahooSymbol": "BA.L", "name": "BAE Systems"}]},
+                           {"name": "Counter-drone", "candidates": [{"yahooSymbol": "DRO.AX", "name": "DroneShield"}]}]
+
+
 def test_an_unchanged_history_is_republished_with_the_same_id(published):
     first = read(published, A.SNAPSHOT_FILE)
     assert A.run(NOTES, str(published), now=NEXT_NIGHT) == 0
