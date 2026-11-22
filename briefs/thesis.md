@@ -8,7 +8,7 @@ Thesis labels inform stock selection, position sizing and interpretation of evid
 
 Each live thesis includes a maintained **candidate-expression universe**. This is used to compare current holdings with plausible alternatives, measure market performance across the thesis rather than infer it only from holdings, and provide a structured starting point for reinvestment decisions. Inclusion means that a company is sufficiently relevant and investable to be a useful comparator; it does not mean that its valuation, risk or current entry point is attractive.
 
-Candidate universes should be reviewed systematically each quarter and amended between quarterly reviews only where material evidence justifies a change. The qualitative tables in this document are authoritative for why candidates are included. The accompanying `thesis.json` should contain the corresponding thesis names, tickers and company names for use by the portfolio-review tooling.
+Candidate universes should be reviewed systematically each quarter and amended between quarterly reviews only where material evidence justifies a change. The qualitative tables in this document are authoritative for why candidates are included. The accompanying `thesis.json` should contain the corresponding thesis names, tickers and company names for use by the portfolio-review tooling. It has one entry per thesis and per sub-thesis, each with its kind and status, and a sub-thesis's entry names its parent thesis. Names in this document must match `thesis.json` exactly, because ideas cite the `thesis.json` name.
 
 Candidate tables use the following concise metadata:
 
@@ -18,17 +18,27 @@ Candidate tables use the following concise metadata:
 - **Risk profile:** Established, Growth, High-beta growth, or Speculative.
 - **Reason for inclusion:** why the company is a useful held expression or comparator.
 
+Each thesis and sub-thesis records its **kind** and **status**, in Charter D's terms:
+
+- **Kind:** Allocation (a market expected to grow by more than is priced in, where broad exposure is wanted), Discovery (ground likely to produce individual winners) or Both. A sub-thesis is classified separately from its parent, and kind is not the alpha criterion of any holding under it.
+- **Status:** Proposed, Adopted, Parked, Rejected or Retired.
+
 ## Thesis summary table
 
-| Thesis | Status | Current strength | Preferred expressions | Last reviewed |
-|---|---|---:|---|---|
-| Defence | Active | High | European defence primes; layered counter-UAS; critical-undersea-infrastructure protection; sensors/EW; C2 and battlefield integration; low-cost effectors; Ukrainian-derived autonomy | 2026-10 (interim) |
-| Data-centre infrastructure | Active | High | Power/grid/cooling bottleneck solvers; connectivity/data movement; time-to-power solutions; selective rack-power optionality | 2026-10 (interim) |
-| Nuclear / SMR / energy security | Active | High | Fuel cycle; proven engineering and manufacturing; existing generation; selective reactor optionality | 2026-10 (interim) |
-| EVs and battery technology | Active | Medium | Scaled EV manufacturers; commercially validated application-specific battery performance; qualified and secure manufacturing | 2026-10 (interim) |
-| Quantum | Watchlist / small optionality sleeve | Low-Medium | One small position in the strongest risk-adjusted listed pure play; focus on real application advantage over classical/AI alternatives | 2026-10 (interim) |
-| AI application layer | Active | Medium-High | Enterprise context and control planes: systems of record, identity, permissions, workflow, governance and execution | 2026-10 (interim) |
-| Crowd-sourced ideas | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality or asymmetry requirements | 2026-10 (interim) |
+| Thesis | Kind | Status | Current strength | Preferred expressions | Last reviewed |
+|---|---|---|---:|---|---|
+| Defence | Allocation | Adopted | High | European defence primes; layered counter-UAS; critical-undersea-infrastructure protection; sensors/EW; C2 and battlefield integration; low-cost effectors; Ukrainian-derived autonomy | 2026-10 (interim) |
+| ↳ Counter-drone (Defence sub-thesis) | Discovery | Adopted | — | Positions in a layered C-UAS architecture: sensing, classification, command, non-kinetic defeat and affordable interception | 2026-10 (interim), with Defence |
+| ↳ Critical undersea infrastructure protection (Defence sub-thesis) | Discovery | Adopted | — | Scarce sensing, autonomy, navigation/communications or integrated-surveillance capability | 2026-10 (interim), with Defence |
+| Data-centre infrastructure | Allocation | Adopted | High | Power/grid/cooling bottleneck solvers; connectivity/data movement; time-to-power solutions; selective rack-power optionality | 2026-10 (interim) |
+| ↳ AI rack power architecture (Data-centre infrastructure sub-thesis) | Discovery | Adopted | — | Power semiconductors, conversion modules, solid-state transformers and system-level power architecture | 2026-10 (interim) |
+| Nuclear / SMR / energy security | Both | Adopted | High | Fuel cycle; proven engineering and manufacturing; existing generation; selective reactor optionality | 2026-10 (interim) |
+| EVs and battery tech | Discovery | Adopted | Medium | Scaled EV manufacturers; commercially validated application-specific battery performance; qualified and secure manufacturing | 2026-10 (interim) |
+| Quantum | Discovery | Adopted | Low-Medium | One small position in the strongest risk-adjusted listed pure play; focus on real application advantage over classical/AI alternatives | 2026-10 (interim) |
+| AI application layer | Discovery | Adopted | Medium-High | Enterprise context and control planes: systems of record, identity, permissions, workflow, governance and execution | 2026-10 (interim) |
+| Crowd-sourced ideas | — | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality or asymmetry requirements | 2026-10 (interim) |
+
+Sub-theses have no separate strength assessment yet.
 
 ## Cross-thesis selection discipline (October 2026 interim)
 
@@ -43,7 +53,8 @@ The thesis framework is a discovery and comparison aid, not a mandate to own eve
 
 ## Defence
 
-**Status:** Active  
+**Kind:** Allocation  
+**Status:** Adopted  
 **Current strength:** High  
 **Time horizon:** Multi-year structural
 
@@ -56,6 +67,10 @@ Ukraine is increasingly becoming an integrated **R&D, combat-validation and oper
 The investable opportunity is not necessarily the original Ukrainian developer or a single drone manufacturer. Value may accrue to companies able to absorb, localise, scale and integrate Ukraine-derived technology into Western procurement systems.
 
 ### Counter-drone sub-thesis
+
+**Parent thesis:** Defence  
+**Kind:** Discovery  
+**Status:** Adopted
 
 Counter-drone is an explicit defence sub-thesis. Candidate companies should be assessed by their place in an increasingly layered functional stack:
 
@@ -74,7 +89,13 @@ This broadens the attractive layers of the stack. Critical-infrastructure defenc
 
 The likely winners may differ by layer. A broad defence prime can benefit from system integration, while smaller specialists may capture disproportionate value in sensors, autonomy, RF, software, low-cost interceptors or directed energy.
 
+**Benchmark candidates (provisional, 22 November 2026):** DroneShield (DRO.AX) and EOS (EOS.AX), which are close to pure expressions; AeroVironment (AVAV) and Hensoldt (HAG.DE), which have smaller exposure. Drawn from the Defence candidates and the first-pass field mapping of 18 November 2026, which had no independent challenge. The sub-thesis's first Charter D review should confirm or replace the list from a proper field map. With three or four names the basket is a noisy yardstick: one stock can dominate its return.
+
 ### Critical undersea infrastructure protection sub-thesis
+
+**Parent thesis:** Defence  
+**Kind:** Discovery  
+**Status:** Adopted
 
 Protection of subsea communications cables, pipelines and other critical undersea infrastructure is now an explicit Defence sub-thesis. Persistent Russian and Chinese activity around European and allied undersea infrastructure increases demand for surveillance, attribution, inspection and rapid response.
 
@@ -91,6 +112,8 @@ The investible stack is:
 Recent consolidation across the industry supports the strategic importance of scarce sonar, subsea communications and autonomous-platform capability. However, acquisition interest is evidence of strategic scarcity rather than proof that an acquirer will create shareholder value. Candidates should be attractive on their own economics and technology, not because they might be bought.
 
 Preferred expressions are companies controlling scarce sensing, autonomy, navigation/communications or integrated-surveillance capability rather than cable owners themselves.
+
+**Benchmark candidates (provisional, 22 November 2026):** Kraken Robotics (PNG.V), Coda Octopus Group (CODA) and NORBIT (NORBT.OL). Cohort (CHRT.L) is a possible fourth, for its sonar business. Drawn from the Defence candidates and the first-pass field mapping of 18 November 2026, which had no independent challenge. The sub-thesis's first Charter D review should confirm or replace the list from a proper field map. With three or four names the basket is a noisy yardstick: one stock can dominate its return.
 
 ### Evidence and rationale
 
@@ -122,7 +145,7 @@ Preferred expressions are companies controlling scarce sensing, autonomy, naviga
 | Rheinmetall | RHM.DE | No | Direct | Land systems, ammunition, air defence, missiles and integration | Established growth | Broad European rearmament exposure with scalable production and strong air-defence relevance. |
 | Kongsberg Gruppen | KOG.OL | No | Direct | Missiles, air defence, maritime defence, subsea autonomy/sensing and secure communications | Established growth | High-quality European defence technology exposure; Kongsberg Discovery adds HUGIN/Aegir and other direct critical-undersea-infrastructure surveillance capability. |
 | Hensoldt | HAG.DE | No | Enabler | Radar, sensors, electronic warfare and counter-UAS detection | Growth | Direct exposure to detect/classify layers and increasingly relevant to persistent infrastructure protection. |
-| MilDef Group | MILDEF.ST | Yes | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
+| MilDef Group | MILDEF.ST | No | Enabler | Rugged computing, displays and battlefield digitalisation | High-beta growth | Picks-and-shovels exposure to battlefield integration and digitisation. |
 | QinetiQ Group | QQ.L | No | Diversified beneficiary | Test and evaluation, robotics, autonomy and mission systems | Established growth | Defence-technology and integration exposure without dependence on a single platform. |
 | Cohort | CHRT.L | Yes | Enabler | Sensors, communications, electronic warfare, naval systems and submarine sonar | Growth | Smaller listed UK expression of specialist defence electronics; ELAC adds direct undersea/sonar relevance to the CUI sub-thesis. |
 | Firan Technology Group | FTG.TO | Yes | Enabler | Aerospace and defence electronics and cockpit products | Growth | Niche electronics supplier benefiting from defence and aerospace production growth. |
@@ -183,7 +206,8 @@ Remains a live structural research area. Distinguish broad rearmament beta from 
 
 ## Data-centre infrastructure
 
-**Status:** Active  
+**Kind:** Allocation  
+**Status:** Adopted  
 **Current strength:** High  
 **Time horizon:** Multi-year structural
 
@@ -233,8 +257,8 @@ The preferred companies sell scarce equipment, components or enabling capability
 | Eaton | ETN | No | Diversified beneficiary | Electrical distribution, switchgear, power quality and grid connection | Established growth | High-quality comparator for electrical bottlenecks across data centres and wider electrification. |
 | Vertiv Holdings | VRT | No | Direct | Data-centre power, thermal management and integrated infrastructure | High-beta growth | One of the clearest listed pure-play physical-infrastructure comparators. |
 | Amphenol | APH | Yes | Enabler | High-speed electrical and optical connectors and cabling | Established growth | High-quality connectivity enabler across AI servers, networking and infrastructure. |
-| Astera Labs | ALAB | Yes | Direct | Rack-scale connectivity and intelligent connectivity semiconductors | High-beta growth | Focused exposure to connectivity bottlenecks and emerging rack-scale architectures. |
-| Celestica | CLS | Yes | Enabler | Advanced manufacturing, networking and hyperscaler infrastructure | High-beta growth | Strong current execution and a direct beneficiary of scaled AI-system deployment. |
+| Astera Labs | ALAB | No | Direct | Rack-scale connectivity and intelligent connectivity semiconductors | High-beta growth | Focused exposure to connectivity bottlenecks and emerging rack-scale architectures. |
+| Celestica | CLS | No | Enabler | Advanced manufacturing, networking and hyperscaler infrastructure | High-beta growth | Strong current execution and a direct beneficiary of scaled AI-system deployment. |
 | Arista Networks | ANET | No | Direct | High-speed data-centre networking | Established growth | Benchmark for scaled AI and cloud networking demand. |
 | Marvell Technology | MRVL | No | Enabler | Custom silicon, optical DSPs and data-infrastructure semiconductors | High-beta growth | Comparator for optical and custom-compute infrastructure exposure. |
 | Bloom Energy | BE | No | Direct | On-site power generation and resilient data-centre power | High-beta growth | Direct expression of power scarcity and time-to-power constraints, with financing and concentration risk. |
@@ -242,7 +266,11 @@ The preferred companies sell scarce equipment, components or enabling capability
 | Aeluma | ALMU | Yes | Speculative optionality | Scalable III-V photonics and materials for AI optical interconnect | Speculative | Pre-proof hard-bottleneck moonshot: large-substrate compound-semiconductor manufacturing may relieve InP capacity constraints if customer evaluation converts into qualification and production. |
 | Sivers Semiconductors | SIVE.ST | No | Enabler | InP photonics and mmWave/SATCOM semiconductors | High-beta growth | Useful post-inflection comparator for the prototype-to-production pattern: sophisticated external validation and production wins drove a major rerating. |
 
-### AI rack-power architecture sub-thesis
+### AI rack power architecture sub-thesis
+
+**Parent thesis:** Data-centre infrastructure  
+**Kind:** Discovery  
+**Status:** Adopted
 
 Rack-level and data-hall power architecture is tracked separately because its adoption can diverge materially from the wider data-centre infrastructure basket.
 
@@ -256,7 +284,7 @@ Navitas remains pre-proof: ecosystem participation and technical capability stre
 
 Vicor's substantial September rerating and new fab-capacity commitments make it an important comparator. Its development should be used to ask whether it competes with, complements or potentially bypasses the value pool Navitas expects to address.
 
-### AI rack-power candidate expressions
+### AI rack power architecture candidate expressions
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
@@ -303,7 +331,8 @@ Remains a live theme, but stock-specific valuations and AI-capex overlap matter.
 
 ## Nuclear / SMR / energy security
 
-**Status:** Active  
+**Kind:** Both  
+**Status:** Adopted  
 **Current strength:** High  
 **Time horizon:** Multi-year structural
 
@@ -389,9 +418,10 @@ Maintained as a theme for research. BWXT and Oklo were sold; Centrus was a condi
 
 ---
 
-## EVs and battery technology
+## EVs and battery tech
 
-**Status:** Active  
+**Kind:** Discovery  
+**Status:** Adopted  
 **Current strength:** Medium  
 **Time horizon:** Multi-year structural
 
@@ -483,7 +513,8 @@ BYD was sold; Amprius was a conditional retain. Commercial qualification, diluti
 
 ## Quantum
 
-**Status:** Watchlist / small optionality sleeve  
+**Kind:** Discovery  
+**Status:** Adopted, sized as a small optionality sleeve  
 **Current strength:** Low-Medium  
 **Time horizon:** Long-duration optionality
 
@@ -534,7 +565,7 @@ However, it is **not yet treated as proof of durable quantum advantage**. The re
 
 | Company | Ticker | Held | Expression type | Primary exposure | Risk profile | Reason for inclusion |
 |---|---|---:|---|---|---|---|
-| IonQ | IONQ | Yes | Direct | Trapped-ion quantum computing, networking, sensing and manufacturing integration | Speculative | Preferred current listed risk-adjusted universal quantum moonshot, with strong fidelity and resources but acquisition-sprawl risk. |
+| IonQ | IONQ | No | Direct | Trapped-ion quantum computing, networking, sensing and manufacturing integration | Speculative | Preferred current listed risk-adjusted universal quantum moonshot, with strong fidelity and resources but acquisition-sprawl risk. |
 | D-Wave Quantum | QBTS | No | Direct | Quantum annealing systems, software and services | Speculative | Strong near-term commercial-use comparator, including production optimisation workloads, but application advantage over best classical alternatives remains unresolved. |
 | Rigetti Computing | RGTI | No | Direct | Superconducting gate-model quantum processors | Speculative | Cleaner and potentially leveraged computing bet, but with weaker current commercial proof. |
 | Quantum Computing | QUBT | No | Speculative optionality | Photonic computing, quantum optimisation and foundry assets | Speculative | Alternative-architecture comparator with especially high execution and strategic-coherence risk. |
@@ -577,7 +608,8 @@ IonQ was a conditional retain, not an automatic add. Require evidence of economi
 
 ## AI application layer
 
-**Status:** Active  
+**Kind:** Discovery  
+**Status:** Adopted  
 **Current strength:** Medium-High  
 **Time horizon:** Multi-year structural
 
@@ -718,7 +750,7 @@ Watchpoints are tentative developments that may matter for future allocation but
 | Political licence for AI infrastructure build-out | Data-centre infrastructure | Data-centre growth may become constrained by electricity prices, grid-cost allocation, tax incentives, water, land use and local political opposition. | 2026-09 | U.S. data-centre construction has become a visible midterm issue. Political intervention may either increase infrastructure spend per approved project or reduce/slower total build-out. | Restrictions begin materially reducing hyperscaler project approvals/capex rather than merely reallocating infrastructure costs to developers. | New watchpoint; material enough to incorporate explicitly into thesis risk. |
 | Orbital compute and space-native data processing | Data-centre infrastructure; Space; moonshot optionality | Orbital compute may become economically significant, and terrestrial grid/water/political constraints strengthen its strategic rationale. A speculative public-market cycle may occur before economics are proven. | 2026-05 | Google Project Suncatcher has progressed toward actual on-orbit TPU testing; other commercial/sovereign projects are becoming more concrete. Terrestrial constraints strengthen strategic rationale. Thermal rejection, launch cost, radiation, servicing and high-bandwidth networking remain severe. | Either (a) sustained useful orbital compute demonstrating credible thermal/networking performance, or (b) material revenue-bearing orders for listed suppliers directly attributable to orbital compute. | Strengthened materially in September; retain as watchpoint rather than full thesis. |
 | Quantum application advantage / AI substitution | Quantum | Hardware success may not create economic value if classical and AI methods solve commercially useful workloads sufficiently well. | 2026-08 | September added the first serious candidate positive example: IonQ/Synopsys reported an end-to-end industrial-engineering workflow acceleration. The adversarial classical baseline remains unresolved. | Positive: commercially useful workload survives serious best-classical/AI benchmarking. Negative: repeated claimed advantages are displaced by classical/AI alternatives. | Still central unresolved risk, but no longer based solely on absence of positive evidence. |
-| AI-driven battery discovery | EVs and battery technology | AI and automated labs may accelerate materials, electrolyte and degradation discovery and shorten development cycles. | 2026-07 | Relevant listed exposure remains limited; physical validation and manufacturing still dominate commercial timelines. | A listed company demonstrates repeatable AI-discovered materials entering qualified commercial cells or licenses a valuable discovery platform. | Keep as watchpoint; no separate allocation. |
+| AI-driven battery discovery | EVs and battery tech | AI and automated labs may accelerate materials, electrolyte and degradation discovery and shorten development cycles. | 2026-07 | Relevant listed exposure remains limited; physical validation and manufacturing still dominate commercial timelines. | A listed company demonstrates repeatable AI-discovered materials entering qualified commercial cells or licenses a valuable discovery platform. | Keep as watchpoint; no separate allocation. |
 | Data-centre bottleneck discovery | Data-centre infrastructure | Specific constraints may create asymmetric winners before the broader market fully recognises them. | 2026-06 | Time-to-power, grid connection, rack power, cooling, water, interconnect and edge/peering remain areas for screening. Navitas and Aeluma are deliberate pre-proof tests; Vicor becomes a useful rack-power comparator. | Evidence of genuine supply constraint, sophisticated external validation, customer urgency and visible movement from evaluation to material production before major repricing. | Keep as monthly screening lens; do not formalise retrospective winner patterns as a strategy rule. |
 
 ## Orbital-compute watchlist
@@ -763,3 +795,17 @@ The October review is not complete: the Charter C reinvestment comparison and ca
 1. No candidate-universe changes. `thesis.json` is unchanged; basket edits wait for a reconciled quarterly review.
 2. Held flags reflect the 16 sales in the 2 November 2026 decision log (`decisions/2026-11-02.yaml`).
 3. Thesis status and strength are unchanged pending the completed review.
+
+---
+
+# Maintenance on 22 November 2026: kinds and sub-theses
+
+1. **Kind and status recorded** for every thesis and sub-thesis, here and in `thesis.json` (schema version 2). All are adopted.
+2. **The two Defence sub-theses have their own `thesis.json` entries**, Counter-drone and Critical undersea infrastructure protection, each with a provisional benchmark (see their sections). The Defence basket is unchanged, so its history stays intact.
+3. **Names aligned with `thesis.json`:** "EVs and battery tech" and "AI rack power architecture".
+4. **Held flags reflect holdings on 22 November 2026,** after the sales of 19 November (Astera Labs, Celestica, IonQ, Oklo, and part of Firan, which is still held) and 20 November (MilDef). The dated assessments above describe holdings at their own dates and are unchanged.
+5. **For each thesis's next review:**
+   - **Data-centre infrastructure** has no written allocation case and no fund held, and Celestica and Astera Labs have been sold. It stays adopted until the January review tests it.
+   - **Nuclear / SMR / energy security** is "both" only until its first review splits it into a fuel-cycle sub-thesis and a reactor-developer sub-thesis.
+   - **The EVs and battery tech benchmark** needs cleaning at its first review. It includes three Hong Kong listings the sponsor cannot trade (9868.HK, 2015.HK, 3750.HK), and scaled manufacturers that do not fit a discovery thesis.
+   - **Kind is not criterion.** ServiceNow and Salesforce sit under a discovery thesis but are held as mispricing cases, and that is consistent.

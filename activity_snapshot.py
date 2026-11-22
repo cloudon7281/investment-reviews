@@ -241,7 +241,7 @@ def definitions(generated_at: datetime, theses_path: Path = THESES) -> dict:
            "generatedAt": generated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
            "broadMarket": [{"tag": tag, "yahooSymbol": symbol, "name": name} for tag, symbol, name in BENCHMARKS],
            "theses": [{"name": t["name"], "candidates": [{"yahooSymbol": c["ticker"], "name": c["name"]} for c in t["candidates"]]}
-                      for t in load_thesis_config(str(theses_path))]}
+                      for t in load_thesis_config(str(theses_path)) if t["candidates"]]}
     doc["definitionsHash"] = definitions_hash(doc)
     return doc
 

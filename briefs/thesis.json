@@ -1,8 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "theses": [
     {
       "name": "Defence",
+      "kind": "allocation",
+      "status": "adopted",
       "candidates": [
         {"ticker": "RHM.DE", "name": "Rheinmetall"},
         {"ticker": "KOG.OL", "name": "Kongsberg Gruppen"},
@@ -29,7 +31,32 @@
       ]
     },
     {
+      "name": "Counter-drone",
+      "parent": "Defence",
+      "kind": "discovery",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "DRO.AX", "name": "DroneShield"},
+        {"ticker": "EOS.AX", "name": "EOS"},
+        {"ticker": "AVAV", "name": "AeroVironment"},
+        {"ticker": "HAG.DE", "name": "Hensoldt"}
+      ]
+    },
+    {
+      "name": "Critical undersea infrastructure protection",
+      "parent": "Defence",
+      "kind": "discovery",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "PNG.V", "name": "Kraken Robotics"},
+        {"ticker": "CODA", "name": "Coda Octopus Group"},
+        {"ticker": "NORBT.OL", "name": "NORBIT"}
+      ]
+    },
+    {
       "name": "Data-centre infrastructure",
+      "kind": "allocation",
+      "status": "adopted",
       "candidates": [
         {"ticker": "VRT", "name": "Vertiv Holdings"},
         {"ticker": "ETN", "name": "Eaton"},
@@ -47,6 +74,9 @@
     },
     {
       "name": "AI rack power architecture",
+      "parent": "Data-centre infrastructure",
+      "kind": "discovery",
+      "status": "adopted",
       "candidates": [
         {"ticker": "NVTS", "name": "Navitas Semiconductor"},
         {"ticker": "VICR", "name": "Vicor"},
@@ -58,6 +88,8 @@
     },
     {
       "name": "Nuclear / SMR / energy security",
+      "kind": "both",
+      "status": "adopted",
       "candidates": [
         {"ticker": "LEU", "name": "Centrus Energy"},
         {"ticker": "BWXT", "name": "BWX Technologies"},
@@ -71,6 +103,8 @@
     },
     {
       "name": "EVs and battery tech",
+      "kind": "discovery",
+      "status": "adopted",
       "candidates": [
         {"ticker": "BYDDY", "name": "BYD"},
         {"ticker": "TSLA", "name": "Tesla"},
@@ -86,6 +120,8 @@
     },
     {
       "name": "Quantum",
+      "kind": "discovery",
+      "status": "adopted",
       "candidates": [
         {"ticker": "IONQ", "name": "IonQ"},
         {"ticker": "QBTS", "name": "D-Wave Quantum"},
@@ -96,6 +132,8 @@
     },
     {
       "name": "AI application layer",
+      "kind": "discovery",
+      "status": "adopted",
       "candidates": [
         {"ticker": "NOW", "name": "ServiceNow"},
         {"ticker": "MSFT", "name": "Microsoft"},

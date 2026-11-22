@@ -3,16 +3,31 @@
 The file is JSON with the schema:
 
     {
-      "schema_version": 1,
+      "schema_version": 2,
       "theses": [
         {
-          "name": "European Defence",
+          "name": "Data-centre infrastructure",
+          "kind": "allocation",
+          "status": "adopted",
           "candidates": [
-            {"ticker": "RHM.DE", "name": "Rheinmetall"}
+            {"ticker": "VRT", "name": "Vertiv Holdings"}
+          ]
+        },
+        {
+          "name": "AI rack power architecture",
+          "parent": "Data-centre infrastructure",
+          "kind": "discovery",
+          "status": "adopted",
+          "candidates": [
+            {"ticker": "VICR", "name": "Vicor"}
           ]
         }
       ]
     }
+
+Each entry is a thesis or, when it names a `parent`, a sub-thesis of that thesis (one level
+deep). `kind` and `status` take Charter D's values. An adopted entry needs at least one
+candidate; any other may have none, and an entry with no candidates produces no basket.
 
 Whether a candidate is currently held is derived from the parsed portfolio and
 is deliberately not recorded here.
@@ -22,7 +37,9 @@ import json
 from typing import Dict, List
 from logger import logger
 
-SUPPORTED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSION = 2
+KINDS = ('allocation', 'discovery', 'both')
+STATUSES = ('proposed', 'adopted', 'parked', 'rejected', 'retired')
 
 
 def load_thesis_config(path: str) -> List[Dict]:
@@ -32,8 +49,8 @@ def load_thesis_config(path: str) -> List[Dict]:
         path: Path to the JSON thesis configuration file
 
     Returns:
-        List of thesis dictionaries, each with 'name' and 'candidates'
-        (a list of {'ticker', 'name'} dictionaries)
+        List of thesis dictionaries, each with 'name', 'kind', 'status', 'candidates'
+        (a list of {'ticker', 'name'} dictionaries) and, for a sub-thesis, 'parent'
 
     Raises:
         ValueError: If the file cannot be read or fails validation
@@ -68,9 +85,18 @@ def load_thesis_config(path: str) -> List[Dict]:
         if not isinstance(name, str) or not name.strip():
             raise ValueError(f"Thesis at position {index} in {path} must have a non-empty 'name'")
 
+        for field, allowed in (('kind', KINDS), ('status', STATUSES)):
+            if thesis.get(field) not in allowed:
+                raise ValueError(
+                    f"Thesis '{name}' in {path} has {field} {thesis.get(field)!r}; "
+                    f"expected one of {', '.join(allowed)}"
+                )
+
         candidates = thesis.get('candidates')
-        if not isinstance(candidates, list) or not candidates:
-            raise ValueError(f"Thesis '{name}' in {path} must have a non-empty 'candidates' list")
+        if not isinstance(candidates, list):
+            raise ValueError(f"Thesis '{name}' in {path} must have a 'candidates' list")
+        if not candidates and thesis['status'] == 'adopted':
+            raise ValueError(f"Adopted thesis '{name}' in {path} must have at least one candidate")
 
         for candidate in candidates:
             if not isinstance(candidate, dict):
@@ -82,6 +108,19 @@ def load_thesis_config(path: str) -> List[Dict]:
                         f"Candidate {candidate!r} of thesis '{name}' in {path} "
                         f"must have a non-empty '{field}'"
                     )
+
+    names = [t['name'] for t in theses]
+    duplicates = sorted({n for n in names if names.count(n) > 1})
+    if duplicates:
+        raise ValueError(f"Thesis names in {path} must be unique; repeated: {', '.join(duplicates)}")
+
+    top_level = {t['name'] for t in theses if 'parent' not in t}
+    for thesis in theses:
+        if 'parent' in thesis and thesis['parent'] not in top_level:
+            raise ValueError(
+                f"Sub-thesis '{thesis['name']}' in {path} has parent {thesis['parent']!r}, "
+                f"which is not a thesis without a parent in the file"
+            )
 
     total_candidates = sum(len(t['candidates']) for t in theses)
     logger.info(f"Loaded {len(theses)} theses with {total_candidates} candidates from {path}")
