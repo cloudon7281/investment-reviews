@@ -14,7 +14,7 @@ Sources of authority for their respective subjects:
 |---|---|
 | Objectives, allocations, risk rules, security-selection criteria | Most recent agreed **Investment Strategy** |
 | Thesis hypotheses, kind, status, watchpoints and benchmark candidate lists | Current `thesis.md` and `thesis.json` |
-| Investment-analysis data contracts | `idea-submission.v1.schema.json`, `research-brief.v4.schema.json`, `analysis-record.v1.schema.json` and their successors, as attached to the project sources from the `investment-analysis` repository (`src/investment_analysis/schemas/`, with worked examples in `tests/fixtures/`) |
+| Investment-analysis data contracts | `idea-submission.v1.schema.json`, `research-brief.v5.schema.json`, `analysis-record.v1.schema.json` and their successors, as attached to the project sources from the `investment-analysis` repository (`src/investment_analysis/schemas/`, with worked examples in `tests/fixtures/`) |
 | Broker parsing, actual transactions, execution decisions, decision taxonomy and performance reporting | `investment-reviews` README and implementation |
 | Application discovery, enrichment, research records and observational evaluation | `investment-analysis` specification and implementation |
 | Thesis development, discovery triage, watch checks and comparative research programmes | **Investment Research Programme Brief** and its Charters A, B, C and D (research methodology; not investment criteria) |
