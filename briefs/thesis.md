@@ -36,6 +36,9 @@ Each thesis and sub-thesis records its **kind** and **status**, in Charter D's t
 | EVs and battery tech | Discovery | Adopted | Medium | Scaled EV manufacturers; commercially validated application-specific battery performance; qualified and secure manufacturing | 2026-10 (interim) |
 | Quantum | Discovery | Adopted | Low-Medium | One small position in the strongest risk-adjusted listed pure play; focus on real application advantage over classical/AI alternatives | 2026-10 (interim) |
 | AI application layer | Discovery | Adopted | Medium-High | Enterprise context and control planes: systems of record, identity, permissions, workflow, governance and execution | 2026-10 (interim) |
+| AI for science | Discovery | Adopted | — | Owners of the means of verification: automated laboratories and their suppliers; trusted in silico predictors with regulatory or buyer standing | 2026-11 (adopted, Charter D run CD-2026-11-T1) |
+| ↳ Automated physical verification and its suppliers (AI for science sub-thesis) | Discovery | Adopted | — | Builders and operators of autonomous laboratories; suppliers with disclosed demand from AI-driven customers | 2026-11 |
+| ↳ Trusted in silico verification (AI for science sub-thesis) | Both | Adopted | — | Proprietary checkers accepted in place of, or as a filter for, physical tests: chip-design sign-off, regulatory-grade drug modelling, physics-based molecular simulation | 2026-11 |
 | Crowd-sourced ideas | — | Supporting source of ideas, not a thesis | Low-Medium | Selected names only where they independently satisfy quality or asymmetry requirements | 2026-10 (interim) |
 
 Sub-theses have no separate strength assessment yet.
@@ -710,6 +713,66 @@ Microsoft, Palantir and Veeva were sold; Salesforce and ServiceNow were conditio
 
 ---
 
+## AI for science
+
+**Kind:** Discovery  
+**Status:** Adopted (23 November 2026)  
+**Next review:** February 2027
+
+### Thesis statement
+
+AI has already transformed mathematics, where a proof can be checked by machine, and is replacing the search-and-design step of scientific discovery wherever a result can be checked cheaply and the check is trusted. Everywhere else the binding constraint is physical verification, and there are two routes past it: (a) automating and scaling the physical check, and (b) replacing or filtering it with in silico verification that regulators and buyers have come to trust. Over the next five years the value goes to the owners of the frontier models, and to whoever owns the means of verification on either route: automated laboratories and their suppliers on route (a); trusted predictors, the data that validates them, and the standing to have them accepted on route (b). A discovery company wins only where it owns such means itself. The thesis is weakest where neither route is yet open, as with clinical efficacy.
+
+The owners of the frontier models are not covered by this thesis. They are to be developed as a separate thesis.
+
+### Automated physical verification and its suppliers sub-thesis
+
+**Parent thesis:** AI for science  
+**Kind:** Discovery  
+**Status:** Adopted
+
+Route (a). Companies that build, sell or operate automated and autonomous laboratories, and suppliers whose demand rises as AI-designed candidates need physical testing.
+
+**Benchmark candidates (23 November 2026):** Ginkgo Bioworks (DNA), Twist Bioscience (TWST), Telescope Innovations (TELI.CN). Chosen for purity from the field map of 23 November 2026, which had an independent challenge. Only Twist discloses revenue tied to AI-driven customers. With three small, volatile names the basket is a noisy yardstick. Tecan and Azenta sell experiment inputs but show no evidence of AI-tied demand and are comparators only.
+
+### Trusted in silico verification sub-thesis
+
+**Parent thesis:** AI for science  
+**Kind:** Both  
+**Status:** Adopted
+
+Route (b). Owners of a predictor, simulator or verifier whose output regulators or buyers accept in place of, or as a filter for, physical testing. Chip-design and engineering simulation software reads as an allocation case (an entrenched group of proprietary checker owners); regulatory-grade drug modelling and physics-based molecular simulation read as discovery cases.
+
+**Benchmark candidates (23 November 2026):** Certara (CERT), Schrödinger (SDGR), Synopsys (SNPS), Cadence Design Systems (CDNS). Silvaco (SVCO) to be added once its size is verified. About 98% of the combined market value is in the two chip-design companies; Certara is the only listed pure owner of a regulator-accepted checker for drug development.
+
+### Evidence and rationale
+
+- Since September 2026, AI systems have produced machine-checked results on three Millennium problems. Mathematics moved first because its check is cheap, automatic and trusted.
+- The FDA's rule of 22 September 2026 defines "nonclinical" tests to include in silico methods (effective 4 February 2027); aerospace regulators accept analysis in place of selected physical tests.
+- Orders for autonomous laboratories exist but are few: Novo Nordisk and a US national laboratory at Ginkgo; a repeat order from Pfizer at Telescope.
+- Twist's revenue from AI drug discovery customers was $59.1m in its 2026 financial year, up 175%.
+- AI-designed industrial enzymes are reaching commercial products; no AI-discovered inorganic or battery material has a disclosed commercial sale.
+
+### Main risks
+
+- The leaders in automated laboratories and AI-native discovery are private, and the model owners are building laboratories of their own.
+- Takeovers are removing listed in silico names (Ansys, Altair, ESI, Simulations Plus).
+- The FDA grants trust to a method for a stated use, not to a vendor; the rule can still be withdrawn.
+- The benchmark names fell 7–13% together on 20 November 2026 with other AI-linked shares: this thesis adds to existing AI exposure.
+- Evidence in this field ages within months; anything older should be re-checked before use.
+
+### Falsifiers and dated indicators
+
+Falsifiers: autonomous-lab sales stay at one-off scale through 2027; the FDA rule is withdrawn, or no submission is reported as accepted on in silico evidence by end-2027; Twist's AI-customer revenue falls short of its $100m assumption for 2027; model owners' own laboratories displace third-party builders and suppliers; larger 2027–28 cohorts show AI-enabled Phase II success back in the historical range.
+
+Indicators: FDA comment period closes 7 December 2026 and the rule takes effect 4 February 2027; Synopsys results 8 December 2026; Ginkgo and Twist results in February–March 2027; FDA decision on zasocitinib in Q1 2027; any listing by Lila, Periodic Labs, CuspAI or Orbital Industries.
+
+### Candidate expressions
+
+None held. Admissions to the research pipeline are proposed separately (run CD-2026-11-T1, Discovery Register).
+
+---
+
 ## Crowd-sourced ideas
 
 **Status:** Supporting source of ideas, not a thesis  
@@ -809,3 +872,11 @@ The October review is not complete: the Charter C reinvestment comparison and ca
    - **Nuclear / SMR / energy security** is "both" only until its first review splits it into a fuel-cycle sub-thesis and a reactor-developer sub-thesis.
    - **The EVs and battery tech benchmark** needs cleaning at its first review. It includes three Hong Kong listings the sponsor cannot trade (9868.HK, 2015.HK, 3750.HK), and scaled manufacturers that do not fit a discovery thesis.
    - **Kind is not criterion.** ServiceNow and Salesforce sit under a discovery thesis but are held as mispricing cases, and that is consistent.
+
+---
+
+# Maintenance on 23 November 2026: AI for science
+
+1. **AI for science adopted** (Charter D run CD-2026-11-T1), with two adopted sub-theses: Automated physical verification and its suppliers, and Trusted in silico verification. All three have `thesis.json` entries. The parent's candidates are the union of its sub-theses'.
+2. **Not recorded:** the run also proposed parking two further sub-theses, "Lightly gated AI-native discovery" and "AI drug discovery". By the sponsor's decision of 23 November 2026, neither is recorded here or in `thesis.json`.
+3. **Telescope Innovations (TELI.CN)** has Yahoo prices, so the route (a) benchmark keeps all three names.
