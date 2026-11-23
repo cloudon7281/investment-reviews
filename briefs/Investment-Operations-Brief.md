@@ -1,7 +1,7 @@
 # Investment Operations Brief
 
 **Status:** APPROVED
-**Version:** v1.3 · 21 November 2026  
+**Version:** v1.4 · 23 November 2026  
 **Scope:** Standing operating procedure for investment conversations in this project: monthly and annual reviews, ad hoc research, new-idea discovery, investment decisions and retrospective evaluation.
 
 ## 1. Purpose and governing documents
@@ -80,13 +80,14 @@ For every agreed new internal submission:
 
 An idea's **claim** is what its proposer or source asserts: stance, hypothesis, horizon, author target, claimed catalysts and risks, and any permitted excerpt. Our judgement of that claim belongs in an **`AnalysisRecord`** (§3.3), not in a revision.
 
-Produce a revision when we agree that a registered idea's claim was recorded wrongly or incompletely, or when we refine our own internal hypothesis without changing the thesis. It is an `IdeaSubmission.v1` with:
+Produce a revision when we agree that a registered idea's claim was recorded wrongly or incompletely, or when we refine our own internal hypothesis without changing the proposition. It is an `IdeaSubmission.v1` with:
 
 - `revisesIdeaId` set to the idea's real `ideaId`, taken from its research brief. If the `ideaId` is not available, say so and do not produce the revision.
-- `origin`, `discoveryEventType` and `securityHint` copied unchanged from the idea's original submission. `investment-analysis` refuses a revision that changes the source, how the idea was surfaced or the security.
+- Every field copied from the idea's **current submission**, the `*.submission.json` beside its brief in the brief download, not rebuilt from the research brief, which does not carry the whole claim. If the current submission is not available, say so and do not produce the revision.
+- `origin`, `discoveryEventType` and `securityHint` copied unchanged from that submission, except `origin.thesisRef`, which a revision may change to attribute the idea to a different thesis or sub-thesis. `investment-analysis` refuses a revision that changes the source, how the idea was surfaced or the security.
 - A new `submissionId` and the actual `submittedAt`, with the complete revised claim (not only the changed fields) and the reason for the revision in `extraction.warnings`.
 
-The service records the revision as a new claim version and generates a new brief version. It does not change the idea's original proposition date, and earlier briefs and the analyses that cited them stay as they were. A materially different thesis about the same security is a **new idea**, not a revision. Validate as for a new submission, and name the artifact **`IdeaSubmission.v1-{TICKER}-{YYYY-MM-DD}-revision.json`**.
+The service records the revision as a new claim version and generates a new brief version. It does not change the idea's original proposition date, and earlier briefs and the analyses that cited them stay as they were. A materially different proposition about the same security is a **new idea**, not a revision. Moving an idea to a sub-thesis of its thesis, or correcting its `origin.thesisRef`, is a revision. Validate as for a new submission, and name the artifact **`IdeaSubmission.v1-{TICKER}-{YYYY-MM-DD}-revision.json`**. Several revisions may be sent together in one zip, as a bulk import, at most one per idea; the batch is all or nothing.
 
 External article mentions and screener arrivals are classified by their *actual* source event type, not incorrectly labelled bullish recommendations. Attribution to source, author, proposer and discovery channel must remain distinct. Do not reproduce source material in excess of its permitted use.
 
@@ -293,7 +294,7 @@ If an ad hoc buy/sell is agreed outside a review's decision date/window, use its
 | Charter C comparative programme | Issuer dossiers, challenge, per-criterion tiers, proof-point register and separately labelled portfolio overlay | For monthly/annual alpha research or significant ad hoc comparisons; candidates + in-scope alpha holdings by default |
 | Charter D thesis run | Thesis statement, critique, classification, field map, benchmark, decision, admission proposals and proposed thesis-document updates | When a thesis is proposed or due review; no analysis records |
 | New idea surfaced during research | Programme Discovery Register; agreed interface A when authorised | A competitor mention alone does not create or import an idea |
-| Agreed correction or refinement of a registered idea's claim | `IdeaSubmission.v1-{TICKER}-{DATE}-revision.json` with `revisesIdeaId` | Real `ideaId` from the idea's brief; same origin, event type and security; never for a new thesis (§3.1.1) |
+| Agreed correction or refinement of a registered idea's claim | `IdeaSubmission.v1-{TICKER}-{DATE}-revision.json` with `revisesIdeaId` | Real `ideaId` from the idea's brief; copied from its current submission; same origin except `thesisRef`, event type and security; never for a new proposition (§3.1.1) |
 | Tool delivers completed enrichment | `ResearchBrief.v1` JSON + paired Markdown | **Read** and analyse the actual version; normally produced by `investment-analysis`, not reconstructed by the assistant |
 | Concluded research verdict on a registered idea | `AnalysisRecord.v1-{TICKER}-{DATE}.json` | After substantive conclusion; real IDs, immutable, validate if possible |
 | Monthly / annual review discussion | Chat analysis and interim checkpoints | Iterative; provisional decisions remain clearly provisional |
@@ -330,6 +331,10 @@ Treat conclusions as provisional when the evidence is incomplete. If research, o
 At the end of a substantive review or research programme, summarise **agreed decisions, unresolved questions, watchpoints, specific proof events/dates, next research candidates and tool-record hand-offs**. Record source dates and distinguish commitments from options. An interim checkpoint is appropriate when a long review spans sessions.
 
 Do not change investment rules in response to a single outlier. Explicitly identify proposals to amend the Investment Strategy, `thesis.md`, `thesis.json`, schemas, the `investment-analysis` tool or this brief. The user must approve the proposed change before it is adopted. The existing code/schema owners, not this operating brief, define valid interchange formats and live data semantics.
+
+### 11.4 Changes in v1.4
+
+- §3.1.1: a revision is copied from the idea's current submission, which the brief download now carries, not rebuilt from the research brief; `origin.thesisRef` may change, for example to move an idea to a sub-thesis; "thesis" in the sense of the idea's proposition is now "proposition"; several revisions may be sent as one bulk import, at most one per idea. §9 table row to match.
 
 ### 11.3 Changes in v1.3
 
