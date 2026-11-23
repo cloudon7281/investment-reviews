@@ -144,6 +144,43 @@
         {"ticker": "INTU", "name": "Intuit"},
         {"ticker": "VEEV", "name": "Veeva Systems"}
       ]
+    },
+    {
+      "name": "AI for science",
+      "kind": "discovery",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "DNA", "name": "Ginkgo Bioworks"},
+        {"ticker": "TWST", "name": "Twist Bioscience"},
+        {"ticker": "TELI.CN", "name": "Telescope Innovations"},
+        {"ticker": "CERT", "name": "Certara"},
+        {"ticker": "SDGR", "name": "Schrödinger"},
+        {"ticker": "SNPS", "name": "Synopsys"},
+        {"ticker": "CDNS", "name": "Cadence Design Systems"}
+      ]
+    },
+    {
+      "name": "Automated physical verification and its suppliers",
+      "parent": "AI for science",
+      "kind": "discovery",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "DNA", "name": "Ginkgo Bioworks"},
+        {"ticker": "TWST", "name": "Twist Bioscience"},
+        {"ticker": "TELI.CN", "name": "Telescope Innovations"}
+      ]
+    },
+    {
+      "name": "Trusted in silico verification",
+      "parent": "AI for science",
+      "kind": "both",
+      "status": "adopted",
+      "candidates": [
+        {"ticker": "CERT", "name": "Certara"},
+        {"ticker": "SDGR", "name": "Schrödinger"},
+        {"ticker": "SNPS", "name": "Synopsys"},
+        {"ticker": "CDNS", "name": "Cadence Design Systems"}
+      ]
     }
   ]
 }
